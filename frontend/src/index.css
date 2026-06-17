@@ -1,0 +1,112 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-dark text-slate-50 antialiased selection:bg-emerald-500/30 selection:text-emerald-100;
+  }
+}
+
+@layer components {
+  /* Cards */
+  .card {
+    @apply bg-dark-card rounded-2xl border border-dark-border shadow-xl shadow-black/10 transition-all duration-300 relative overflow-hidden backdrop-blur-xl;
+  }
+  .card::before {
+    content: '';
+    @apply absolute inset-0 bg-glass-gradient pointer-events-none;
+  }
+  .card:hover {
+    @apply shadow-premium-hover border-emerald-500/30;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500 text-slate-950 rounded-xl text-sm font-semibold transition-all shadow-sm hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+  
+  .btn-secondary {
+    @apply flex items-center justify-center gap-2 px-4 py-2 bg-slate-900 border border-slate-800 text-slate-200 rounded-xl text-sm font-semibold transition-all hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-danger {
+    @apply flex items-center justify-center gap-2 px-4 py-2 bg-rose-500/10 text-rose-300 border border-rose-500/30 rounded-xl text-sm font-semibold transition-all hover:bg-rose-500/20 hover:border-rose-500/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-success {
+    @apply flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-xl text-sm font-semibold transition-all hover:bg-emerald-500/20 hover:border-emerald-500/40 disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-ghost {
+    @apply flex items-center gap-2 px-3 py-1.5 text-sm text-slate-400 rounded-xl font-semibold transition-colors hover:bg-slate-800 hover:text-white;
+  }
+
+  /* Forms */
+  .label {
+    @apply block text-sm font-semibold text-slate-300 mb-1.5;
+  }
+  
+  .input {
+    @apply w-full h-10 rounded-xl border border-slate-800 bg-slate-900 px-3 py-2 text-sm text-slate-100 outline-none transition-all placeholder:text-slate-500 focus:border-emerald-500/60 focus:bg-slate-900 focus:ring-2 focus:ring-emerald-500/20 disabled:bg-slate-800 disabled:text-slate-500;
+  }
+
+  /* Tables */
+  .table {
+    @apply min-w-full border-collapse;
+  }
+  
+  .thead {
+    @apply bg-slate-900/80 backdrop-blur-md sticky top-0 z-10 border-b border-slate-800;
+  }
+  
+  .th {
+    @apply px-4 py-3 text-left text-[11px] font-semibold text-slate-400 uppercase tracking-wider;
+  }
+  
+  .td {
+    @apply px-4 py-3 whitespace-nowrap text-sm text-slate-300 transition-colors border-b border-slate-800/60 font-medium;
+  }
+  
+  .tr {
+    @apply hover:bg-slate-800/40 transition-colors duration-150;
+  }
+
+  /* Badges */
+  .badge {
+    @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold;
+  }
+  .badge-green { @apply badge bg-emerald-500/10 text-emerald-400 border border-emerald-500/20; }
+  .badge-red { @apply badge bg-rose-500/10 text-rose-400 border border-rose-500/20; }
+  .badge-yellow { @apply badge bg-amber-500/10 text-amber-400 border border-amber-500/20; }
+  .badge-blue { @apply badge bg-blue-500/10 text-blue-400 border border-blue-500/20; }
+  .badge-purple { @apply badge bg-purple-500/10 text-purple-400 border border-purple-500/20; }
+  .badge-orange { @apply badge bg-orange-500/10 text-orange-400 border border-orange-500/20; }
+  .badge-gray { @apply badge bg-slate-800 text-slate-300 border border-slate-700; }
+
+  /* Page Headers */
+  .page-header {
+    @apply flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6;
+  }
+  .page-title {
+    @apply text-2xl md:text-3xl font-bold text-white tracking-tight;
+  }
+  .page-subtitle {
+    @apply text-sm text-slate-400 mt-1 font-medium;
+  }
+}
+
+/* Custom Scrollbar for a premium feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-dark;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-dark-border rounded-full border-2 border-dark;
+}
+::-webkit-scrollbar-thumb:hover {
+  @apply bg-slate-600;
+}

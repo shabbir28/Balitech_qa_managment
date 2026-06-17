@@ -1,0 +1,40 @@
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781557926904-228284048.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781557991045-588700425.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781558029246-529732128.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781558197918-241382593.txt
+[parseFile] delimiter detected as: TAB
+[DEBUG] Raw Row 0: {"call_date":"2026-06-15 10:20:16","phone_number_dialed":"8706338729","status":"AB","user":"VDAD","full_name":"Outbound Auto Dial","campaign_id":"001","vendor_lead_code":"","source_id":"","list_id":"5139","gmt_offset_now":"-5.00","phone_code":"1","phone_number":"8706338729","title":"","first_name":"","middle_initial":"","last_name":"","address1":"","address2":"","address3":"","city":"","state":"ST","province":"","postal_code":"","country_code":"","gender":"","date_of_birth":"0000-00-00","alt_phone":"","email":"","security_phrase":"","comments":"","length_in_sec":"0","user_group":"","alt_dial":"NONE","rank":"0","owner":"","lead_id":"14873432","list_name":"FE_V_RL1920222431_all_clean","list_description":"FE_V_RL1920222431_all_clean","status_name":"Busy Auto"}
+[DEBUG] Normalized Row 0: {"agent_name":"Outbound Auto Dial","agent_id":"VDAD","campaign_name":"001","customer_name":"","customer_phone":"8706338729","call_date":"2026-06-15 10:20:16","call_duration":"0","recording_url":"","disposition":"Busy Auto","notes":""}
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781558236894-647342922.txt
+[parseFile] delimiter detected as: TAB
+[DEBUG] Raw Row 0: {"call_date":"2026-06-15 10:20:16","phone_number_dialed":"8706338729","status":"AB","user":"VDAD","full_name":"Outbound Auto Dial","campaign_id":"001","vendor_lead_code":"","source_id":"","list_id":"5139","gmt_offset_now":"-5.00","phone_code":"1","phone_number":"8706338729","title":"","first_name":"","middle_initial":"","last_name":"","address1":"","address2":"","address3":"","city":"","state":"ST","province":"","postal_code":"","country_code":"","gender":"","date_of_birth":"0000-00-00","alt_phone":"","email":"","security_phrase":"","comments":"","length_in_sec":"0","user_group":"","alt_dial":"NONE","rank":"0","owner":"","lead_id":"14873432","list_name":"FE_V_RL1920222431_all_clean","list_description":"FE_V_RL1920222431_all_clean","status_name":"Busy Auto"}
+[DEBUG] Normalized Row 0: {"agent_name":"Outbound Auto Dial","agent_id":"VDAD","campaign_name":"001","customer_name":"","customer_phone":"8706338729","call_date":"2026-06-15 10:20:16","call_duration":"0","recording_url":"","disposition":"Busy Auto","notes":""}
+[parseFile] ext: .txt, filePath: uploads/upload-1781558236894-647342922.txt
+[parseFile] delimiter detected as: TAB
+[DEBUG] Raw Row 0: {"call_date":"2026-06-15 10:20:16","phone_number_dialed":"8706338729","status":"AB","user":"VDAD","full_name":"Outbound Auto Dial","campaign_id":"001","vendor_lead_code":"","source_id":"","list_id":"5139","gmt_offset_now":"-5.00","phone_code":"1","phone_number":"8706338729","title":"","first_name":"","middle_initial":"","last_name":"","address1":"","address2":"","address3":"","city":"","state":"ST","province":"","postal_code":"","country_code":"","gender":"","date_of_birth":"0000-00-00","alt_phone":"","email":"","security_phrase":"","comments":"","length_in_sec":"0","user_group":"","alt_dial":"NONE","rank":"0","owner":"","lead_id":"14873432","list_name":"FE_V_RL1920222431_all_clean","list_description":"FE_V_RL1920222431_all_clean","status_name":"Busy Auto"}
+[DEBUG] Normalized Row 0: {"agent_name":"Outbound Auto Dial","agent_id":"VDAD","campaign_name":"001","customer_name":"","customer_phone":"8706338729","call_date":"2026-06-15 10:20:16","call_duration":"0","recording_url":"","disposition":"Busy Auto","notes":""}
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781558621009-448010764.txt
+[parseFile] delimiter detected as: TAB
+[DEBUG] OUTER CATCH FATAL ERROR: error: current transaction is aborted, commands ignored until end of transaction block
+    at C:\Users\shabb\Desktop\qa\backend\node_modules\pg\lib\client.js:646:17
+    at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+    at async uploadCalls (C:\Users\shabb\Desktop\qa\backend\src\controllers\callController.js:154:22)
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781559213670-6017987.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781559491744-908720670.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781615694741-800188793.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781615878042-57741983.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781618103075-448849403.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781621156404-290425097.txt
+[parseFile] delimiter detected as: TAB
+[parseFile] ext: , filePath: uploads\assignments\aa5f37321623e4513247824bf0df281f
+[parseFile] ext: , filePath: uploads\assignments\7649c31e346aafa67f44ceda80eaf017
+[parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781642417723-767871527.txt
+[parseFile] delimiter detected as: TAB
