@@ -197,7 +197,8 @@ const getEvaluations = async (req, res, next) => {
       pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
     });
   } catch (error) {
-    next(error);
+    console.error("GET EVALUATIONS ERROR:", error);
+    res.status(500).json({ success: false, message: error.message, stack: error.stack });
   }
 };
 
@@ -257,20 +258,20 @@ const updateEvaluation = async (req, res, next) => {
     }
 
     const passing_score = existing.rows[0].passing_score;
-    const status = total_score < passing_score ? 'Fail' : 'Pass';
+    const status = req.body.status || (total_score < passing_score ? 'Fail' : 'Pass');
 
     const result = await query(
       `UPDATE qa_evaluations SET
         opening_script_score=$1, verification_score=$2, product_knowledge_score=$3,
         compliance_score=$4, communication_score=$5, closing_score=$6, call_handling_score=$7,
-        total_score=$8, status=$9, qa_remarks=$10, evaluation_date=$11, updated_at=NOW()
-       WHERE id=$12 AND is_deleted=FALSE RETURNING *`,
+        total_score=$8, status=$9, qa_remarks=$10, evaluation_date=$11, metadata=$12, updated_at=NOW()
+       WHERE id=$13 AND is_deleted=FALSE RETURNING *`,
       [
         parseFloat(opening_script_score) || 0, parseFloat(verification_score) || 0,
         parseFloat(product_knowledge_score) || 0, parseFloat(compliance_score) || 0,
         parseFloat(communication_score) || 0, parseFloat(closing_score) || 0,
         parseFloat(call_handling_score) || 0, total_score, status, qa_remarks,
-        evaluation_date, req.params.id,
+        evaluation_date, req.body.metadata ? JSON.stringify(req.body.metadata) : null, req.params.id,
       ]
     );
 

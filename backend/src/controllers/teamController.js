@@ -183,9 +183,11 @@ const getAssignments = async (req, res, next) => {
         cl.customer_phone, cl.agent_name, cl.campaign_name, cl.call_date, cl.call_duration, cl.recording_url, cl.disposition,
         u1.name as assigned_to_name, u1.email as assigned_to_email,
         u2.name as assigned_by_name,
-        e.status as evaluation_status, e.id as evaluation_id
+        e.status as evaluation_status, e.id as evaluation_id,
+        ub.batch_name, ub.file_name
        FROM lead_assignments la
        JOIN call_leads cl ON la.call_lead_id = cl.id
+       LEFT JOIN upload_batches ub ON cl.batch_id = ub.id
        JOIN users u1 ON la.assigned_to = u1.id
        JOIN users u2 ON la.assigned_by = u2.id
        LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.evaluated_by = la.assigned_to
@@ -397,6 +399,19 @@ const uploadAssignments = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'File is empty or invalid.' });
     }
 
+    const batchResult = await query(
+      `INSERT INTO upload_batches (batch_name, file_name, file_path, total_records, uploaded_by, status)
+       VALUES ($1, $2, $3, $4, $5, 'completed') RETURNING id`,
+      [
+        req.body.batch_name || `Assignment-${Date.now()}`,
+        req.file.originalname,
+        req.file.filename,
+        rows.length,
+        req.user.id,
+      ]
+    );
+    const batchId = batchResult.rows[0].id;
+
     const { pool } = require('../config/database');
     let totalInserted = 0;
     const batchSize = 1000;
@@ -424,8 +439,8 @@ const uploadAssignments = async (req, res, next) => {
           let disp = norm.disposition || '';
           let cNotes = norm.notes || notes || 'Manually assigned via file';
 
-          leadValues.push(`($${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++})`);
-          leadParams.push(aName, aId, cName, campId, String(phone).trim(), cDate, dur, recUrl, disp, cNotes);
+          leadValues.push(`($${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++}, $${leadIdx++})`);
+          leadParams.push(batchId, aName, aId, cName, campId, String(phone).trim(), cDate, dur, recUrl, disp, cNotes);
         }
 
         if (leadValues.length === 0) {
@@ -434,7 +449,7 @@ const uploadAssignments = async (req, res, next) => {
           return;
         }
 
-        const leadRes = await client.query(`INSERT INTO call_leads (agent_name, agent_id, campaign_name, campaign_id, customer_phone, call_date, call_duration, recording_url, disposition, notes) VALUES ${leadValues.join(', ')} RETURNING id`, leadParams);
+        const leadRes = await client.query(`INSERT INTO call_leads (batch_id, agent_name, agent_id, campaign_name, campaign_id, customer_phone, call_date, call_duration, recording_url, disposition, notes) VALUES ${leadValues.join(', ')} RETURNING id`, leadParams);
         
         let assignValues = [];
         let assignParams = [];

@@ -26,6 +26,7 @@ const fileFilter = (req, file, cb) => {
     'text/csv',
     'application/csv',
     'text/plain',
+    'application/octet-stream',
   ];
   const allowedExts = ['.xls', '.xlsx', '.csv', '.txt'];
   const ext = path.extname(file.originalname).toLowerCase();

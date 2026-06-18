@@ -30,7 +30,7 @@ const CallUploadPage = () => {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
       'text/csv': ['.csv'],
       'text/plain': ['.txt', '.csv'],
-      'application/octet-stream': ['.txt', '.csv'],
+      'application/octet-stream': ['.txt', '.csv', '.xlsx', '.xls'],
       'application/x-zip-compressed': ['.zip'] // just in case
     },
     maxFiles: 1,

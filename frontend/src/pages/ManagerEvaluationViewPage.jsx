@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Play, Pause, Volume2 } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Volume2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 
 const CHECKBOX_FIELDS = [
@@ -26,6 +26,9 @@ const ManagerEvaluationViewPage = () => {
   const navigate = useNavigate();
 
   const [evaluation, setEvaluation] = useState(null);
+  const [metadata, setMetadata] = useState({});
+  const [qaStatus, setQaStatus] = useState('Accepted');
+  const [saving, setSaving] = useState(false);
   
   // Audio Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -35,7 +38,12 @@ const ManagerEvaluationViewPage = () => {
 
   useEffect(() => {
     if (id) {
-      api.get(`/evaluations/${id}`).then(res => setEvaluation(res.data.data)).catch(() => toast.error('Failed to load evaluation details.'));
+      api.get(`/evaluations/${id}`).then(res => {
+        const data = res.data.data;
+        setEvaluation(data);
+        setMetadata(data.metadata || {});
+        setQaStatus(data.status === 'Pass' ? 'Accepted' : 'Rejected');
+      }).catch(() => toast.error('Failed to load evaluation details.'));
     }
   }, [id]);
 
@@ -53,20 +61,55 @@ const ManagerEvaluationViewPage = () => {
     return `${m}:${s.toString().padStart(2, '0')}`;
   };
 
-  if (!evaluation) return <div className="p-10 text-center text-slate-400">Loading evaluation data...</div>;
+  const handleMetadataChange = (key, value) => {
+    setMetadata(prev => ({ ...prev, [key]: value }));
+  };
 
-  const metadata = evaluation.metadata || {};
+  const handleSave = async () => {
+    if (!evaluation) return;
+    setSaving(true);
+    try {
+      await api.put(`/evaluations/${id}`, {
+        status: qaStatus === 'Accepted' ? 'Pass' : 'Fail',
+        qa_remarks: metadata.laSideFeedback || 'Updated via manager sheet',
+        metadata: metadata,
+        // Send zeroes for legacy scores since we are using spreadsheet layout
+        opening_script_score: evaluation.opening_script_score || 0,
+        verification_score: evaluation.verification_score || 0,
+        product_knowledge_score: evaluation.product_knowledge_score || 0,
+        compliance_score: evaluation.compliance_score || 0,
+        communication_score: evaluation.communication_score || 0,
+        closing_score: evaluation.closing_score || 0,
+        call_handling_score: evaluation.call_handling_score || 0
+      });
+      toast.success('Evaluation changes saved successfully!');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to save changes.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (!evaluation) return <div className="p-10 text-center text-slate-400">Loading evaluation data...</div>;
 
   return (
     <div className="w-full min-h-[90vh] pb-10 flex flex-col">
       <div className="px-8 mt-4 flex items-center justify-between mb-8 shrink-0">
         <div>
           <h1 className="text-3xl font-extrabold text-white tracking-tight">Manager View: Call Evaluation</h1>
-          <p className="text-sm text-slate-400 mt-1 font-medium">Read-only view of the exact submitted QA sheet</p>
+          <p className="text-sm text-slate-400 mt-1 font-medium">Review and edit the submitted QA sheet</p>
         </div>
         <div className="flex items-center gap-4">
           <button onClick={() => navigate('/evaluations')} className="btn-secondary px-5 py-2.5">
-            <ArrowLeft size={16} className="mr-2" /> Back to Users
+            <ArrowLeft size={16} className="mr-2" /> Back to List
+          </button>
+          <button 
+            onClick={handleSave} 
+            disabled={saving}
+            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:opacity-50"
+          >
+            <Save className="w-4 h-4" />
+            {saving ? 'Saving...' : 'Save Changes'}
           </button>
         </div>
       </div>
@@ -122,7 +165,7 @@ const ManagerEvaluationViewPage = () => {
         </div>
       </div>
 
-      {/* Spreadsheet Form (READ ONLY) */}
+      {/* Spreadsheet Form (EDITABLE) */}
       <div className="flex-1 w-full px-8 relative pb-10">
         <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden w-full h-full relative">
           <div className="overflow-x-auto overflow-y-auto custom-scrollbar h-full w-full">
@@ -177,9 +220,12 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-sm opacity-80 w-full min-h-[38px]">
-                      {metadata.teams || ''}
-                    </div>
+                    <input 
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.teams || ''}
+                      onChange={e => handleMetadataChange('teams', e.target.value)}
+                      placeholder="Teams"
+                    />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
@@ -189,15 +235,21 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                    <div className="px-2 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 text-sm opacity-80 w-full min-h-[38px] text-center">
-                      {metadata.dup || '—'}
-                    </div>
+                    <input 
+                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.dup || ''}
+                      onChange={e => handleMetadataChange('dup', e.target.value)}
+                      placeholder="—"
+                    />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                    <div className="px-2 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 text-sm opacity-80 w-full min-h-[38px] text-center">
-                      {metadata.dids || '—'}
-                    </div>
+                    <input 
+                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.dids || ''}
+                      onChange={e => handleMetadataChange('dids', e.target.value)}
+                      placeholder="—"
+                    />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
@@ -207,33 +259,48 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className={`px-3 py-2 rounded-lg border text-sm font-bold text-center ${evaluation.status === 'Pass' ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/5' : 'text-rose-400 border-rose-500/30 bg-rose-500/5'}`}>
-                      {evaluation.status === 'Pass' ? 'Accepted' : 'Rejected'}
-                    </div>
+                    <select
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 appearance-none cursor-pointer text-center ${
+                        qaStatus === 'Accepted' 
+                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500' 
+                          : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
+                      }`}
+                      value={qaStatus}
+                      onChange={e => setQaStatus(e.target.value)}
+                    >
+                      <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
+                      <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
+                    </select>
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className="w-full h-[140px] bg-slate-950 border border-slate-800 text-sm p-3 rounded-lg text-slate-200 opacity-80 overflow-y-auto custom-scrollbar">
-                      {metadata.agentSideFeedback || ''}
-                    </div>
+                    <textarea 
+                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar"
+                      value={metadata.agentSideFeedback || ''}
+                      onChange={e => handleMetadataChange('agentSideFeedback', e.target.value)}
+                      placeholder="Enter agent feedback..."
+                    />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className="w-full h-[140px] bg-slate-950 border border-slate-800 text-sm p-3 rounded-lg text-slate-200 opacity-80 overflow-y-auto custom-scrollbar">
-                      {metadata.laSideFeedback || ''}
-                    </div>
+                    <textarea 
+                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar"
+                      value={metadata.laSideFeedback || ''}
+                      onChange={e => handleMetadataChange('laSideFeedback', e.target.value)}
+                      placeholder="Enter LA side feedback..."
+                    />
                   </td>
 
                   {/* Checkboxes */}
                   {CHECKBOX_FIELDS.map(f => (
                     <td key={f.key} className="p-3 border-r border-slate-800/50 align-top pt-5">
                       <div className="flex justify-center w-full">
-                        <label className="relative flex items-center p-1 rounded-full opacity-80">
+                        <label className="relative flex items-center p-1 rounded-full cursor-pointer hover:bg-slate-800 transition-colors">
                           <input 
                             type="checkbox" 
                             checked={metadata[f.key] || false} 
-                            disabled
-                            className="peer relative appearance-none w-6 h-6 border-2 border-slate-700 rounded-md bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500"
+                            onChange={e => handleMetadataChange(f.key, e.target.checked)}
+                            className="peer relative appearance-none w-6 h-6 border-2 border-slate-600 rounded-md bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
                           />
                           <svg
                             className="absolute w-4 h-4 mt-1 ml-1 pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity text-white top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
@@ -250,15 +317,21 @@ const ManagerEvaluationViewPage = () => {
                   ))}
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 text-sm opacity-80 w-full min-h-[38px]">
-                      {metadata.errorCategory || '—'}
-                    </div>
+                    <input 
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.errorCategory || ''}
+                      onChange={e => handleMetadataChange('errorCategory', e.target.value)}
+                      placeholder="Category..."
+                    />
                   </td>
 
                   <td className="p-3 border-slate-800/50 align-top">
-                    <div className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-300 text-sm opacity-80 w-full min-h-[38px]">
-                      {metadata.laSideErrorCategory || '—'}
-                    </div>
+                    <input 
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.laSideErrorCategory || ''}
+                      onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
+                      placeholder="LA Category..."
+                    />
                   </td>
                 </tr>
               </tbody>

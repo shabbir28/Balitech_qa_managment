@@ -163,20 +163,22 @@ const getManagedUsersStats = async (req, res, next) => {
   try {
     const { campaign, from_date, to_date, search } = req.query;
     
-    let whereClause = "la.assigned_by = $1 AND u.deleted_at IS NULL AND r.name IN ('User', 'QA')";
+    let whereClause = "u.deleted_at IS NULL AND r.name IN ('User', 'QA')";
     let params = [req.user.id];
     let paramIdx = 2;
 
+    let laConditions = "la.assigned_to = u.id AND la.assigned_by = $1";
+
     if (campaign) {
-      whereClause += ` AND cl.campaign_name = $${paramIdx++}`;
-      params.push(campaign);
+      laConditions += ` AND cl.campaign_name ILIKE $${paramIdx++}`;
+      params.push(`%${campaign}%`);
     }
     if (from_date) {
-      whereClause += ` AND la.assigned_at >= $${paramIdx++}`;
+      laConditions += ` AND la.assigned_at >= $${paramIdx++}`;
       params.push(from_date);
     }
     if (to_date) {
-      whereClause += ` AND la.assigned_at <= $${paramIdx++}`;
+      laConditions += ` AND la.assigned_at <= $${paramIdx++}`;
       params.push(`${to_date} 23:59:59`);
     }
 
@@ -194,8 +196,10 @@ const getManagedUsersStats = async (req, res, next) => {
         COUNT(DISTINCT CASE WHEN la.status = 'completed' THEN la.id END) as completed
       FROM users u
       JOIN roles r ON u.role_id = r.id
-      JOIN lead_assignments la ON la.assigned_to = u.id
-      JOIN call_leads cl ON cl.id = la.call_lead_id
+      LEFT JOIN (
+          lead_assignments la 
+          JOIN call_leads cl ON la.call_lead_id = cl.id
+      ) ON ${laConditions}
       LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.evaluated_by = u.id
       WHERE ${whereClause}
       GROUP BY u.id, r.name
