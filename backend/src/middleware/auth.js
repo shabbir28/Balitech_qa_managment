@@ -16,7 +16,7 @@ const authenticate = async (req, res, next) => {
 
     // Fetch fresh user data from DB
     const result = await query(
-      'SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.is_active, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1 AND u.deleted_at IS NULL',
+      'SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.is_active, u.campaign_id, r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1 AND u.deleted_at IS NULL',
       [decoded.userId]
     );
 

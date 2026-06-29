@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
-import { User, Lock, Save, Shield, Users, Play, Pause, Volume2, X, SkipBack, SkipForward, Clock, CheckCircle, XCircle } from 'lucide-react';
+import { User, Lock, Save, Shield, Users, Play, Pause, Volume2, X, SkipBack, SkipForward, Clock, CheckCircle, XCircle, Target } from 'lucide-react';
 import { format } from 'date-fns';
 
 /* ─── Mini Audio Player Modal ───────────────────────────────────────── */
@@ -165,22 +165,25 @@ const ProfilePage = () => {
 
   return (
     <div className="max-w-5xl mx-auto">
-      <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-5">
         <div>
-          <h1 className="page-title">My Profile</h1>
-          <p className="page-subtitle">Manage your account settings</p>
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[10px] font-black uppercase tracking-widest mb-4">
+            <User className="w-3 h-3" /> Account Settings
+          </div>
+          <h1 className="text-2xl font-black text-white tracking-tight">My Profile</h1>
+          <p className="text-slate-400 text-xs mt-1.5 font-medium leading-relaxed">Manage your personal information, security, and preferences.</p>
         </div>
         {user?.role === 'Manager' && (
-          <div className="flex bg-slate-900 border border-slate-800 p-1 rounded-xl">
+          <div className="flex bg-[#0d1117] border border-white/[0.06] p-1 rounded-xl">
             <button
               onClick={() => setActiveTab('profile')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'profile' ? 'bg-emerald-500/10 text-emerald-400' : 'text-slate-400 hover:text-white'}`}
+              className={`px-5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'profile' ? 'bg-emerald-500/10 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]'}`}
             >
               Settings
             </button>
             <button
               onClick={() => setActiveTab('team')}
-              className={`px-4 py-2 rounded-lg text-sm font-semibold transition-all ${activeTab === 'team' ? 'bg-indigo-500/10 text-indigo-400' : 'text-slate-400 hover:text-white'}`}
+              className={`px-5 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${activeTab === 'team' ? 'bg-indigo-500/10 text-indigo-400 shadow-sm' : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.02]'}`}
             >
               Managed Users
             </button>
@@ -189,120 +192,154 @@ const ProfilePage = () => {
       </div>
 
       {activeTab === 'profile' && (
-        <div className="max-w-2xl">
-          {/* Profile Info Card */}
-          <div className="card p-6 mb-6 flex items-center gap-6">
-            <div className="w-20 h-20 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl flex items-center justify-center text-emerald-500 text-3xl font-bold shadow-lg">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div>
-              <h2 className="text-2xl font-bold text-white">{user?.name}</h2>
-              <p className="text-slate-400 text-sm mt-1">{user?.email}</p>
-              <div className="mt-3 flex items-center gap-2">
-                <span className={`px-2.5 py-1 rounded-lg text-xs font-semibold border ${roleColors[user?.role] || 'bg-slate-500/10 text-slate-400 border-slate-500/30'} flex items-center w-fit`}>
-                  <Shield className="w-3.5 h-3.5 mr-1.5" />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* ── Left Column: Profile Card ───────────────────────────────── */}
+          <div className="lg:col-span-1 space-y-6">
+            <div className="relative overflow-hidden bg-[#0d1117] border border-white/[0.06] rounded-2xl p-8 flex flex-col items-center text-center hover:border-white/[0.12] transition-all duration-300 group">
+              <div className="absolute top-0 left-0 right-0 h-[3px] bg-gradient-to-r from-emerald-500 to-teal-400 opacity-80 group-hover:opacity-100 transition-opacity" />
+              <div className="absolute -bottom-20 -right-20 w-48 h-48 rounded-full bg-emerald-500/10 blur-3xl group-hover:bg-emerald-500/20 transition-all" />
+              
+              <div className="w-28 h-28 bg-emerald-500/10 border-2 border-emerald-500/30 rounded-[2rem] flex items-center justify-center text-emerald-400 text-5xl font-black shadow-[0_0_30px_rgba(16,185,129,0.15)] mb-5 transform group-hover:scale-105 transition-transform duration-300">
+                {user?.name?.charAt(0).toUpperCase()}
+              </div>
+              
+              <h2 className="text-3xl font-black text-white tracking-tight leading-none mb-1">{user?.name}</h2>
+              <p className="text-slate-400 text-xs font-bold mb-6">{user?.email}</p>
+              
+              <div className="w-full flex flex-col gap-2.5">
+                <div className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest border ${roleColors[user?.role] || 'bg-slate-500/10 text-slate-400 border-slate-500/30'} flex items-center justify-center`}>
+                  <Shield className="w-4 h-4 mr-2" />
                   {user?.role}
-                </span>
+                </div>
+                
                 {user?.agent_id && (
-                  <span className="px-2.5 py-1 rounded-lg text-xs font-semibold bg-slate-500/10 text-slate-400 border border-slate-500/30">ID: {user.agent_id}</span>
+                  <div className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest bg-[#151a23] text-slate-400 border border-white/[0.05] flex justify-center">
+                    Agent ID: {user.agent_id}
+                  </div>
                 )}
+                
+                <div className="px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 flex items-center justify-center shadow-[0_0_15px_rgba(99,102,241,0.1)]">
+                  <Target className="w-4 h-4 mr-2" />
+                  {user?.campaign_name || 'Unassigned Campaign'}
+                </div>
               </div>
             </div>
           </div>
 
+          {/* ── Right Column: Forms ───────────────────────────────────── */}
+          <div className="lg:col-span-2 space-y-6">
+
           {/* Edit Profile */}
-          <div className="card p-6 mb-6">
-            <h3 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
-              <User className="w-5 h-5 text-emerald-500" />
-              Edit Profile
-            </h3>
-            <form onSubmit={handleProfileSave} className="space-y-4">
-              <div>
-                <label className="label">Full Name</label>
-                <input
-                  className="input"
-                  value={profileForm.name}
-                  onChange={(e) => setProfileForm(f => ({ ...f, name: e.target.value }))}
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Department</label>
-                  <input
-                    className="input"
-                    value={profileForm.department}
-                    onChange={(e) => setProfileForm(f => ({ ...f, department: e.target.value }))}
-                    placeholder="Sales, QA, etc."
-                  />
-                </div>
-                <div>
-                  <label className="label">Phone</label>
-                  <input
-                    className="input"
-                    value={profileForm.phone}
-                    onChange={(e) => setProfileForm(f => ({ ...f, phone: e.target.value }))}
-                    placeholder="+1 555-0100"
-                  />
-                </div>
+          <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl hover:border-white/[0.10] transition-all duration-300">
+            <div className="px-6 py-5 border-b border-white/[0.05] flex items-center gap-3">
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">
+                <User className="w-4 h-4" />
               </div>
               <div>
-                <label className="label">Email</label>
-                <input className="input bg-slate-900 text-slate-500 cursor-not-allowed border-slate-800" value={user?.email} disabled />
-                <p className="text-xs text-slate-500 mt-1.5">Email cannot be changed. Contact Admin.</p>
+                <h3 className="text-sm font-bold text-white tracking-wide">Edit Profile</h3>
+                <p className="text-[10px] text-slate-500 font-medium mt-0.5">Update your contact details</p>
               </div>
-              <div className="flex justify-end pt-2">
-                <button type="submit" disabled={savingProfile} className="btn-primary">
-                  <Save size={16} />
-                  {savingProfile ? 'Saving...' : 'Save Changes'}
-                </button>
-              </div>
-            </form>
+            </div>
+            <div className="p-6">
+              <form onSubmit={handleProfileSave} className="space-y-5">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                  <input
+                    className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+                    value={profileForm.name}
+                    onChange={(e) => setProfileForm(f => ({ ...f, name: e.target.value }))}
+                  />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Department</label>
+                    <input
+                      className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+                      value={profileForm.department}
+                      onChange={(e) => setProfileForm(f => ({ ...f, department: e.target.value }))}
+                      placeholder="Sales, QA, etc."
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Phone</label>
+                    <input
+                      className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-emerald-500/50 focus:ring-2 focus:ring-emerald-500/20"
+                      value={profileForm.phone}
+                      onChange={(e) => setProfileForm(f => ({ ...f, phone: e.target.value }))}
+                      placeholder="+1 555-0100"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email</label>
+                  <input className="w-full h-11 rounded-xl border border-white/[0.04] bg-[#0a0d13] px-4 text-sm font-semibold text-slate-500 cursor-not-allowed" value={user?.email} disabled />
+                  <p className="text-[10px] font-semibold text-slate-600 mt-2">Email cannot be changed. Contact Admin.</p>
+                </div>
+                <div className="flex justify-end pt-3">
+                  <button type="submit" disabled={savingProfile} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-slate-950 rounded-xl text-xs font-bold shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all disabled:opacity-50">
+                    <Save size={16} />
+                    {savingProfile ? 'Saving...' : 'Save Changes'}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
 
           {/* Change Password */}
-          <div className="card p-6">
-            <h3 className="text-base font-semibold text-white mb-5 flex items-center gap-2">
-              <Lock className="w-5 h-5 text-emerald-500" />
-              Change Password
-            </h3>
-            <form onSubmit={handlePwSave} className="space-y-4">
-              <div>
-                <label className="label">Current Password</label>
-                <input
-                  type="password"
-                  className="input"
-                  value={pwForm.current_password}
-                  onChange={(e) => setPwForm(f => ({ ...f, current_password: e.target.value }))}
-                  placeholder="Enter current password"
-                />
+          {user?.role !== 'User' && user?.role !== 'Agent' && (
+            <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl hover:border-white/[0.10] transition-all duration-300">
+              <div className="px-6 py-5 border-b border-white/[0.05] flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white tracking-wide">Change Password</h3>
+                  <p className="text-[10px] text-slate-500 font-medium mt-0.5">Ensure your account is secure</p>
+                </div>
               </div>
-              <div>
-                <label className="label">New Password</label>
-                <input
-                  type="password"
-                  className="input"
-                  value={pwForm.new_password}
-                  onChange={(e) => setPwForm(f => ({ ...f, new_password: e.target.value }))}
-                  placeholder="Min 6 characters"
-                />
+              <div className="p-6">
+                <form onSubmit={handlePwSave} className="space-y-5">
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Current Password</label>
+                    <input
+                      type="password"
+                      className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                      value={pwForm.current_password}
+                      onChange={(e) => setPwForm(f => ({ ...f, current_password: e.target.value }))}
+                      placeholder="Enter current password"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">New Password</label>
+                    <input
+                      type="password"
+                      className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                      value={pwForm.new_password}
+                      onChange={(e) => setPwForm(f => ({ ...f, new_password: e.target.value }))}
+                      placeholder="Min 6 characters"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Confirm New Password</label>
+                    <input
+                      type="password"
+                      className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20"
+                      value={pwForm.confirm_password}
+                      onChange={(e) => setPwForm(f => ({ ...f, confirm_password: e.target.value }))}
+                      placeholder="Repeat new password"
+                    />
+                  </div>
+                  <div className="flex justify-end pt-3">
+                    <button type="submit" disabled={savingPw} className="flex items-center gap-2 px-6 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white hover:text-slate-900 rounded-xl text-xs font-bold shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all disabled:opacity-50">
+                      <Lock size={16} />
+                      {savingPw ? 'Changing...' : 'Change Password'}
+                    </button>
+                  </div>
+                </form>
               </div>
-              <div>
-                <label className="label">Confirm New Password</label>
-                <input
-                  type="password"
-                  className="input"
-                  value={pwForm.confirm_password}
-                  onChange={(e) => setPwForm(f => ({ ...f, confirm_password: e.target.value }))}
-                  placeholder="Repeat new password"
-                />
-              </div>
-              <div className="flex justify-end pt-2">
-                <button type="submit" disabled={savingPw} className="btn-secondary">
-                  <Lock size={16} />
-                  {savingPw ? 'Changing...' : 'Change Password'}
-                </button>
-              </div>
-            </form>
+            </div>
+          )}
           </div>
         </div>
       )}

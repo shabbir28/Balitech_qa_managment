@@ -138,6 +138,11 @@ const getAssignments = async (req, res, next) => {
     if (role !== 'Manager') {
       conditions.push(`la.assigned_to = $${paramCount++}`);
       params.push(req.user.id);
+      // If the user has an assigned campaign, filter leads to that campaign only
+      if (req.user.campaign_id) {
+        conditions.push(`cl.campaign_id = $${paramCount++}`);
+        params.push(req.user.campaign_id);
+      }
     } else {
       conditions.push(`la.assigned_by = $${paramCount++}`);
       params.push(req.user.id);
@@ -154,7 +159,9 @@ const getAssignments = async (req, res, next) => {
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-    const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${where}`, params);
+    // For User role with campaign filter we need to join call_leads in count query
+    const countJoin = (role !== 'Manager' && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
+    const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
     
     let countParams = role !== 'Manager' ? [req.user.id] : [req.user.id];
@@ -353,7 +360,7 @@ const deleteAssignment = async (req, res, next) => {
  */
 const createManagedUser = async (req, res, next) => {
   try {
-    const { name, email, password, role_id, department } = req.body;
+    const { name, email, password, role_id, department, campaign_id } = req.body;
     if (!name || !email || !password || !role_id)
       return res.status(400).json({ success: false, message: 'name, email, password, and role_id are required.' });
 
@@ -362,10 +369,10 @@ const createManagedUser = async (req, res, next) => {
 
     const hashed = await bcrypt.hash(password, 10);
     const result = await query(
-      `INSERT INTO users (name, email, password, role_id, department)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id, name, email, role_id, department`,
-      [name, email, hashed, role_id, department || '']
+      `INSERT INTO users (name, email, password, role_id, department, campaign_id)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       RETURNING id, name, email, role_id, department, campaign_id`,
+      [name, email, hashed, role_id, department || '', campaign_id || null]
     );
     res.status(201).json({ success: true, data: result.rows[0], message: 'User created successfully.' });
   } catch (err) { next(err); }

@@ -1,11 +1,11 @@
 import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { Users, Plus, Trash2, UserPlus, X, ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-react';
+import { Users, Plus, Trash2, UserPlus, X, ChevronDown, ChevronUp, Eye, EyeOff, Shield } from 'lucide-react';
 
 /* ─── Create User Modal ────────────────────────────────────────────── */
-const CreateUserModal = ({ roles, onClose, onCreated }) => {
-  const [form, setForm] = useState({ name: '', email: '', password: '', role_id: '', department: '' });
+const CreateUserModal = ({ roles, campaigns, onClose, onCreated }) => {
+  const [form, setForm] = useState({ name: '', email: '', password: '', role_id: '', campaign_id: '' });
   const [show, setShow] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -15,7 +15,8 @@ const CreateUserModal = ({ roles, onClose, onCreated }) => {
       return toast.error('All fields required.');
     setLoading(true);
     try {
-      const res = await api.post('/teams/create-user', form);
+      const payload = { ...form, campaign_id: form.campaign_id || null };
+      const res = await api.post('/teams/create-user', payload);
       toast.success('User created!');
       onCreated(res.data.data);
       onClose();
@@ -25,62 +26,124 @@ const CreateUserModal = ({ roles, onClose, onCreated }) => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md relative overflow-hidden">
-        <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 to-teal-500" />
-        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-800">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-[#0A0F1A]/90" onClick={onClose} />
+      
+      <div className="bg-[#0D1321] border border-slate-800 w-full max-w-3xl max-h-[90vh] overflow-y-auto relative z-10 rounded-lg flex flex-col shadow-2xl">
+        
+        {/* Modal Header */}
+        <div className="px-6 py-5 border-b border-slate-800 flex items-center justify-between sticky top-0 bg-[#0D1321] z-20">
           <div>
-            <h2 className="text-lg font-semibold text-white">Create New User</h2>
-            <p className="text-sm text-slate-400 mt-1">User will login with these credentials</p>
+            <h2 className="text-xl font-bold text-white flex items-center gap-2 tracking-wide">
+              <UserPlus className="w-5 h-5 text-indigo-400" />
+              USER PROVISIONING
+            </h2>
+            <p className="text-sm text-slate-500 mt-1">Configure identity and access parameters for a new system user.</p>
           </div>
-          <button onClick={onClose} className="w-8 h-8 rounded-lg border border-slate-800 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all">
-            <X className="w-4 h-4" />
-          </button>
+          <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors p-1"><X size={20} /></button>
         </div>
-        <form onSubmit={submit} className="p-6 space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="label">Full Name</label>
-              <input className="input" placeholder="John Doe" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+
+        {/* Modal Body */}
+        <form onSubmit={submit} className="p-6 flex-1 flex flex-col gap-6">
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column */}
+            <div className="flex flex-col gap-6">
+              
+              {/* Section 1 */}
+              <div className="border border-slate-800 rounded-lg p-5 bg-[#111827]">
+                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">1. Identity Parameters</h3>
+                
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1.5 block">Full Legal Name</label>
+                    <input className="w-full bg-[#0A0F1A] border border-slate-800 rounded-md py-2.5 px-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. John Smith" required />
+                  </div>
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1.5 block">Primary Email Address</label>
+                    <input className="w-full bg-[#0A0F1A] border border-slate-800 rounded-md py-2.5 px-3 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="john.smith@domain.com" required />
+                  </div>
+                </div>
+              </div>
+
+              {/* Section 2 */}
+              <div className="border border-slate-800 rounded-lg p-5 bg-[#111827]">
+                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-4">2. Security Credentials</h3>
+                
+                <div>
+                  <label className="text-xs text-slate-400 mb-1.5 block">Authentication Password</label>
+                  <div className="relative">
+                    <input className="w-full bg-[#0A0F1A] border border-slate-800 rounded-md py-2.5 pl-3 pr-10 text-sm text-white placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 transition-colors font-mono" type={show ? 'text' : 'password'} value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="••••••••" required />
+                    <button type="button" onClick={() => setShow(s => !s)} className="absolute inset-y-0 right-0 pr-3 flex items-center text-slate-500 hover:text-white transition-colors">
+                      {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    </button>
+                  </div>
+                  <p className="text-[10px] text-slate-600 mt-2">Password must meet standard security policies.</p>
+                </div>
+              </div>
+
             </div>
-            <div>
-              <label className="label">Department</label>
-              <input className="input" placeholder="QA Dept" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} />
+
+            {/* Right Column */}
+            <div className="flex flex-col gap-6">
+
+              {/* Section 3 */}
+              <div className="border border-slate-800 rounded-lg p-5 bg-[#111827] h-full flex flex-col">
+                <h3 className="text-[10px] font-bold text-indigo-500/70 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <Shield size={12} />
+                  3. System Access Control
+                </h3>
+                
+                <div className="space-y-6 flex-1">
+                  <div>
+                    <label className="text-xs text-slate-400 mb-1.5 block">Assigned Role</label>
+                    <select className="w-full bg-[#0A0F1A] border border-slate-800 rounded-md py-2.5 px-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: e.target.value }))} required>
+                      <option value="" disabled>— Select active role —</option>
+                      {roles.filter(r => !['Manager'].includes(r.name)).map(r => (
+                        <option key={r.id} value={r.id}>{r.name}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="pt-4 border-t border-slate-800/60">
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="text-xs text-slate-400 block">Data Isolation (Campaign Filter)</label>
+                      <span className="text-[9px] uppercase tracking-wider text-slate-600 border border-slate-800 px-1.5 rounded bg-slate-900">Optional</span>
+                    </div>
+                    <select className="w-full bg-[#0A0F1A] border border-slate-800 rounded-md py-2.5 px-3 text-sm text-white focus:outline-none focus:border-indigo-500/50 transition-colors" value={form.campaign_id} onChange={e => setForm(f => ({ ...f, campaign_id: e.target.value }))}>
+                      <option value="">— Unrestricted Data Access —</option>
+                      {campaigns.map(c => (
+                        <option key={c.id} value={c.id}>{c.name}</option>
+                      ))}
+                    </select>
+                    <div className="mt-3 bg-indigo-500/5 border border-indigo-500/10 rounded p-3">
+                      <p className="text-[11px] text-slate-400 leading-relaxed">
+                        If a campaign is selected, this user's view will be <strong className="text-indigo-400 font-semibold">strictly sandboxed</strong> to records originating from that specific campaign source.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
             </div>
           </div>
-          <div>
-            <label className="label">Email</label>
-            <input className="input" type="email" placeholder="user@company.com" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label">Password</label>
-            <div className="relative">
-              <input className="input pr-10" type={show ? 'text' : 'password'} placeholder="Min 6 characters" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
-              <button type="button" onClick={() => setShow(s => !s)} className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white">
-                {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-          </div>
-          <div>
-            <label className="label">Role</label>
-            <select className="input" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: e.target.value }))}>
-              <option value="">— Select role —</option>
-              {roles.filter(r => !['Manager'].includes(r.name)).map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex gap-3 pt-2">
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">Cancel</button>
-            <button type="submit" className="btn-primary flex-1" disabled={loading}>
-              {loading ? 'Creating...' : 'Create User'}
+
+          {/* Actions */}
+          <div className="mt-2 pt-4 border-t border-slate-800 flex items-center justify-end gap-3">
+            <button type="button" onClick={onClose} className="px-5 py-2 text-sm text-slate-400 hover:text-white transition-colors">
+              Abort
+            </button>
+            <button type="submit" disabled={loading} className="px-6 py-2 text-sm bg-indigo-600 hover:bg-indigo-500 text-white rounded font-medium transition-colors disabled:opacity-50 flex items-center gap-2">
+              {loading ? 'Provisioning...' : 'Deploy User Profile'}
             </button>
           </div>
+
         </form>
       </div>
     </div>
   );
 };
+
 
 /* ─── Add Member Modal ─────────────────────────────────────────────── */
 const AddMemberModal = ({ teamId, onClose, onAdded }) => {
@@ -236,13 +299,19 @@ const TeamsPage = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateUser, setShowCreateUser] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [form, setForm] = useState({ name: '', description: '' });
   
   const fetchTeams = useCallback(async () => {
     try {
-      const [teamsRes, rolesRes] = await Promise.all([api.get('/teams'), api.get('/roles')]);
+      const [teamsRes, rolesRes, campaignsRes] = await Promise.all([
+        api.get('/teams'),
+        api.get('/roles'),
+        api.get('/campaigns'),
+      ]);
       setTeams(teamsRes.data.data);
       setRoles(rolesRes.data.data);
+      setCampaigns(campaignsRes.data.data);
     } catch { toast.error('Failed to load teams.'); }
     finally { setLoading(false); }
   }, []);
@@ -323,7 +392,7 @@ const TeamsPage = () => {
       )}
 
       {showCreateUser && (
-        <CreateUserModal roles={roles} onClose={() => setShowCreateUser(false)} onCreated={fetchTeams} />
+        <CreateUserModal roles={roles} campaigns={campaigns} onClose={() => setShowCreateUser(false)} onCreated={fetchTeams} />
       )}
     </div>
   );

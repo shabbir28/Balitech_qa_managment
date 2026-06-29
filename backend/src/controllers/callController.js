@@ -237,6 +237,13 @@ const getCalls = async (req, res, next) => {
     const params = [];
     let paramCount = 1;
 
+    // If User has an assigned campaign, restrict to that campaign's data only
+    if (req.user && req.user.role === 'User' && req.user.campaign_id) {
+      conditions.push(`cl.campaign_id = $${paramCount}`);
+      params.push(req.user.campaign_id);
+      paramCount++;
+    }
+
     if (search) {
       conditions.push(`(cl.agent_name ILIKE $${paramCount} OR cl.customer_name ILIKE $${paramCount} OR cl.customer_phone ILIKE $${paramCount})`);
       params.push(`%${search}%`);

@@ -14,9 +14,10 @@ const login = async (req, res, next) => {
     }
 
     const result = await query(
-      `SELECT u.*, r.name as role 
+      `SELECT u.*, r.name as role, c.name as campaign_name 
        FROM users u 
        JOIN roles r ON u.role_id = r.id 
+       LEFT JOIN campaigns c ON u.campaign_id = c.id
        WHERE u.email = $1 AND u.deleted_at IS NULL`,
       [email.toLowerCase().trim()]
     );
@@ -57,6 +58,8 @@ const login = async (req, res, next) => {
         role_id: user.role_id,
         agent_id: user.agent_id,
         department: user.department,
+        campaign_id: user.campaign_id,
+        campaign_name: user.campaign_name,
       },
     });
   } catch (error) {
@@ -69,7 +72,7 @@ const login = async (req, res, next) => {
  */
 const register = async (req, res, next) => {
   try {
-    const { name, email, password, role_id, agent_id, department, phone } = req.body;
+    const { name, email, password, role_id, agent_id, department, phone, campaign_id } = req.body;
 
     if (!name || !email || !password || !role_id) {
       return res.status(400).json({ success: false, message: 'Name, email, password, and role are required.' });
@@ -84,10 +87,10 @@ const register = async (req, res, next) => {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const result = await query(
-      `INSERT INTO users (name, email, password, role_id, agent_id, department, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, email, role_id, agent_id, department, created_at`,
-      [name.trim(), email.toLowerCase().trim(), hashedPassword, role_id, agent_id || null, department || null, phone || null]
+      `INSERT INTO users (name, email, password, role_id, agent_id, department, phone, campaign_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       RETURNING id, name, email, role_id, agent_id, department, campaign_id, created_at`,
+      [name.trim(), email.toLowerCase().trim(), hashedPassword, role_id, agent_id || null, department || null, phone || null, campaign_id || null]
     );
 
     // If agent role, create agent record
@@ -114,8 +117,10 @@ const register = async (req, res, next) => {
 const getMe = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.department, u.phone, u.last_login, u.created_at, r.name as role
-       FROM users u JOIN roles r ON u.role_id = r.id
+      `SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.department, u.phone, u.last_login, u.created_at, u.campaign_id, r.name as role, c.name as campaign_name
+       FROM users u 
+       JOIN roles r ON u.role_id = r.id
+       LEFT JOIN campaigns c ON u.campaign_id = c.id
        WHERE u.id = $1`,
       [req.user.id]
     );

@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, Pagination, Badge, ConfirmModal } from '../components/ui';
-import { Users, Search, Plus, Edit2, Trash2, X, Save, Key, ClipboardList, Clock, CheckCircle, XCircle, Play, Pause, Volume2, SkipBack, SkipForward } from 'lucide-react';
+import { Users, Search, Plus, Edit2, Trash2, X, Save, Key, ClipboardList, Clock, CheckCircle, XCircle, Play, Pause, Volume2, SkipBack, SkipForward, Shield, UserPlus, User } from 'lucide-react';
 import { format } from 'date-fns';
 
 /* ─── Mini Audio Player Modal ───────────────────────────────────────── */
@@ -72,6 +72,7 @@ const AudioModal = ({ url, phone, onClose }) => {
 const UserManagementPage = () => {
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [campaigns, setCampaigns] = useState([]);
   const [pagination, setPagination] = useState(null);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -81,7 +82,7 @@ const UserManagementPage = () => {
   const [deleteId, setDeleteId] = useState(null);
   const [resetId, setResetId] = useState(null);
   const [newPw, setNewPw] = useState('');
-  const [form, setForm] = useState({ name: '', email: '', password: '', role_id: 2, department: '', agent_id: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', password: '', role_id: 2, phone: '', campaign_id: '' });
   const [saving, setSaving] = useState(false);
 
   // Activity Tracking
@@ -92,13 +93,15 @@ const UserManagementPage = () => {
 
   const fetchData = async () => {
     try {
-      const [usersRes, rolesRes] = await Promise.all([
+      const [usersRes, rolesRes, campaignsRes] = await Promise.all([
         api.get('/users', { params: { page, limit: 20, search } }),
         api.get('/roles'),
+        api.get('/campaigns'),
       ]);
       setUsers(usersRes.data.data);
       setPagination(usersRes.data.pagination);
       setRoles(rolesRes.data.data);
+      setCampaigns(campaignsRes.data.data);
     } catch {
       toast.error('Failed to load users.');
     } finally {
@@ -112,13 +115,13 @@ const UserManagementPage = () => {
   }, [page, search]);
 
   const openCreate = () => {
-    setForm({ name: '', email: '', password: '', role_id: 2, department: '', agent_id: '', phone: '' });
+    setForm({ name: '', email: '', password: '', role_id: 2, phone: '', campaign_id: '' });
     setEditUser(null);
     setShowForm(true);
   };
 
   const openEdit = (user) => {
-    setForm({ name: user.name, email: user.email, password: '', role_id: user.role_id, department: user.department || '', agent_id: user.agent_id || '', phone: user.phone || '' });
+    setForm({ name: user.name, email: user.email, password: '', role_id: user.role_id, phone: user.phone || '', campaign_id: user.campaign_id || '' });
     setEditUser(user);
     setShowForm(true);
   };
@@ -128,11 +131,11 @@ const UserManagementPage = () => {
     setSaving(true);
     try {
       if (editUser) {
-        await api.put(`/users/${editUser.id}`, { name: form.name, role_id: form.role_id, department: form.department, agent_id: form.agent_id, phone: form.phone });
+        await api.put(`/users/${editUser.id}`, { name: form.name, role_id: form.role_id, phone: form.phone, campaign_id: form.campaign_id || null });
         toast.success('User updated.');
       } else {
         if (!form.password) { toast.error('Password is required for new users.'); setSaving(false); return; }
-        await api.post('/auth/register', form);
+        await api.post('/auth/register', { ...form, campaign_id: form.campaign_id || null });
         toast.success('User created.');
       }
       setShowForm(false);
@@ -218,8 +221,7 @@ const UserManagementPage = () => {
                     <th className="th">Name</th>
                     <th className="th">Email</th>
                     <th className="th">Role</th>
-                    <th className="th">Agent ID</th>
-                    <th className="th">Department</th>
+                    <th className="th">Campaign</th>
                     <th className="th">Status</th>
                     <th className="th">Actions</th>
                   </tr>
@@ -230,13 +232,19 @@ const UserManagementPage = () => {
                       <td className="td font-semibold text-white">{user.name}</td>
                       <td className="td text-slate-400 text-sm">{user.email}</td>
                       <td className="td"><Badge status={user.role} /></td>
-                      <td className="td text-slate-500 font-mono text-sm">{user.agent_id || '—'}</td>
-                      <td className="td text-slate-400">{user.department || '—'}</td>
+                      <td className="td text-slate-300 text-sm">
+                        {user.campaign_name ? (
+                          <span className="px-2 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">{user.campaign_name}</span>
+                        ) : <span className="text-slate-600 text-xs italic">All campaigns</span>}
+                      </td>
                       <td className="td">
                         {user.is_active ? <span className="badge-green">Active</span> : <span className="badge-red">Inactive</span>}
                       </td>
                       <td className="td">
                         <div className="flex items-center gap-2">
+                          <button onClick={() => openActivity(user)} className="p-2 rounded-lg text-indigo-400 hover:bg-indigo-500/10 transition-all" title="Activity">
+                            <ClipboardList size={16} />
+                          </button>
                           <button onClick={() => openEdit(user)} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Edit">
                             <Edit2 size={16} />
                           </button>
@@ -360,29 +368,98 @@ const UserManagementPage = () => {
 
       {/* User Form Modal */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-md w-full max-h-[90vh] overflow-y-auto relative">
-            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 to-teal-500" />
-            <div className="flex items-center justify-between p-6 border-b border-slate-800">
-              <h3 className="text-lg font-semibold text-white">{editUser ? 'Edit User' : 'Add New User'}</h3>
-              <button onClick={() => setShowForm(false)} className="p-2 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"><X size={18} /></button>
-            </div>
-            <form onSubmit={handleSave} className="p-6 space-y-4">
-              <div><label className="label">Full Name *</label><input className="input" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="John Smith" required /></div>
-              <div><label className="label">Email *</label><input className="input" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="john@example.com" required disabled={!!editUser} /></div>
-              {!editUser && <div><label className="label">Password *</label><input className="input" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Min 6 characters" /></div>}
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-[#0A0F1A]/80 backdrop-blur-sm" onClick={() => setShowForm(false)} />
+          <div className="bg-[#0D1321]/95 backdrop-blur-xl border border-white/[0.08] w-full max-w-3xl max-h-[90vh] overflow-y-auto relative z-10 rounded-3xl flex flex-col shadow-2xl">
+            <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 to-purple-500 opacity-80" />
+            <div className="flex items-center justify-between p-6 border-b border-white/[0.05] bg-[#0d1117]">
               <div>
-                <label className="label">Role *</label>
-                <select className="input" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: parseInt(e.target.value) }))}>
-                  {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
-                </select>
+                <h2 className="text-xl font-bold text-white tracking-tight flex items-center gap-2">
+                  <UserPlus className="w-5 h-5 text-indigo-400" />
+                  {editUser ? 'Edit Team Member' : 'Add New User'}
+                </h2>
+                <p className="text-xs text-slate-400 mt-1">{editUser ? 'Update the details and permissions for this user.' : 'Create a new account and assign their access level.'}</p>
               </div>
-              <div><label className="label">Department</label><input className="input" value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="Sales, Support, etc." /></div>
-              <div><label className="label">Agent ID (for Agent role)</label><input className="input" value={form.agent_id} onChange={e => setForm(f => ({ ...f, agent_id: e.target.value }))} placeholder="AGT001" /></div>
-              <div><label className="label">Phone</label><input className="input" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555-0100" /></div>
-              <div className="flex gap-3 justify-end pt-2">
-                <button type="button" onClick={() => setShowForm(false)} className="btn-secondary">Cancel</button>
-                <button type="submit" disabled={saving} className="btn-primary"><Save size={16} /> {saving ? 'Saving...' : 'Save User'}</button>
+              <button onClick={() => setShowForm(false)} className="w-8 h-8 rounded-full bg-slate-800/50 flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 transition-all"><X size={16} /></button>
+            </div>
+            <form onSubmit={handleSave} className="p-6 flex-1 flex flex-col overflow-y-auto bg-[#0a0d14]">
+              <div className="space-y-6">
+                {/* Personal Details */}
+                <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.10] transition-colors">
+                  <h3 className="text-[11px] font-black text-slate-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <User className="w-3.5 h-3.5" />
+                    Personal Information
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Full Name</label>
+                      <input className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20" value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. John Doe" required />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Primary Phone</label>
+                      <input className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20" value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} placeholder="+1 555-0100" />
+                    </div>
+                    <div className="md:col-span-2">
+                      <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Email Address</label>
+                      <input className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 disabled:cursor-not-allowed" type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="user@domain.com" required disabled={!!editUser} />
+                    </div>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* System Access */}
+                  <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.10] transition-colors flex flex-col h-full">
+                    <h3 className="text-[11px] font-black text-indigo-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                      <Shield className="w-3.5 h-3.5" />
+                      Role & Permissions
+                    </h3>
+                    <div className="space-y-5 flex-1">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Assigned Role</label>
+                        <select className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20" value={form.role_id} onChange={e => setForm(f => ({ ...f, role_id: parseInt(e.target.value) }))} required>
+                          <option value="" disabled>Select a role...</option>
+                          {roles.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Campaign Filter (Optional)</label>
+                        <select className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all focus:border-indigo-500/50 focus:ring-2 focus:ring-indigo-500/20" value={form.campaign_id} onChange={e => setForm(f => ({ ...f, campaign_id: e.target.value }))}>
+                          <option value="">— No restriction (All Data) —</option>
+                          {campaigns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        </select>
+                        <p className="text-[10px] text-slate-500 font-medium mt-2 leading-relaxed">
+                          Restrict this user's view to a single campaign.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Security (Only when creating) */}
+                  {!editUser && (
+                    <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl p-5 hover:border-white/[0.10] transition-colors flex flex-col h-full">
+                      <h3 className="text-[11px] font-black text-rose-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <Key className="w-3.5 h-3.5" />
+                        Account Security
+                      </h3>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-2">Initial Password</label>
+                        <input className="w-full h-11 rounded-xl border border-white/[0.08] bg-[#151a23] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-rose-500/50 focus:ring-2 focus:ring-rose-500/20" type="password" value={form.password} onChange={e => setForm(f => ({ ...f, password: e.target.value }))} placeholder="Minimum 6 characters" required />
+                        <p className="text-[10px] text-slate-500 font-medium mt-2 leading-relaxed">Set a secure temporary password. They can change it later.</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+              </div>
+
+              {/* Actions */}
+              <div className="mt-8 pt-5 border-t border-white/[0.05] flex items-center justify-end gap-3">
+                <button type="button" onClick={() => setShowForm(false)} className="px-5 py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-white/[0.02] transition-colors">
+                  Cancel
+                </button>
+                <button type="submit" disabled={saving} className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-400 text-white hover:text-slate-900 rounded-xl text-xs font-bold shadow-[0_0_20px_rgba(99,102,241,0.2)] transition-all disabled:opacity-50 flex items-center gap-2">
+                  <Save size={16} /> {saving ? 'Saving...' : (editUser ? 'Save Changes' : 'Create User')}
+                </button>
               </div>
             </form>
           </div>

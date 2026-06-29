@@ -157,11 +157,17 @@ const getEvaluations = async (req, res, next) => {
     const params = [];
     let pc = 1;
 
-    // QA users see only evaluations they performed
+    // QA users see only evaluations they performed, filtered by their assigned campaign
     if (req.user.role === 'User') {
       conditions.push(`qe.evaluated_by = $${pc}`);
       params.push(req.user.id);
       pc++;
+      // If user has an assigned campaign, restrict to that campaign only
+      if (req.user.campaign_id) {
+        conditions.push(`qe.campaign_id = $${pc}`);
+        params.push(req.user.campaign_id);
+        pc++;
+      }
     }
 
     if (search) {

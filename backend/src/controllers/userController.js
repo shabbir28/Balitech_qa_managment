@@ -31,8 +31,10 @@ const getUsers = async (req, res, next) => {
     params.push(parseInt(limit)); params.push(offset);
 
     const result = await query(
-      `SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.department, u.phone, u.is_active, u.last_login, u.created_at, r.name as role
+      `SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.department, u.phone, u.is_active, u.last_login, u.created_at, u.campaign_id,
+              r.name as role, c.name as campaign_name
        FROM users u JOIN roles r ON u.role_id = r.id
+       LEFT JOIN campaigns c ON u.campaign_id = c.id
        ${where}
        ORDER BY u.created_at DESC
        LIMIT $${pc} OFFSET $${pc + 1}`,
@@ -54,7 +56,7 @@ const getUsers = async (req, res, next) => {
  */
 const updateUser = async (req, res, next) => {
   try {
-    const { name, role_id, department, phone, is_active, agent_id } = req.body;
+    const { name, role_id, department, phone, is_active, agent_id, campaign_id } = req.body;
     const result = await query(
       `UPDATE users SET
         name = COALESCE($1, name),
@@ -63,10 +65,11 @@ const updateUser = async (req, res, next) => {
         phone = COALESCE($4, phone),
         is_active = COALESCE($5, is_active),
         agent_id = COALESCE($6, agent_id),
+        campaign_id = $7,
         updated_at = NOW()
-       WHERE id = $7 AND deleted_at IS NULL
-       RETURNING id, name, email, role_id, agent_id, department, phone, is_active`,
-      [name, role_id, department, phone, is_active, agent_id, req.params.id]
+       WHERE id = $8 AND deleted_at IS NULL
+       RETURNING id, name, email, role_id, agent_id, department, phone, is_active, campaign_id`,
+      [name, role_id, department, phone, is_active, agent_id, campaign_id ?? null, req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found.' });
@@ -76,6 +79,7 @@ const updateUser = async (req, res, next) => {
     next(error);
   }
 };
+
 
 /**
  * DELETE /api/users/:id (soft delete)
