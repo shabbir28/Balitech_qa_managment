@@ -11,14 +11,14 @@
 @layer components {
   /* Cards */
   .card {
-    @apply bg-dark-card rounded-2xl border border-dark-border shadow-xl shadow-black/10 transition-all duration-300 relative overflow-hidden backdrop-blur-xl;
+    @apply bg-dark-card/90 rounded-2xl border border-white/[0.05] shadow-2xl shadow-black/40 transition-all duration-300 relative overflow-hidden backdrop-blur-2xl;
   }
   .card::before {
     content: '';
-    @apply absolute inset-0 bg-glass-gradient pointer-events-none;
+    @apply absolute inset-0 bg-glass-gradient opacity-50 pointer-events-none;
   }
   .card:hover {
-    @apply shadow-premium-hover border-emerald-500/30;
+    @apply border-white/[0.12] shadow-emerald-500/10;
   }
 
   /* Buttons */

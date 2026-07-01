@@ -174,7 +174,7 @@ const getManagedUsersStats = async (req, res, next) => {
     let laConditions = "la.assigned_to = u.id AND la.assigned_by = $1";
 
     if (campaign) {
-      laConditions += ` AND cl.campaign_name ILIKE $${paramIdx++}`;
+      whereClause += ` AND c.name ILIKE $${paramIdx++}`;
       params.push(`%${campaign}%`);
     }
     if (from_date) {
@@ -192,7 +192,7 @@ const getManagedUsersStats = async (req, res, next) => {
     }
 
     const result = await query(`
-      SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id,
+      SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id, c.name as user_campaign_name,
         COUNT(DISTINCT la.id) as total_assigned,
         COUNT(DISTINCT CASE WHEN la.status IN ('pending', 'accepted') THEN la.id END) as pending,
         COUNT(DISTINCT CASE WHEN e.status = 'Pass' THEN e.id END) as accepted,
@@ -200,13 +200,14 @@ const getManagedUsersStats = async (req, res, next) => {
         COUNT(DISTINCT CASE WHEN la.status = 'completed' THEN la.id END) as completed
       FROM users u
       JOIN roles r ON u.role_id = r.id
+      LEFT JOIN campaigns c ON u.campaign_id = c.id
       LEFT JOIN (
           lead_assignments la 
           JOIN call_leads cl ON la.call_lead_id = cl.id
       ) ON ${laConditions}
       LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.evaluated_by = u.id
       WHERE ${whereClause}
-      GROUP BY u.id, r.name
+      GROUP BY u.id, r.name, c.name
       ORDER BY u.name
     `, params);
     res.json({ success: true, data: result.rows });

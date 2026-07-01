@@ -206,7 +206,11 @@ const EvaluationListPage = () => {
                   </div>
                   <div>
                     <p className="font-bold text-white text-lg">{u.name}</p>
-                    <p className="text-xs text-slate-500 uppercase tracking-widest">{u.role}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">{u.role}</p>
+                      <span className="w-1 h-1 rounded-full bg-slate-700"></span>
+                      <p className="text-[10px] font-bold text-indigo-400 uppercase tracking-widest">{u.user_campaign_name || 'ALL CAMPAIGNS'}</p>
+                    </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 relative z-10">

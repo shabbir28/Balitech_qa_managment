@@ -53,7 +53,7 @@ const parseFile = (filePath) => {
         const workbook = XLSX.readFile(filePath);
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        resolve(XLSX.utils.sheet_to_json(sheet, { defval: '' }));
+        resolve(XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }));
       }
     } catch (err) {
       fs.appendFileSync('debug.log', `[parseFile] fatal error: ${err.message}\n`);

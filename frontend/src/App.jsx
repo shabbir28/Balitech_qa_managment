@@ -72,12 +72,12 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/evaluations" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Manager', 'User']}>
               <SidebarLayout><EvaluationListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations/view/:id" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Manager', 'User']}>
               <SidebarLayout><ManagerEvaluationViewPage /></SidebarLayout>
             </ProtectedRoute>
           } />

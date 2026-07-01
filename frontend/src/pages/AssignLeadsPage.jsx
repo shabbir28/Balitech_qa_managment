@@ -120,7 +120,19 @@ const AssignLeadsPage = () => {
     return manualPhones.split(/[\n,]+/).filter(p => p.trim()).length;
   }, [assignmentMode, selectedLeads.length, uploadFile, manualPhones]);
 
+  const filteredTeamMembers = useMemo(() => {
+    if (!selectedCampaign) return [];
+    return teamMembers.filter(m => m.campaign_name === selectedCampaign);
+  }, [teamMembers, selectedCampaign]);
+
   const isAssignDisabled = loading || !assignTo || (assignmentMode === 'existing' && selectedLeads.length === 0) || (assignmentMode === 'manual' && !uploadFile && !manualPhones.trim());
+
+  // Reset selected assignee if the campaign changes and the selected user doesn't belong to the new campaign
+  useEffect(() => {
+    if (assignTo && !filteredTeamMembers.find(m => String(m.id) === String(assignTo))) {
+      setAssignTo('');
+    }
+  }, [selectedCampaign, filteredTeamMembers, assignTo]);
 
   return (
     <div className="h-[calc(100vh-6rem)] flex flex-col pb-4 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -176,7 +188,10 @@ const AssignLeadsPage = () => {
             onChange={(e) => setAssignTo(e.target.value)}
           >
             <option value="" disabled className="text-slate-500 bg-slate-900">— Select Evaluator —</option>
-            {teamMembers.map(m => (
+            {filteredTeamMembers.length === 0 && selectedCampaign && (
+               <option value="" disabled className="text-rose-400 bg-slate-900">No evaluators assigned to this campaign</option>
+            )}
+            {filteredTeamMembers.map(m => (
               <option key={m.id} value={m.id} className="bg-slate-900 text-white">{m.name} ({m.role})</option>
             ))}
           </select>
@@ -243,7 +258,7 @@ const AssignLeadsPage = () => {
         {/* Content Area */}
         <div className="flex-1 overflow-auto bg-transparent relative">
           {/* Subtle Grid Background */}
-          <div className="absolute inset-0 bg-[url('https://grainy-gradients.vercel.app/noise.svg')] opacity-5 pointer-events-none mix-blend-overlay"></div>
+          <div className="absolute inset-0 bg-[url('data:image/svg+xml,%3Csvg viewBox=%220 0 200 200%22 xmlns=%22http://www.w3.org/2000/svg%22%3E%3Cfilter id=%22noiseFilter%22%3E%3CfeTurbulence type=%22fractalNoise%22 baseFrequency=%220.65%22 numOctaves=%223%22 stitchTiles=%22stitch%22/%3E%3C/filter%3E%3Crect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23noiseFilter)%22/%3E%3C/svg%3E')] opacity-5 pointer-events-none mix-blend-overlay"></div>
           
           {!selectedCampaign && assignmentMode === 'existing' ? (
             <div className="h-full flex flex-col items-center justify-center text-center p-8 relative z-10">
@@ -323,7 +338,7 @@ const AssignLeadsPage = () => {
               <div className="max-w-3xl w-full">
                 <div className="text-center mb-6">
                   <h2 className="text-xl font-bold text-white tracking-wide">Bulk Data Import</h2>
-                  <p className="text-slate-400 text-xs mt-1.5 font-medium">Upload a CSV/TXT data file or paste raw entries directly.</p>
+                  <p className="text-slate-400 text-xs mt-1.5 font-medium">Upload a CSV/TXT/XLSX data file or paste raw entries directly.</p>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -331,7 +346,7 @@ const AssignLeadsPage = () => {
                   <div className="relative group">
                     <input 
                       type="file" 
-                      accept=".csv,.txt" 
+                      accept=".csv,.txt,.xlsx" 
                       className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
                       onChange={handleFileUpload}
                     />
@@ -355,7 +370,7 @@ const AssignLeadsPage = () => {
                           <div className="w-12 h-12 bg-slate-800/50 rounded-xl flex items-center justify-center mb-3 text-slate-400 group-hover:text-indigo-400 group-hover:bg-indigo-500/10 transition-colors border border-white/5 group-hover:border-indigo-500/30 shadow-lg">
                             <Upload className="w-6 h-6" />
                           </div>
-                          <p className="text-white font-bold text-sm mb-1 tracking-wide">Upload CSV or TXT</p>
+                          <p className="text-white font-bold text-sm mb-1 tracking-wide">Upload CSV, TXT or XLSX</p>
                           <p className="text-slate-500 text-xs text-center">Drag and drop or click to browse</p>
                         </>
                       )}

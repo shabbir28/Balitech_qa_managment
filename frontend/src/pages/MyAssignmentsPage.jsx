@@ -167,12 +167,14 @@ export default function MyAssignmentsPage() {
       </div>
 
       {/* ── Stats Row ──────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4">
         <StatMini label="Total Queue"  value={stats.total}     color="text-white"        accent="bg-gradient-to-r from-slate-400 to-slate-500" />
         <StatMini label="Pending"      value={stats.pending}   color="text-amber-400"    accent="bg-gradient-to-r from-amber-500 to-yellow-400" />
         <StatMini label="In Progress"  value={stats.accepted}  color="text-indigo-400"   accent="bg-gradient-to-r from-indigo-500 to-violet-400" />
-        <StatMini label="Completed"    value={stats.completed} color="text-emerald-400"  accent="bg-gradient-to-r from-emerald-500 to-teal-400" />
         <StatMini label="Rejected"     value={stats.rejected}  color="text-rose-400"     accent="bg-gradient-to-r from-rose-500 to-rose-400" />
+        <StatMini label="Completed"    value={stats.completed} color="text-emerald-400"  accent="bg-gradient-to-r from-emerald-500 to-teal-400" />
+        <StatMini label="Eval Passed"  value={stats.eval_accepted || 0} color="text-teal-400"     accent="bg-gradient-to-r from-teal-500 to-cyan-400" />
+        <StatMini label="Eval Failed"  value={stats.eval_rejected || 0} color="text-pink-400"     accent="bg-gradient-to-r from-pink-500 to-rose-400" />
       </div>
 
       {/* Completion Progress Bar */}
@@ -255,8 +257,8 @@ export default function MyAssignmentsPage() {
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-white/[0.02]">
-                            {['Customer Phone', 'Campaign', 'Agent Name', 'Call Date', 'Audio', 'Status', 'Actions'].map((h, i) => (
-                              <th key={h} className={`py-3 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 ${i === 6 ? 'text-right' : ''}`}>{h}</th>
+                            {['Customer Phone', 'Campaign', 'Agent Name', 'Call Date', 'Audio', 'Task Status', 'Eval Status', 'Actions'].map((h, i) => (
+                              <th key={h} className={`py-3 px-4 text-[9px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 ${i === 7 ? 'text-right' : ''}`}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -278,6 +280,11 @@ export default function MyAssignmentsPage() {
                               </td>
                               <td className="py-3.5 px-4"><StatusBadge status={a.status} /></td>
                               <td className="py-3.5 px-4">
+                                {a.evaluation_status === 'Pass' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border bg-teal-500/10 border-teal-500/30 text-teal-400">Accepted</span>}
+                                {a.evaluation_status === 'Fail' && <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-bold border bg-pink-500/10 border-pink-500/30 text-pink-400">Rejected</span>}
+                                {!a.evaluation_status && <span className="text-[10px] text-slate-600 font-bold">—</span>}
+                              </td>
+                              <td className="py-3.5 px-4">
                                 <div className="flex items-center justify-end gap-2">
                                   {a.status === 'pending' && (
                                     <>
@@ -295,9 +302,16 @@ export default function MyAssignmentsPage() {
                                     </button>
                                   )}
                                   {a.status === 'completed' && (
-                                    <span className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-bold uppercase tracking-widest">
-                                      <CheckCircle2 className="w-3 h-3" /> Scored
-                                    </span>
+                                    <>
+                                      <span className="flex items-center gap-1 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 rounded-lg text-[9px] font-bold uppercase tracking-widest">
+                                        <CheckCircle2 className="w-3 h-3" /> Scored
+                                      </span>
+                                      {a.evaluation_id && (
+                                        <button onClick={() => navigate(`/evaluations/view/${a.evaluation_id}`)} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-400 rounded-lg border border-indigo-500/20 hover:border-indigo-500/40 text-[9px] font-bold uppercase tracking-widest transition-all shadow-sm">
+                                          <Eye className="w-3 h-3" /> View
+                                        </button>
+                                      )}
+                                    </>
                                   )}
                                 </div>
                               </td>

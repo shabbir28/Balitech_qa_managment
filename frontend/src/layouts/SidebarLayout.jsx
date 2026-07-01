@@ -32,7 +32,7 @@ const SidebarLayout = ({ children }) => {
 
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['User'] },
-    { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Manager', 'User'] },
+    { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Manager'] },
     { name: 'Call Records',    path: '/calls',             icon: Phone,           roles: ['Manager'] },
 
     // Admin only

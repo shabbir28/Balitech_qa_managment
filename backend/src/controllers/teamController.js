@@ -108,9 +108,10 @@ const removeTeamMember = async (req, res, next) => {
 const getAvailableUsers = async (req, res, next) => {
   try {
     const result = await query(
-      `SELECT u.id, u.name, u.email, u.agent_id, u.department, r.name as role
+      `SELECT u.id, u.name, u.email, u.agent_id, u.department, r.name as role, c.name as campaign_name
        FROM users u
        JOIN roles r ON u.role_id = r.id
+       LEFT JOIN campaigns c ON u.campaign_id = c.id
        WHERE u.deleted_at IS NULL AND u.is_active = TRUE AND r.name IN ('User')
        ORDER BY u.name`,
       []
@@ -173,13 +174,16 @@ const getAssignments = async (req, res, next) => {
     
     const statsResult = await query(`
       SELECT 
-        COUNT(*) as total,
-        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
-        COUNT(CASE WHEN status = 'accepted' THEN 1 END) as accepted,
-        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected,
-        COUNT(CASE WHEN status = 'completed' THEN 1 END) as completed
-      FROM lead_assignments 
-      ${countWhere}
+        COUNT(la.*) as total,
+        COUNT(CASE WHEN la.status = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN la.status = 'accepted' THEN 1 END) as accepted,
+        COUNT(CASE WHEN la.status = 'rejected' THEN 1 END) as rejected,
+        COUNT(CASE WHEN la.status = 'completed' THEN 1 END) as completed,
+        COUNT(CASE WHEN e.status = 'Pass' THEN 1 END) as eval_accepted,
+        COUNT(CASE WHEN e.status = 'Fail' THEN 1 END) as eval_rejected
+      FROM lead_assignments la
+      LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
+      ${countWhere.replace('WHERE', 'WHERE la.')}
     `, countParams);
 
     params.push(parseInt(limit));
@@ -441,6 +445,15 @@ const uploadAssignments = async (req, res, next) => {
           let aId = norm.agent_id || 'AGT-MANUAL';
           let cName = norm.campaign_name || campaign_name || '';
           let cDate = norm.call_date || null;
+          if (cDate) {
+            let numDate = Number(cDate);
+            if (!isNaN(numDate) && numDate > 20000 && numDate < 100000) {
+              const excelEpoch = new Date(Date.UTC(1899, 11, 30));
+              cDate = new Date(excelEpoch.getTime() + numDate * 86400000).toISOString();
+            } else if (isNaN(Date.parse(cDate))) {
+              cDate = null;
+            }
+          }
           let dur = norm.call_duration || '';
           let recUrl = norm.recording_url || '';
           let disp = norm.disposition || '';
@@ -471,7 +484,7 @@ const uploadAssignments = async (req, res, next) => {
         totalInserted += leadRes.rows.length;
       } catch (e) {
         await client.query('ROLLBACK');
-        console.error('Batch insert error', e);
+        console.error('Batch insert error:', e.message, e.detail || '', e.stack);
       } finally {
         client.release();
       }

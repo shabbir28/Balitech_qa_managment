@@ -44,3 +44,12 @@
 [parseFile] delimiter detected as: TAB
 [parseFile] ext: .txt, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1781726039403-386879987.txt
 [parseFile] delimiter detected as: TAB
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782918929941-692334279.xlsx
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782919458226-909966370.xlsx
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782919533200-291667590.xlsx
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782919927876-207976937.xlsx
+[parseFile] ext: .txt, filePath: test_upload.txt
+[parseFile] delimiter detected as: ,
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782920749140-271382109.xlsx
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782921041532-230020915.xlsx
+[parseFile] ext: .xlsx, filePath: C:\Users\shabb\Desktop\qa\backend\uploads\upload-1782921079359-708475443.xlsx
