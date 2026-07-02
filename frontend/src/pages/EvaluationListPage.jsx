@@ -230,6 +230,14 @@ const EvaluationListPage = () => {
                     <p className="text-xs text-rose-400 mb-1">Rejected</p>
                     <p className="text-xl font-bold text-rose-400">{u.rejected}</p>
                   </div>
+                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 transition-colors">
+                    <p className="text-xs text-slate-400 mb-1">Under Buffer</p>
+                    <p className="text-xl font-bold text-white">{u.under_buffer || 0}</p>
+                  </div>
+                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 transition-colors">
+                    <p className="text-xs text-slate-400 mb-1">Fake Sale</p>
+                    <p className="text-xl font-bold text-white">{u.fake_sale || 0}</p>
+                  </div>
                 </div>
               </div>
             ))

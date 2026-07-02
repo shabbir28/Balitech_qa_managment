@@ -197,7 +197,9 @@ const getManagedUsersStats = async (req, res, next) => {
         COUNT(DISTINCT CASE WHEN la.status IN ('pending', 'accepted') THEN la.id END) as pending,
         COUNT(DISTINCT CASE WHEN e.status = 'Pass' THEN e.id END) as accepted,
         COUNT(DISTINCT CASE WHEN e.status = 'Fail' THEN e.id END) as rejected,
-        COUNT(DISTINCT CASE WHEN la.status = 'completed' THEN la.id END) as completed
+        COUNT(DISTINCT CASE WHEN la.status = 'completed' THEN la.id END) as completed,
+        COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Under Buffer' THEN e.id END) as under_buffer,
+        COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Fake Sale' THEN e.id END) as fake_sale
       FROM users u
       JOIN roles r ON u.role_id = r.id
       LEFT JOIN campaigns c ON u.campaign_id = c.id

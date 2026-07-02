@@ -318,20 +318,41 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <input 
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      list="manager-error-category-options"
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                       value={metadata.errorCategory || ''}
                       onChange={e => handleMetadataChange('errorCategory', e.target.value)}
-                      placeholder="Category..."
+                      placeholder="Select or type Category..."
                     />
+                    <datalist id="manager-error-category-options">
+                      <option value="Dnq master" />
+                      <option value="Under Buffer" />
+                      <option value="Fake Sale" />
+                      <option value="Skipping Qualifying Questions" />
+                      <option value="Quoting Money" />
+                      <option value="Falls Statement" />
+                      <option value="Promoising Statement" />
+                      <option value="DNC Customer" />
+                    </datalist>
                   </td>
 
                   <td className="p-3 border-slate-800/50 align-top">
                     <input 
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      list="manager-la-side-error-category-options"
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                       value={metadata.laSideErrorCategory || ''}
                       onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
-                      placeholder="LA Category..."
+                      placeholder="Select or type LA Category..."
                     />
+                    <datalist id="manager-la-side-error-category-options">
+                      <option value="Already in a good plan" />
+                      <option value="No plan Available" />
+                      <option value="Customer become not intrested" />
+                      <option value="call Back arange" />
+                      <option value="call ended in no result" />
+                      <option value="Dnq Customer" />
+                      <option value="Dnc Customer" />
+                    </datalist>
                   </td>
                 </tr>
               </tbody>

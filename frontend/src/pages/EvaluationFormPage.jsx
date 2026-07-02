@@ -51,6 +51,7 @@ const EvaluationFormPage = () => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
+  const [playbackRate, setPlaybackRate] = useState(1);
   const audioRef = useRef(null);
 
   useEffect(() => {
@@ -85,7 +86,7 @@ const EvaluationFormPage = () => {
     try {
       await api.post('/evaluations', {
         call_lead_id: call.id,
-        status: qaStatus === 'Accepted' ? 'Pass' : 'Fail',
+        status: qaStatus === 'Accepted' ? 'Pass' : (qaStatus === 'Flagged' ? 'Flagged' : 'Fail'),
         qa_remarks: metadata.laSideFeedback || 'Evaluated via spreadsheet',
         evaluation_date: evaluationDate,
         metadata: metadata,
@@ -143,9 +144,20 @@ const EvaluationFormPage = () => {
                   onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
                   onEnded={() => setIsPlaying(false)} preload="metadata"
                 />
-                <div className="flex justify-between text-xs text-slate-400 font-bold tracking-wide mb-3">
+                <div className="flex justify-between text-xs text-slate-400 font-bold tracking-wide mb-3 items-center">
                   <span className="text-indigo-400">{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
+                  <div className="flex gap-2 items-center">
+                    <select value={playbackRate} onChange={e => {
+                      const rate = parseFloat(e.target.value);
+                      setPlaybackRate(rate);
+                      if (audioRef.current) audioRef.current.playbackRate = rate;
+                    }} className="bg-slate-800 text-white text-[10px] rounded px-2 py-0.5 outline-none border border-slate-700">
+                      <option value={0.5}>0.5x</option>
+                      <option value={1}>1x</option>
+                      <option value={3}>3x</option>
+                    </select>
+                    <span>{formatTime(duration)}</span>
+                  </div>
                 </div>
                 <div className="relative w-full h-2 bg-slate-800/80 rounded-full overflow-hidden">
                   <div 
@@ -239,17 +251,31 @@ const EvaluationFormPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
                     <select value={metadata.dup} onChange={e => handleMetadataChange('dup', e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center">
                       <option value="">—</option>
-                      <option value="D">D</option>
-                      <option value="ND">ND</option>
+                      {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                        <option key={num} value={num}>{num}</option>
+                      ))}
                     </select>
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                    <select value={metadata.dids} onChange={e => handleMetadataChange('dids', e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center">
-                      <option value="">—</option>
-                      <option value="D">D</option>
-                      <option value="ND">ND</option>
-                    </select>
+                    <input 
+                      list="did-options"
+                      value={metadata.dids} 
+                      onChange={e => handleMetadataChange('dids', e.target.value)} 
+                      placeholder="Select or type..."
+                      className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center placeholder:text-slate-600"
+                    />
+                    <datalist id="did-options">
+                      <option value="D4" />
+                      <option value="D5" />
+                      <option value="D1" />
+                      <option value="D6cpl" />
+                      <option value="Hi" />
+                      <option value="Hi main" />
+                      <option value="D3" />
+                      <option value="Not billable" />
+                      <option value="Decline" />
+                    </datalist>
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
@@ -259,9 +285,10 @@ const EvaluationFormPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <select value={qaStatus} onChange={e => setQaStatus(e.target.value)} className={`w-full bg-slate-950 border text-sm font-bold px-3 py-2 rounded-lg outline-none transition-all focus:ring-1 ${qaStatus === 'Accepted' ? 'text-emerald-400 border-emerald-500/30 focus:border-emerald-500/50 focus:ring-emerald-500/50 bg-emerald-500/5' : 'text-rose-400 border-rose-500/30 focus:border-rose-500/50 focus:ring-rose-500/50 bg-rose-500/5'}`}>
+                    <select value={qaStatus} onChange={e => setQaStatus(e.target.value)} className={`w-full bg-slate-950 border text-sm font-bold px-3 py-2 rounded-lg outline-none transition-all focus:ring-1 ${qaStatus === 'Accepted' ? 'text-emerald-400 border-emerald-500/30 focus:border-emerald-500/50 focus:ring-emerald-500/50 bg-emerald-500/5' : qaStatus === 'Flagged' ? 'text-amber-400 border-amber-500/30 focus:border-amber-500/50 focus:ring-amber-500/50 bg-amber-500/5' : 'text-rose-400 border-rose-500/30 focus:border-rose-500/50 focus:ring-rose-500/50 bg-rose-500/5'}`}>
                       <option value="Accepted">Accepted</option>
                       <option value="Rejected">Rejected</option>
+                      <option value="Flagged">Flagged</option>
                     </select>
                   </td>
 
@@ -310,23 +337,42 @@ const EvaluationFormPage = () => {
                   ))}
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <select value={metadata.errorCategory} onChange={e => handleMetadataChange('errorCategory', e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all">
-                      <option value="">— Select Category —</option>
-                      <option value="Compliance">Compliance</option>
-                      <option value="Scripting">Scripting</option>
-                      <option value="Product Knowledge">Product Knowledge</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <input 
+                      list="error-category-options"
+                      value={metadata.errorCategory} 
+                      onChange={e => handleMetadataChange('errorCategory', e.target.value)} 
+                      placeholder="Select or type category..."
+                      className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                    />
+                    <datalist id="error-category-options">
+                      <option value="DNQ Customer" />
+                      <option value="Under Buffer" />
+                      <option value="Fake Sale" />
+                      <option value="Skipping Qualifying Questions" />
+                      <option value="Quoting Money" />
+                      <option value="Falls Statement" />
+                      <option value="Promoising Statement" />
+                      <option value="DNC Customer" />
+                    </datalist>
                   </td>
 
                   <td className="p-3 border-slate-800/50 align-top">
-                    <select value={metadata.laSideErrorCategory} onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all">
-                      <option value="">— Select Category —</option>
-                      <option value="Missing Information">Missing Information</option>
-                      <option value="Incorrect Entry">Incorrect Entry</option>
-                      <option value="Verification Failed">Verification Failed</option>
-                      <option value="Other">Other</option>
-                    </select>
+                    <input 
+                      list="la-side-error-category-options"
+                      value={metadata.laSideErrorCategory} 
+                      onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} 
+                      placeholder="Select or type LA category..."
+                      className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                    />
+                    <datalist id="la-side-error-category-options">
+                      <option value="Already in a good plan" />
+                      <option value="No plan Available" />
+                      <option value="Customer become not intrested" />
+                      <option value="call Back arange" />
+                      <option value="call ended in no result" />
+                      <option value="DNQ Customer" />
+                      <option value="DNC Customer" />
+                    </datalist>
                   </td>
                 </tr>
               </tbody>
