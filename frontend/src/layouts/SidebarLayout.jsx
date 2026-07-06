@@ -30,6 +30,9 @@ const SidebarLayout = ({ children }) => {
     { name: 'Campaigns',       path: '/campaigns',        icon: Target,          roles: ['Manager'] },
     { name: 'Assign Leads',    path: '/assign-leads',     icon: Send,            roles: ['Manager'] },
 
+    // Dialer
+    { name: 'Dialer',          path: '/dialer',           icon: Phone,           roles: ['Manager', 'User'] },
+
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['User'] },
     { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Manager'] },

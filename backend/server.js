@@ -20,6 +20,7 @@ const rolesRoutes = require('./src/routes/rolesRoutes');
 const campaignRoutes = require('./src/routes/campaignRoutes');
 const teamRoutes = require('./src/routes/teamRoutes');
 const assignmentRoutes = require('./src/routes/assignmentRoutes');
+const dialerRoutes = require('./src/routes/dialerRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -82,6 +83,7 @@ app.use('/api/roles', rolesRoutes);
 app.use('/api/campaigns', campaignRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/assignments', assignmentRoutes);
+app.use('/api/dialer', dialerRoutes);
 
 // ── Error Handling ────────────────────────────────────────────────────
 app.use(notFound);

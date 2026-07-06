@@ -23,6 +23,9 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
 
+import DialerSearchPage from './pages/DialerSearchPage';
+import DialerLeadDetailsPage from './pages/DialerLeadDetailsPage';
+
 function App() {
   return (
     <BrowserRouter>
@@ -106,6 +109,18 @@ function App() {
           <Route path="/campaigns" element={
             <ProtectedRoute roles={['Manager']}>
               <SidebarLayout><CampaignsPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Dialer */}
+          <Route path="/dialer" element={
+            <ProtectedRoute roles={['Manager', 'User']}>
+              <SidebarLayout><DialerSearchPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer/lead/:leadId" element={
+            <ProtectedRoute roles={['Manager', 'User']}>
+              <SidebarLayout><DialerLeadDetailsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
