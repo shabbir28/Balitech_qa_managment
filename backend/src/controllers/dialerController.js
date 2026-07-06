@@ -1,67 +1,67 @@
-// Vicidial Agent API Controller
-// API Docs: agc/api.php (Vicidial Agent API)
-// Requires: vdc_agent_api_access=1 on user AND vdc_agent_api_active=1 in system_settings
+// Vicidial Admin Scraper Controller
+// Uses HTTP Basic Auth to scrape admin_search_lead.php and admin_modify_lead.php
 
-const DIALER_API_URL = process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/agc/api.php';
+const DIALER_BASE    = process.env.DIALER_API_URL && process.env.DIALER_API_URL.includes('.php') 
+  ? process.env.DIALER_API_URL.replace(/\/[^\/]+$/, '') 
+  : (process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/BkLuyT');
 const DIALER_USER    = process.env.DIALER_API_USER || 'CRM_API';
 const DIALER_PASS    = process.env.DIALER_API_PASS || 'test123dssddscc';
-const DIALER_SOURCE  = process.env.DIALER_SOURCE   || 'qa_system';
 const RECORDINGS_BASE = process.env.DIALER_RECORDINGS_URL || 'http://167.235.117.217/RECORDINGS/MP3';
 
-/**
- * Call Vicidial agc/api.php and return parsed pipe-delimited response
- * Response format: KEY: VALUE|KEY2: VALUE2|...
- */
-async function callDialerAPI(params) {
-  const qs = new URLSearchParams({
-    source: DIALER_SOURCE,
-    user: DIALER_USER,
-    pass: DIALER_PASS,
-    ...params,
-  });
-  const url = `${DIALER_API_URL}?${qs.toString()}`;
+const AUTH_HEADER = 'Basic ' + Buffer.from(`${DIALER_USER}:${DIALER_PASS}`).toString('base64');
 
-  const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-  const text = (await res.text()).trim();
-  return text;
+// Helper to fetch HTML
+async function fetchAdminPage(path, method = 'GET', body = null) {
+  const baseUrl = DIALER_BASE.replace(/\/+$/, '');
+  const url = path.startsWith('http') ? path : `${baseUrl}/${path}`;
+  const options = {
+    method,
+    headers: { Authorization: AUTH_HEADER },
+    signal: AbortSignal.timeout(15000),
+  };
+  if (body && method === 'POST') {
+    options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
+    options.body = body;
+  }
+  
+  const res = await fetch(url, options);
+  if (res.status === 401 || res.status === 403) {
+    throw new Error('Authentication failed for Vicidial Admin');
+  }
+  return await res.text();
 }
 
-/**
- * Parse Vicidial pipe-delimited response into array of objects.
- * 
- * lead_search returns rows separated by newline, each row is pipe-separated fields:
- *   lead_id|status|vendor_lead_code|last_local_call_time|phone_number|...
- * The first line contains headers.
- */
-function parseDialerRows(raw) {
-  if (!raw || raw.length === 0) return null;
+// Extract rows from HTML table
+function extractLeadsFromHtml(html) {
+  const leads = [];
+  // Find table rows
+  const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+  if (!rows) return leads;
 
-  // Check for explicit error messages
-  if (raw.startsWith('ERROR:')) return { error: raw };
-
-  const lines = raw.split('\n').map(l => l.trim()).filter(Boolean);
-  if (lines.length === 0) return null;
-
-  // If only one line — might be single key:value block
-  if (lines.length === 1) {
-    const obj = {};
-    const parts = lines[0].split('|');
-    parts.forEach(p => {
-      const [k, ...v] = p.split(':');
-      if (k) obj[k.trim()] = v.join(':').trim();
-    });
-    return obj;
+  for (const rowHtml of rows) {
+    // Only process rows that look like lead results (have lead_id link)
+    if (rowHtml.includes('admin_modify_lead.php?lead_id=')) {
+      const tdMatches = rowHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+      if (tdMatches && tdMatches.length >= 10) {
+        // Clean text helper
+        const clean = (td) => td.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        leads.push({
+          lead_id:    clean(tdMatches[1]),
+          status:     clean(tdMatches[2]),
+          vendor_id:  clean(tdMatches[3]),
+          last_agent: clean(tdMatches[4]),
+          list_id:    clean(tdMatches[5]),
+          phone:      clean(tdMatches[6]),
+          name:       clean(tdMatches[7]),
+          city:       clean(tdMatches[8]),
+          security:   clean(tdMatches[9]),
+          last_call:  clean(tdMatches[10] || ''),
+        });
+      }
+    }
   }
-
-  // Multi-line: first line = headers, rest = data rows
-  const headers = lines[0].split('|').map(h => h.trim());
-  const rows = lines.slice(1).map(line => {
-    const cols = line.split('|');
-    const row = {};
-    headers.forEach((h, i) => { row[h] = (cols[i] || '').trim(); });
-    return row;
-  });
-  return rows;
+  return leads;
 }
 
 // ─── Search lead by phone number ──────────────────────────────────────────────
@@ -72,64 +72,26 @@ exports.searchLead = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
 
-    // Clean phone number — remove spaces, dashes, +1 prefix
     const cleanPhone = phone.replace(/\D/g, '').replace(/^1/, '');
 
-    let raw;
     try {
-      raw = await callDialerAPI({
-        function: 'lead_search',
-        phone_number: cleanPhone,
-        query_fields: 'lead_id,status,vendor_lead_code,last_local_call_time,phone_number,list_id,user,first_name,last_name',
+      console.log('Searching for:', cleanPhone);
+      const body = new URLSearchParams({ phone: cleanPhone, SUBMIT: 'SUBMIT' }).toString();
+      const html = await fetchAdminPage('admin_search_lead.php', 'POST', body);
+      
+      const leads = extractLeadsFromHtml(html);
+      console.log('Extracted leads count:', leads.length);
+      
+      return res.json({
+        success: true,
+        data: { total: leads.length, leads, raw: 'Scraped from admin_search_lead.php' },
       });
-    } catch (fetchErr) {
-      console.error('[Dialer] Network error:', fetchErr.message);
-      return res.status(503).json({
-        success: false,
-        message: 'Dialer server unreachable. Check DIALER_API_URL.',
-        apiError: fetchErr.message,
-      });
+    } catch (err) {
+      if (err.message.includes('Authentication')) {
+         return res.status(403).json({ success: false, message: 'Vicidial Admin Auth Failed. Check DIALER_API_USER and PASS.' });
+      }
+      throw err;
     }
-
-    console.log(`[Dialer] lead_search(${cleanPhone}) raw response length: ${raw?.length ?? 0}`);
-
-    // Empty response = auth failed (vdc_agent_api_access not enabled)
-    if (!raw || raw.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Dialer API access denied. Admin must enable: (1) System Settings → Agent API Active = YES, (2) User CRM_API → Agent API Access = 1.',
-        fix: {
-          step1: 'Admin Panel → Admin → System Settings → Agent API Active = YES → SUBMIT',
-          step2: 'Admin Panel → Admin → Users → CRM_API → Modify → Agent API Access = 1 → SUBMIT',
-        },
-      });
-    }
-
-    const parsed = parseDialerRows(raw);
-
-    if (parsed && parsed.error) {
-      return res.status(400).json({ success: false, message: parsed.error, raw });
-    }
-
-    // Normalize the result into a consistent leads array
-    const leads = Array.isArray(parsed)
-      ? parsed.map(r => ({
-          lead_id:    r.lead_id    || r['lead_id'],
-          status:     r.status     || '',
-          vendor_id:  r.vendor_lead_code || '',
-          last_agent: r.user       || '',
-          list_id:    r.list_id    || '',
-          phone:      r.phone_number || cleanPhone,
-          name:       [r.first_name, r.last_name].filter(Boolean).join(' '),
-          last_call:  r.last_local_call_time || '',
-        }))
-      : [];
-
-    return res.json({
-      success: true,
-      data: { total: leads.length, leads, raw },
-    });
-
   } catch (error) {
     next(error);
   }
@@ -139,55 +101,51 @@ exports.searchLead = async (req, res, next) => {
 exports.getLeadInfo = async (req, res, next) => {
   try {
     const { leadId } = req.params;
+    const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
+    
+    // Extract fields using Regex that handles unquoted attributes
+    const extractField = (name) => {
+      const rx = new RegExp(`name=["']?${name}["']?\\s+[^>]*value=["']?([^"'>\\s]*)["']?`, 'i');
+      const m = html.match(rx);
+      if (!m) {
+        const rx2 = new RegExp(`name=["']?${name}["']?[^>]*value=["']?([^"'>]*)["']?`, 'i');
+        const m2 = html.match(rx2);
+        return m2 ? m2[1].trim() : '';
+      }
+      return m ? m[1].trim() : '';
+    };
 
-    let raw;
-    try {
-      raw = await callDialerAPI({
-        function: 'lead_field_info',
-        lead_id: leadId,
-        query_fields: 'lead_id,list_id,user,called_count,last_local_call_time,phone_number,phone_code,status,vendor_lead_code,first_name,last_name,address1,city,state,postal_code,comments',
-      });
-    } catch (fetchErr) {
-      return res.status(503).json({ success: false, message: 'Dialer server unreachable.', apiError: fetchErr.message });
+    // Special case for status which might be a select
+    let status = extractField('status');
+    if (!status) {
+      const rxSelect = /<select[^>]*name=["']?status["']?[^>]*>([\s\S]*?)<\/select>/gi;
+      const mSelect = rxSelect.exec(html);
+      if (mSelect) {
+        const rxOption = /<option[^>]*selected[^>]*value=["']?([^"'>\s]*)["']?/i;
+        const mOption = mSelect[1].match(rxOption);
+        status = mOption ? mOption[1].trim() : '';
+      }
     }
 
-    console.log(`[Dialer] lead_field_info(${leadId}) raw: ${raw?.length ?? 0} chars`);
+    const data = {
+      lead_id:     leadId,
+      list_id:     extractField('list_id'),
+      user:        extractField('user'),
+      called_count: parseInt(extractField('called_count') || '0'),
+      last_call:   extractField('last_local_call_time'),
+      phone:       extractField('phone_number'),
+      dialcode:    extractField('phone_code') || '1',
+      status:      status,
+      name:        [extractField('first_name'), extractField('last_name')].filter(Boolean).join(' '),
+      address:     extractField('address1'),
+      city:        extractField('city'),
+      state:       extractField('state'),
+      postal_code: extractField('postal_code'),
+      comments:    extractField('comments'),
+      raw: 'Scraped from admin_modify_lead.php'
+    };
 
-    if (!raw || raw.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Dialer API access denied. Admin must enable Agent API Access for CRM_API user.',
-      });
-    }
-
-    const parsed = parseDialerRows(raw);
-    if (parsed && parsed.error) {
-      return res.status(400).json({ success: false, message: parsed.error, raw });
-    }
-
-    const info = Array.isArray(parsed) ? parsed[0] : parsed;
-
-    return res.json({
-      success: true,
-      data: {
-        lead_id:     info?.lead_id    || leadId,
-        list_id:     info?.list_id    || '',
-        user:        info?.user       || '',
-        called_count: parseInt(info?.called_count || '0'),
-        last_call:   info?.last_local_call_time || '',
-        phone:       info?.phone_number || '',
-        dialcode:    info?.phone_code  || '1',
-        status:      info?.status     || '',
-        name:        [info?.first_name, info?.last_name].filter(Boolean).join(' '),
-        address:     info?.address1   || '',
-        city:        info?.city       || '',
-        state:       info?.state      || '',
-        postal_code: info?.postal_code || '',
-        comments:    info?.comments   || '',
-        raw,
-      },
-    });
-
+    return res.json({ success: true, data });
   } catch (error) {
     next(error);
   }
@@ -197,47 +155,40 @@ exports.getLeadInfo = async (req, res, next) => {
 exports.getRecordings = async (req, res, next) => {
   try {
     const { leadId } = req.params;
-
-    let raw;
-    try {
-      raw = await callDialerAPI({
-        function: 'recording_lookup',
-        lead_id: leadId,
-        query_fields: 'lead_id,call_date,length_in_sec,filename,location,user',
+    const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
+    
+    const recordings = [];
+    
+    // Find any hrefs that contain .mp3 or .wav
+    const allLinks = html.match(/href=["']([^"']+)["']/gi);
+    if (allLinks) {
+      allLinks.forEach((linkHtml) => {
+        const urlMatch = linkHtml.match(/href=["']([^"']+)["']/i);
+        if (urlMatch) {
+          let recUrl = urlMatch[1];
+          if (recUrl.toLowerCase().includes('.mp3') || recUrl.toLowerCase().includes('.wav')) {
+            if (recUrl.startsWith('/')) {
+               recUrl = `http://167.235.117.217${recUrl}`;
+            }
+            
+            const filename = recUrl.split('/').pop();
+            // Prevent duplicates
+            if (!recordings.some(r => r.location === recUrl)) {
+              recordings.push({
+                lead_id:  leadId,
+                date:     '', 
+                length:   '0',
+                filename: filename,
+                location: recUrl,
+                tsr:      '',
+              });
+            }
+          }
+        }
       });
-    } catch (fetchErr) {
-      return res.status(503).json({ success: false, message: 'Dialer server unreachable.', apiError: fetchErr.message });
     }
 
-    console.log(`[Dialer] recording_lookup(${leadId}) raw: ${raw?.length ?? 0} chars`);
-
-    if (!raw || raw.length === 0) {
-      return res.status(403).json({
-        success: false,
-        message: 'Dialer API access denied. Admin must enable Agent API Access for CRM_API user.',
-      });
-    }
-
-    const parsed = parseDialerRows(raw);
-    if (parsed && parsed.error) {
-      return res.status(400).json({ success: false, message: parsed.error, raw });
-    }
-
-    const rows = Array.isArray(parsed) ? parsed : (parsed ? [parsed] : []);
-
-    const recordings = rows.map(r => ({
-      lead_id:  r.lead_id  || leadId,
-      date:     r.call_date || r.date || '',
-      length:   r.length_in_sec || r.length || '0',
-      filename: r.filename || '',
-      location: r.location || (r.filename
-        ? `${RECORDINGS_BASE}/${r.filename}-all.mp3`
-        : ''),
-      tsr:      r.user || '',
-    }));
-
-    return res.json({ success: true, data: recordings, raw });
-
+    return res.json({ success: true, data: recordings, raw: 'Scraped from admin_modify_lead.php' });
   } catch (error) {
     next(error);
   }
