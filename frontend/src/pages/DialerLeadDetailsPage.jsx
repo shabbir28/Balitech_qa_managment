@@ -48,9 +48,22 @@ export default function DialerLeadDetailsPage() {
 
 
   const handleEvaluate = async (recording) => {
-    // In a real scenario, we might import this lead into our local DB first.
-    toast.success('Proceeding to evaluate recording: ' + recording.filename);
-    // navigate(`/evaluations/new?dialer_lead=${leadId}&recording_url=${encodeURIComponent(recording.location)}`);
+    try {
+      const toastId = toast.loading('Importing lead for evaluation...');
+      const response = await api.post('/dialer/import-lead', {
+        lead_id: leadId,
+        recording_url: recording.location
+      });
+      toast.dismiss(toastId);
+      
+      if (response.data.success) {
+        toast.success('Ready to evaluate!');
+        navigate(`/evaluations/new?call_id=${response.data.call_id}`);
+      }
+    } catch (error) {
+      console.error('Error importing lead for evaluation:', error);
+      toast.error('Failed to import lead for evaluation');
+    }
   };
 
   if (loading) {
@@ -73,7 +86,7 @@ export default function DialerLeadDetailsPage() {
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
-            onClick={() => navigate('/dialer')}
+            onClick={() => navigate(-1)}
             className="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors"
           >
             <ArrowLeft className="w-5 h-5" />

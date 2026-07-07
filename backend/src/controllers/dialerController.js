@@ -97,55 +97,101 @@ exports.searchLead = async (req, res, next) => {
   }
 };
 
+// Helper to extract lead details from dialer
+async function fetchLeadDetails(leadId) {
+  const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
+  
+  const extractField = (name) => {
+    const rx = new RegExp(`name=["']?${name}["']?\\s+[^>]*value=["']?([^"'>\\s]*)["']?`, 'i');
+    const m = html.match(rx);
+    if (!m) {
+      const rx2 = new RegExp(`name=["']?${name}["']?[^>]*value=["']?([^"'>]*)["']?`, 'i');
+      const m2 = html.match(rx2);
+      return m2 ? m2[1].trim() : '';
+    }
+    return m ? m[1].trim() : '';
+  };
+
+  let status = extractField('status');
+  if (!status) {
+    const rxSelect = /<select[^>]*name=["']?status["']?[^>]*>([\s\S]*?)<\/select>/gi;
+    const mSelect = rxSelect.exec(html);
+    if (mSelect) {
+      const rxOption = /<option[^>]*selected[^>]*value=["']?([^"'>\s]*)["']?/i;
+      const mOption = mSelect[1].match(rxOption);
+      status = mOption ? mOption[1].trim() : '';
+    }
+  }
+
+  return {
+    lead_id:     leadId,
+    list_id:     extractField('list_id'),
+    user:        extractField('user'),
+    called_count: parseInt(extractField('called_count') || '0'),
+    last_call:   extractField('last_local_call_time'),
+    phone:       extractField('phone_number'),
+    dialcode:    extractField('phone_code') || '1',
+    status:      status,
+    name:        [extractField('first_name'), extractField('last_name')].filter(Boolean).join(' '),
+    address:     extractField('address1'),
+    city:        extractField('city'),
+    state:       extractField('state'),
+    postal_code: extractField('postal_code'),
+    comments:    extractField('comments'),
+    raw: 'Scraped from admin_modify_lead.php'
+  };
+}
+
 // ─── Get detailed info for a specific lead ────────────────────────────────────
 exports.getLeadInfo = async (req, res, next) => {
   try {
     const { leadId } = req.params;
-    const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
-    
-    // Extract fields using Regex that handles unquoted attributes
-    const extractField = (name) => {
-      const rx = new RegExp(`name=["']?${name}["']?\\s+[^>]*value=["']?([^"'>\\s]*)["']?`, 'i');
-      const m = html.match(rx);
-      if (!m) {
-        const rx2 = new RegExp(`name=["']?${name}["']?[^>]*value=["']?([^"'>]*)["']?`, 'i');
-        const m2 = html.match(rx2);
-        return m2 ? m2[1].trim() : '';
-      }
-      return m ? m[1].trim() : '';
-    };
+    const data = await fetchLeadDetails(leadId);
+    return res.json({ success: true, data });
+  } catch (error) {
+    next(error);
+  }
+};
 
-    // Special case for status which might be a select
-    let status = extractField('status');
-    if (!status) {
-      const rxSelect = /<select[^>]*name=["']?status["']?[^>]*>([\s\S]*?)<\/select>/gi;
-      const mSelect = rxSelect.exec(html);
-      if (mSelect) {
-        const rxOption = /<option[^>]*selected[^>]*value=["']?([^"'>\s]*)["']?/i;
-        const mOption = mSelect[1].match(rxOption);
-        status = mOption ? mOption[1].trim() : '';
-      }
+// ─── Import lead into local DB for evaluation ─────────────────────────────────
+const { query } = require('../config/database');
+
+exports.importLeadForEval = async (req, res, next) => {
+  try {
+    const { lead_id, recording_url } = req.body;
+    if (!lead_id || !recording_url) {
+      return res.status(400).json({ success: false, message: 'lead_id and recording_url are required' });
     }
 
-    const data = {
-      lead_id:     leadId,
-      list_id:     extractField('list_id'),
-      user:        extractField('user'),
-      called_count: parseInt(extractField('called_count') || '0'),
-      last_call:   extractField('last_local_call_time'),
-      phone:       extractField('phone_number'),
-      dialcode:    extractField('phone_code') || '1',
-      status:      status,
-      name:        [extractField('first_name'), extractField('last_name')].filter(Boolean).join(' '),
-      address:     extractField('address1'),
-      city:        extractField('city'),
-      state:       extractField('state'),
-      postal_code: extractField('postal_code'),
-      comments:    extractField('comments'),
-      raw: 'Scraped from admin_modify_lead.php'
-    };
+    // Check if already imported by recording_url
+    const existing = await query('SELECT id FROM call_leads WHERE recording_url = $1 AND is_deleted = FALSE LIMIT 1', [recording_url]);
+    if (existing.rows.length > 0) {
+      return res.json({ success: true, call_id: existing.rows[0].id });
+    }
 
-    return res.json({ success: true, data });
+    // Fetch details from dialer
+    const lead = await fetchLeadDetails(lead_id);
+
+    // Default call_date fallback
+    let callDate = lead.last_call ? new Date(lead.last_call) : new Date();
+    if (isNaN(callDate)) callDate = new Date();
+
+    const insertRes = await query(
+      `INSERT INTO call_leads (agent_name, agent_id, campaign_name, customer_name, customer_phone, call_date, recording_url, disposition) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      [
+        lead.user || 'Unknown', 
+        lead.user || 'Unknown', 
+        'Dialer Campaign', 
+        lead.name || 'Unknown', 
+        lead.phone || 'Unknown', 
+        callDate.toISOString(), 
+        recording_url, 
+        lead.status || 'NEW'
+      ]
+    );
+
+    return res.json({ success: true, call_id: insertRes.rows[0].id });
   } catch (error) {
     next(error);
   }
@@ -169,6 +215,10 @@ exports.getRecordings = async (req, res, next) => {
           if (recUrl.toLowerCase().includes('.mp3') || recUrl.toLowerCase().includes('.wav')) {
             if (recUrl.startsWith('/')) {
                recUrl = `http://167.235.117.217${recUrl}`;
+            }
+            // Fix https to http for IP addresses to avoid ERR_CERT_COMMON_NAME_INVALID
+            if (recUrl.startsWith('https://') && /\d+\.\d+\.\d+\.\d+/.test(recUrl)) {
+               recUrl = recUrl.replace('https://', 'http://');
             }
             
             const filename = recUrl.split('/').pop();

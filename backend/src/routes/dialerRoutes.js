@@ -12,4 +12,7 @@ router.get('/recordings/:leadId', authenticate, dialerController.getRecordings);
 // Route to get lead info
 router.get('/lead/:leadId', authenticate, dialerController.getLeadInfo);
 
+// Route to import lead into local DB for evaluation
+router.post('/import-lead', authenticate, dialerController.importLeadForEval);
+
 module.exports = router;

@@ -1,20 +1,22 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Phone, User, Activity, Hash, ChevronRight, AlertTriangle, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 
 export default function DialerSearchPage() {
-  const [phone, setPhone]       = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const initialPhone = searchParams.get('phone') || '';
+  
+  const [phone, setPhone]       = useState(initialPhone);
   const [leads, setLeads]       = useState([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState(null);
   const navigate = useNavigate();
 
-  const handleSearch = async (e) => {
-    e.preventDefault();
-    if (!phone.trim()) {
+  const performSearch = async (searchPhone) => {
+    if (!searchPhone.trim()) {
       toast.error('Please enter a phone number');
       return;
     }
@@ -24,7 +26,7 @@ export default function DialerSearchPage() {
     setSearched(false);
 
     try {
-      const response = await api.get(`/dialer/search?phone=${encodeURIComponent(phone)}`);
+      const response = await api.get(`/dialer/search?phone=${encodeURIComponent(searchPhone)}`);
       if (response.data.success) {
         setLeads(response.data.data.leads || []);
         setSearched(true);
@@ -54,6 +56,19 @@ export default function DialerSearchPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (initialPhone && !searched && leads.length === 0) {
+      performSearch(initialPhone);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const handleSearch = async (e) => {
+    e.preventDefault();
+    setSearchParams({ phone });
+    await performSearch(phone);
   };
 
   return (
