@@ -194,8 +194,8 @@ const getManagedUsersStats = async (req, res, next) => {
     const result = await query(`
       SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id, c.name as user_campaign_name,
         COUNT(DISTINCT la.id) as total_assigned,
-        COUNT(DISTINCT CASE WHEN la.status IN ('pending', 'accepted') THEN la.id END) as pending,
-        COUNT(DISTINCT CASE WHEN e.status = 'Pass' THEN e.id END) as accepted,
+        COUNT(DISTINCT CASE WHEN la.status = 'pending' THEN la.id END) as pending,
+        COUNT(DISTINCT CASE WHEN la.status = 'accepted' THEN la.id END) as accepted,
         COUNT(DISTINCT CASE WHEN e.status = 'Fail' THEN e.id END) as rejected,
         COUNT(DISTINCT CASE WHEN la.status = 'completed' THEN la.id END) as completed,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Under Buffer' THEN e.id END) as under_buffer,

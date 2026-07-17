@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -95,7 +95,7 @@ const EvaluationListPage = () => {
     api.get('/campaigns').then(res => setCampaigns(res.data.data)).catch(() => {});
   }, []);
 
-  const fetchManagedUsers = async () => {
+  const fetchManagedUsers = useCallback(async () => {
     setLoadingUsers(true);
     try {
       const res = await api.get('/users/managed-stats', { params: filters });
@@ -105,12 +105,11 @@ const EvaluationListPage = () => {
     } finally {
       setLoadingUsers(false);
     }
-  };
+  }, [filters]);
 
   useEffect(() => {
     fetchManagedUsers();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filters]);
+  }, [fetchManagedUsers]);
 
   const openUserActivity = async (u, defaultFilter = 'all') => {
     setSelectedUser(u);

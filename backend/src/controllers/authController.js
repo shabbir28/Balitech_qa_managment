@@ -121,7 +121,7 @@ const getMe = async (req, res, next) => {
        FROM users u 
        JOIN roles r ON u.role_id = r.id
        LEFT JOIN campaigns c ON u.campaign_id = c.id
-       WHERE u.id = $1`,
+       WHERE u.id = $1 AND u.deleted_at IS NULL`,
       [req.user.id]
     );
 

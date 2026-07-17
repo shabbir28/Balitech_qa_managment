@@ -59,14 +59,20 @@ const getMyFeedback = async (req, res, next) => {
     const { page = 1, limit = 10 } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
 
-    let agentId = req.user.agent_id;
-    if (!agentId) {
-      return res.status(400).json({ success: false, message: 'No agent ID associated with your account.' });
-    }
+    // Support both agent_id-based (legacy) and user_id-based feedback lookup
+    const agentId = req.user.agent_id;
+    const userId = req.user.id;
+
+    const whereClause = agentId
+      ? '(f.agent_id = $1 OR f.agent_user_id = $2)'
+      : 'f.agent_user_id = $1';
+    const countParams = agentId ? [agentId, userId] : [userId];
+    const queryParams = agentId ? [agentId, userId, parseInt(limit), offset] : [userId, parseInt(limit), offset];
+    const limitIdx = agentId ? 3 : 2;
 
     const countResult = await query(
-      'SELECT COUNT(*) FROM feedback WHERE agent_id = $1',
-      [agentId]
+      `SELECT COUNT(*) FROM feedback f WHERE ${whereClause}`,
+      countParams
     );
     const total = parseInt(countResult.rows[0].count);
 
@@ -76,17 +82,17 @@ const getMyFeedback = async (req, res, next) => {
               qe.compliance_score, qe.communication_score, qe.closing_score, qe.call_handling_score
        FROM feedback f
        JOIN qa_evaluations qe ON f.evaluation_id = qe.id
-       WHERE f.agent_id = $1
+       WHERE ${whereClause}
        ORDER BY f.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [agentId, parseInt(limit), offset]
+       LIMIT $${limitIdx} OFFSET $${limitIdx + 1}`,
+      queryParams
     );
 
     // Mark as viewed if Pending
     await query(
       `UPDATE feedback SET feedback_status = 'Viewed by Agent', updated_at = NOW()
-       WHERE agent_id = $1 AND feedback_status = 'Pending'`,
-      [agentId]
+       WHERE ${whereClause} AND feedback_status = 'Pending'`,
+      countParams
     );
 
     res.json({
@@ -150,14 +156,23 @@ const getFeedbackById = async (req, res, next) => {
  */
 const acknowledgeFeedback = async (req, res, next) => {
   try {
+    // Support both agent_id and agent_user_id matching
+    const agentId = req.user.agent_id;
+    const userId = req.user.id;
+
+    const whereClause = agentId
+      ? 'id = $1 AND (agent_id = $2 OR agent_user_id = $3)'
+      : 'id = $1 AND agent_user_id = $2';
+    const params = agentId ? [req.params.id, agentId, userId] : [req.params.id, userId];
+
     const result = await query(
       `UPDATE feedback SET
         feedback_status = 'Acknowledged by Agent',
         acknowledged_at = NOW(),
         updated_at = NOW()
-       WHERE id = $1 AND agent_id = $2
+       WHERE ${whereClause}
        RETURNING *`,
-      [req.params.id, req.user.agent_id]
+      params
     );
 
     if (result.rows.length === 0) {

@@ -1,5 +1,7 @@
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 const { query } = require('../config/database');
+const { parseFile, normalizeRow } = require('./callController');
 
 /* ─── TEAMS ─────────────────────────────────────────────────────────── */
 
@@ -164,14 +166,15 @@ const getAssignments = async (req, res, next) => {
     const countJoin = (role !== 'Manager' && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
     const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
-    
-    let countParams = role !== 'Manager' ? [req.user.id] : [req.user.id];
-    let countWhere = role !== 'Manager' ? 'WHERE assigned_to = $1' : 'WHERE assigned_by = $1';
+
+    // Build stats params independently (simpler base filter)
+    const statsParams = role !== 'Manager' ? [req.user.id] : [req.user.id];
+    let statsWhere = role !== 'Manager' ? 'WHERE la.assigned_to = $1' : 'WHERE la.assigned_by = $1';
     if (role === 'Manager' && user_id) {
-      countWhere += ' AND assigned_to = $2';
-      countParams.push(user_id);
+      statsWhere += ' AND la.assigned_to = $2';
+      statsParams.push(user_id);
     }
-    
+
     const statsResult = await query(`
       SELECT 
         COUNT(la.*) as total,
@@ -183,8 +186,9 @@ const getAssignments = async (req, res, next) => {
         COUNT(CASE WHEN e.status = 'Fail' THEN 1 END) as eval_rejected
       FROM lead_assignments la
       LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
-      ${countWhere.replace('WHERE', 'WHERE la.')}
-    `, countParams);
+      ${statsWhere}
+    `, statsParams);
+
 
     params.push(parseInt(limit));
     params.push(offset);
@@ -381,9 +385,6 @@ const createManagedUser = async (req, res, next) => {
     res.status(201).json({ success: true, data: result.rows[0], message: 'User created successfully.' });
   } catch (err) { next(err); }
 };
-
-const fs = require('fs');
-const { parseFile, normalizeRow } = require('./callController');
 
 /**
  * POST /api/assignments/upload

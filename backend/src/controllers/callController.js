@@ -9,57 +9,47 @@ const csv = require('csv-parser');
  * Parse uploaded Excel/CSV/TXT file and return rows array
  */
 
-const parseFile = (filePath) => {
-  return new Promise(async (resolve, reject) => {
-    try {
-      const ext = path.extname(filePath).toLowerCase();
-      fs.appendFileSync('debug.log', `[parseFile] ext: ${ext}, filePath: ${filePath}\n`);
-      if (ext === '.csv' || ext === '.txt') {
-        const results = [];
-        
-        // Auto-detect delimiter
-        const firstLine = await new Promise((res, rej) => {
-          const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
-          let data = '';
-          stream.on('data', chunk => {
-            data += chunk;
-            const newlineIdx = data.indexOf('\n');
-            if (newlineIdx !== -1) {
-              stream.destroy();
-              res(data.substring(0, newlineIdx));
-            }
-          });
-          stream.on('end', () => res(data));
-          stream.on('error', rej);
-        });
-        
-        let separator = ',';
-        if (firstLine.includes('\t') && (!firstLine.includes(',') || firstLine.split('\t').length > firstLine.split(',').length)) {
-          separator = '\t';
-        } else if (firstLine.includes(';') && (!firstLine.includes(',') || firstLine.split(';').length > firstLine.split(',').length)) {
-          separator = ';';
-        }
-        fs.appendFileSync('debug.log', `[parseFile] delimiter detected as: ${separator === '\t' ? 'TAB' : separator}\n`);
+const parseFile = async (filePath) => {
+  const ext = path.extname(filePath).toLowerCase();
+  if (ext === '.csv' || ext === '.txt') {
+    const results = [];
 
-        fs.createReadStream(filePath)
-          .pipe(csv({ separator }))
-          .on('data', (data) => results.push(data))
-          .on('end', () => resolve(results))
-          .on('error', (err) => {
-            fs.appendFileSync('debug.log', `[parseFile] stream error: ${err.message}\n`);
-            reject(err);
-          });
-      } else {
-        const workbook = XLSX.readFile(filePath);
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        resolve(XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false }));
-      }
-    } catch (err) {
-      fs.appendFileSync('debug.log', `[parseFile] fatal error: ${err.message}\n`);
-      reject(err);
+    // Auto-detect delimiter from first line
+    const firstLine = await new Promise((res, rej) => {
+      const stream = fs.createReadStream(filePath, { encoding: 'utf8' });
+      let data = '';
+      stream.on('data', chunk => {
+        data += chunk;
+        const newlineIdx = data.indexOf('\n');
+        if (newlineIdx !== -1) {
+          stream.destroy();
+          res(data.substring(0, newlineIdx));
+        }
+      });
+      stream.on('end', () => res(data));
+      stream.on('error', rej);
+    });
+
+    let separator = ',';
+    if (firstLine.includes('\t') && (!firstLine.includes(',') || firstLine.split('\t').length > firstLine.split(',').length)) {
+      separator = '\t';
+    } else if (firstLine.includes(';') && (!firstLine.includes(',') || firstLine.split(';').length > firstLine.split(',').length)) {
+      separator = ';';
     }
-  });
+
+    return new Promise((resolve, reject) => {
+      fs.createReadStream(filePath)
+        .pipe(csv({ separator }))
+        .on('data', (data) => results.push(data))
+        .on('end', () => resolve(results))
+        .on('error', reject);
+    });
+  } else {
+    const workbook = XLSX.readFile(filePath);
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    return XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+  }
 };
 
 /**
@@ -205,14 +195,19 @@ const uploadCalls = async (req, res, next) => {
       errors: errors.slice(0, 20),
     });
   } catch (error) {
-    fs.appendFileSync('debug.log', `[DEBUG] OUTER CATCH FATAL ERROR: ${error.stack}\n`);
+    // Mark batch as failed if batchId was created
+    try {
+      const batchIdMatch = error.__batchId;
+      if (batchIdMatch) {
+        await client.query(
+          `UPDATE upload_batches SET status = 'failed', updated_at = NOW() WHERE id = $1`,
+          [batchIdMatch]
+        );
+      }
+    } catch (_) { /* ignore secondary errors */ }
     next(error);
   } finally {
     client.release();
-    // Clean up uploaded file
-    if (req.file && fs.existsSync(req.file.path)) {
-      // Keep file for audit, or delete: fs.unlinkSync(req.file.path);
-    }
   }
 };
 

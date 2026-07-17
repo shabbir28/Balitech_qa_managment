@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Phone, ClipboardCheck, AlertTriangle,
   MessageSquare, LogOut, Menu, X, Target,
-  UsersRound, Send, ClipboardList
+  UsersRound, Send, ClipboardList, Users2
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
@@ -27,6 +27,7 @@ const SidebarLayout = ({ children }) => {
 
     // Manager section
     { name: 'My Team',         path: '/users',            icon: UsersRound,      roles: ['Manager'] },
+    { name: 'Teams',           path: '/teams',            icon: Users2,          roles: ['Manager'] },
     { name: 'Campaigns',       path: '/campaigns',        icon: Target,          roles: ['Manager'] },
     { name: 'Assign Leads',    path: '/assign-leads',     icon: Send,            roles: ['Manager'] },
 

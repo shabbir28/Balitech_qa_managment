@@ -1,8 +1,10 @@
 // Vicidial Admin Scraper Controller
 // Uses HTTP Basic Auth to scrape admin_search_lead.php and admin_modify_lead.php
 
-const DIALER_BASE    = process.env.DIALER_API_URL && process.env.DIALER_API_URL.includes('.php') 
-  ? process.env.DIALER_API_URL.replace(/\/[^\/]+$/, '') 
+const { query } = require('../config/database');
+
+const DIALER_BASE    = process.env.DIALER_API_URL && process.env.DIALER_API_URL.includes('.php')
+  ? process.env.DIALER_API_URL.replace(/\/[^\/]+$/, '')
   : (process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/BkLuyT');
 const DIALER_USER    = process.env.DIALER_API_USER || 'CRM_API';
 const DIALER_PASS    = process.env.DIALER_API_PASS || 'test123dssddscc';
@@ -152,9 +154,6 @@ exports.getLeadInfo = async (req, res, next) => {
     next(error);
   }
 };
-
-// ─── Import lead into local DB for evaluation ─────────────────────────────────
-const { query } = require('../config/database');
 
 exports.importLeadForEval = async (req, res, next) => {
   try {

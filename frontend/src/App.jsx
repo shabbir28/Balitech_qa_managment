@@ -25,6 +25,7 @@ import MyAssignmentsPage from './pages/MyAssignmentsPage';
 
 import DialerSearchPage from './pages/DialerSearchPage';
 import DialerLeadDetailsPage from './pages/DialerLeadDetailsPage';
+import TeamsPage from './pages/TeamsPage';
 
 function App() {
   return (
@@ -142,6 +143,13 @@ function App() {
           <Route path="/users" element={
             <ProtectedRoute roles={['Manager']}>
               <SidebarLayout><UserManagementPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Teams */}
+          <Route path="/teams" element={
+            <ProtectedRoute roles={['Manager']}>
+              <SidebarLayout><TeamsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 

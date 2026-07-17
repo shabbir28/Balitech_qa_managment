@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, Pagination, Badge, ScoreBar } from '../components/ui';
@@ -15,7 +15,7 @@ const MyFeedbackPage = () => {
   const [acknowledging, setAcknowledging] = useState(false);
   const { user } = useAuth();
 
-  const fetchFeedback = async () => {
+  const fetchFeedback = useCallback(async () => {
     try {
       const res = await api.get('/feedback/my-feedback', { params: { page, limit: 10 } });
       setFeedback(res.data.data);
@@ -25,12 +25,11 @@ const MyFeedbackPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page]);
 
   useEffect(() => {
     fetchFeedback();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [fetchFeedback]);
 
   const loadDetail = async (id) => {
     try {

@@ -8,10 +8,14 @@ const getDashboardStats = async (req, res, next) => {
     const isUser = req.user.role === 'User';
     const userId = req.user.id;
 
-    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND agent_id = $1` : `WHERE is_deleted = FALSE`;
+    // For Users: filter evaluations by who performed them (evaluated_by), not agent_id
+    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1` : `WHERE is_deleted = FALSE`;
+    const callLeadsWhere = isUser ? `WHERE is_deleted = FALSE AND batch_id IN (SELECT DISTINCT batch_id FROM qa_evaluations WHERE evaluated_by = $1 AND is_deleted = FALSE)` : `WHERE is_deleted = FALSE`;
     const params = isUser ? [userId] : [];
 
-    const callLeadsQuery = isUser ? `SELECT COUNT(*) FROM call_leads ${baseWhere}` : `SELECT COUNT(*) FROM call_leads WHERE is_deleted = FALSE`;
+    const callLeadsQuery = isUser
+      ? `SELECT COUNT(*) FROM call_leads ${callLeadsWhere}`
+      : `SELECT COUNT(*) FROM call_leads WHERE is_deleted = FALSE`;
 
     const [
       totalCalls,
@@ -28,14 +32,14 @@ const getDashboardStats = async (req, res, next) => {
       query(`SELECT COALESCE(ROUND(AVG(total_score)::numeric, 2), 0) as avg FROM qa_evaluations ${baseWhere}`, params),
       query(`SELECT COUNT(*) FROM qa_evaluations ${baseWhere} AND status = 'Pass'`, params),
       query(`SELECT COUNT(*) FROM qa_evaluations ${baseWhere} AND status = 'Fail'`, params),
-      query(isUser 
-        ? `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.agent_id = $1 AND qe.is_deleted = FALSE`
+      query(isUser
+        ? `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE`
         : `SELECT COUNT(*) FROM evaluation_critical_errors`, params),
-      query(isUser 
-        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND agent_id = $1` 
+      query(isUser
+        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND agent_user_id = $1`
         : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending'`, params),
-      query(isUser 
-        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND agent_id = $1` 
+      query(isUser
+        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND agent_user_id = $1`
         : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent'`, params),
     ]);
 
@@ -64,7 +68,8 @@ const getDashboardCharts = async (req, res, next) => {
   try {
     const isUser = req.user.role === 'User';
     const userId = req.user.id;
-    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND agent_id = $1` : `WHERE is_deleted = FALSE`;
+    // For Users: filter evaluations by who performed them (evaluated_by)
+    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1` : `WHERE is_deleted = FALSE`;
     const params = isUser ? [userId] : [];
 
     // Agent-wise QA Score (top 10) - Only relevant for Managers
@@ -98,11 +103,11 @@ const getDashboardCharts = async (req, res, next) => {
     );
 
     // Critical Error Summary
-    const criticalErrorSummaryQuery = isUser 
+    const criticalErrorSummaryQuery = isUser
       ? `SELECT ece.error_type, ece.severity, COUNT(*) as count
          FROM evaluation_critical_errors ece
          JOIN qa_evaluations qe ON ece.evaluation_id = qe.id
-         WHERE qe.agent_id = $1 AND qe.is_deleted = FALSE
+         WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE
          GROUP BY ece.error_type, ece.severity
          ORDER BY count DESC
          LIMIT 10`

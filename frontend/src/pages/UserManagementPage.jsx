@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, Pagination, Badge, ConfirmModal } from '../components/ui';
@@ -91,7 +91,7 @@ const UserManagementPage = () => {
   const [loadingAssignments, setLoadingAssignments] = useState(false);
   const [audioAssignment, setAudioAssignment] = useState(null);
 
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const [usersRes, rolesRes, campaignsRes] = await Promise.all([
         api.get('/users', { params: { page, limit: 20, search } }),
@@ -107,12 +107,11 @@ const UserManagementPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, search]);
 
   useEffect(() => {
     fetchData();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, search]);
+  }, [fetchData]);
 
   const openCreate = () => {
     setForm({ name: '', email: '', password: '', role_id: 2, phone: '', campaign_id: '' });

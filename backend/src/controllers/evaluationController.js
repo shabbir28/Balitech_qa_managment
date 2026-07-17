@@ -203,8 +203,7 @@ const getEvaluations = async (req, res, next) => {
       pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
     });
   } catch (error) {
-    console.error("GET EVALUATIONS ERROR:", error);
-    res.status(500).json({ success: false, message: error.message, stack: error.stack });
+    next(error);
   }
 };
 

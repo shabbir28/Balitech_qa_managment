@@ -154,6 +154,8 @@ const EvaluationFormPage = () => {
                     }} className="bg-slate-800 text-white text-[10px] rounded px-2 py-0.5 outline-none border border-slate-700">
                       <option value={0.5}>0.5x</option>
                       <option value={1}>1x</option>
+                      <option value={1.5}>1.5x</option>
+                      <option value={2}>2x</option>
                       <option value={3}>3x</option>
                     </select>
                     <span>{formatTime(duration)}</span>

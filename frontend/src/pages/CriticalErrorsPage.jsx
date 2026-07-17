@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, ConfirmModal } from '../components/ui';
@@ -13,7 +13,7 @@ const CriticalErrorsPage = () => {
   const [form, setForm] = useState({ error_type: '', description: '', severity: 'High' });
   const [saving, setSaving] = useState(false);
 
-  const fetchErrors = async () => {
+  const fetchErrors = useCallback(async () => {
     try {
       const res = await api.get('/critical-errors');
       setErrors(res.data.data);
@@ -22,11 +22,11 @@ const CriticalErrorsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchErrors();
-  }, []);
+  }, [fetchErrors]);
 
   const openCreate = () => { setForm({ error_type: '', description: '', severity: 'High' }); setEditItem(null); setShowForm(true); };
   const openEdit = (err) => { setForm({ error_type: err.error_type, description: err.description || '', severity: err.severity }); setEditItem(err); setShowForm(true); };

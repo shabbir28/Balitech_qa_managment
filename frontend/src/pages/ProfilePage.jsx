@@ -286,9 +286,8 @@ const ProfilePage = () => {
             </div>
           </div>
 
-          {/* Change Password */}
-          {user?.role !== 'User' && user?.role !== 'Agent' && (
-            <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl hover:border-white/[0.10] transition-all duration-300">
+          {/* Change Password — available to all roles */}
+          <div className="bg-[#0d1117] border border-white/[0.06] rounded-2xl hover:border-white/[0.10] transition-all duration-300">
               <div className="px-6 py-5 border-b border-white/[0.05] flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
                   <Lock className="w-4 h-4" />
@@ -339,7 +338,6 @@ const ProfilePage = () => {
                 </form>
               </div>
             </div>
-          )}
           </div>
         </div>
       )}

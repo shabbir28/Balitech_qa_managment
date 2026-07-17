@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState } from '../components/ui';
@@ -12,7 +12,7 @@ const CampaignsPage = () => {
   const [form, setForm] = useState({ name: '', description: '', passing_score: 80, client_name: '' });
   const [saving, setSaving] = useState(false);
 
-  const fetchCampaigns = async () => {
+  const fetchCampaigns = useCallback(async () => {
     try {
       const res = await api.get('/campaigns');
       setCampaigns(res.data.data);
@@ -21,11 +21,11 @@ const CampaignsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchCampaigns();
-  }, []);
+  }, [fetchCampaigns]);
 
   const handleSave = async (e) => {
     e.preventDefault();
