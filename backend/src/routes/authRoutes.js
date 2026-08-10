@@ -4,7 +4,7 @@ const { login, register, getMe, updateProfile, changePassword } = require('../co
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.post('/login', login);
-router.post('/register', authenticate, authorize('Manager'), register);
+router.post('/register', authenticate, authorize('Super Admin'), register);
 router.get('/me', authenticate, getMe);
 router.put('/profile', authenticate, updateProfile);
 router.put('/change-password', authenticate, changePassword);

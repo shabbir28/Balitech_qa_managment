@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, Pagination, Badge, ConfirmModal } from '../components/ui';
 import { Users, Search, Plus, Edit2, Trash2, X, Save, Key, ClipboardList, Clock, CheckCircle, XCircle, Play, Pause, Volume2, SkipBack, SkipForward, Shield, UserPlus, User } from 'lucide-react';
@@ -70,6 +71,8 @@ const AudioModal = ({ url, phone, onClose }) => {
 
 
 const UserManagementPage = () => {
+  const { hasRole } = useAuth();
+  const canManageUsers = hasRole('Super Admin');
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
   const [campaigns, setCampaigns] = useState([]);
@@ -194,11 +197,13 @@ const UserManagementPage = () => {
       <div className="flex items-center justify-between mb-8">
         <div>
           <h1 className="page-title">My Team</h1>
-          <p className="page-subtitle">Create and manage your team members</p>
+          <p className="page-subtitle">View and manage your team members</p>
         </div>
-        <button onClick={openCreate} className="btn-primary">
-          <Plus size={16} /> Add User
-        </button>
+        {canManageUsers && (
+          <button onClick={openCreate} className="btn-primary">
+            <Plus size={16} /> Add User
+          </button>
+        )}
       </div>
 
       <div className="card p-5 mb-6">
@@ -244,15 +249,19 @@ const UserManagementPage = () => {
                           <button onClick={() => openActivity(user)} className="p-2 rounded-lg text-indigo-400 hover:bg-indigo-500/10 transition-all" title="Activity">
                             <ClipboardList size={16} />
                           </button>
-                          <button onClick={() => openEdit(user)} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Edit">
-                            <Edit2 size={16} />
-                          </button>
-                          <button onClick={() => { setResetId(user.id); setNewPw(''); }} className="p-2 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-all" title="Reset Password">
-                            <Key size={16} />
-                          </button>
-                          <button onClick={() => setDeleteId(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all" title="Delete">
-                            <Trash2 size={16} />
-                          </button>
+                          {canManageUsers && (
+                            <>
+                              <button onClick={() => openEdit(user)} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all" title="Edit">
+                                <Edit2 size={16} />
+                              </button>
+                              <button onClick={() => { setResetId(user.id); setNewPw(''); }} className="p-2 rounded-lg text-amber-500 hover:bg-amber-500/10 transition-all" title="Reset Password">
+                                <Key size={16} />
+                              </button>
+                              <button onClick={() => setDeleteId(user.id)} className="p-2 rounded-lg text-rose-500 hover:bg-rose-500/10 transition-all" title="Delete">
+                                <Trash2 size={16} />
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>

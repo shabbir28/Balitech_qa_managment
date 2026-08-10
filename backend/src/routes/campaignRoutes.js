@@ -4,6 +4,6 @@ const { getCampaigns, createCampaign } = require('../controllers/userController'
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.get('/', authenticate, getCampaigns);
-router.post('/', authenticate, authorize('Manager'), createCampaign);
+router.post('/', authenticate, authorize('Super Admin', 'QA Admin'), createCampaign);
 
 module.exports = router;

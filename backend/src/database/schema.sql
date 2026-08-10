@@ -276,8 +276,9 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- Insert Roles
 INSERT INTO roles (name, description) VALUES
-  ('Manager', 'Full system access - manage everything'),
-  ('User', 'View own data and perform basic tasks');
+  ('Super Admin', 'Full system access - manage everything'),
+  ('QA Agent', 'View own data and perform basic tasks'),
+  ('QA Admin', 'System access but cannot add/manage users');
 
 -- Insert Manager (password: Admin@123)
 INSERT INTO users (name, email, password, role_id, department) VALUES

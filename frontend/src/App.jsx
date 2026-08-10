@@ -22,10 +22,11 @@ import UnauthorizedPage from './pages/UnauthorizedPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
+import TransferQAPage from './pages/TransferQAPage';
 
 import DialerSearchPage from './pages/DialerSearchPage';
 import DialerLeadDetailsPage from './pages/DialerLeadDetailsPage';
-import TeamsPage from './pages/TeamsPage';
+
 
 function App() {
   return (
@@ -59,48 +60,48 @@ function App() {
 
           {/* Calls */}
           <Route path="/calls/upload" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><CallUploadPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/calls" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><CallListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Evaluations */}
           <Route path="/evaluations/new" element={
-            <ProtectedRoute roles={['Manager', 'User']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><EvaluationFormPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations" element={
-            <ProtectedRoute roles={['Manager', 'User']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><EvaluationListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/evaluations/view/:id" element={
-            <ProtectedRoute roles={['Manager', 'User']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><ManagerEvaluationViewPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Critical Errors */}
           <Route path="/critical-errors" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><CriticalErrorsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Feedback */}
           <Route path="/feedback" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><FeedbackListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/my-feedback" element={
-            <ProtectedRoute roles={['User']}>
+            <ProtectedRoute roles={['QA Agent']}>
               <SidebarLayout><MyFeedbackPage /></SidebarLayout>
             </ProtectedRoute>
           } />
@@ -108,50 +109,52 @@ function App() {
 
           {/* Campaigns */}
           <Route path="/campaigns" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><CampaignsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Dialer */}
           <Route path="/dialer" element={
-            <ProtectedRoute roles={['Manager', 'User']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><DialerSearchPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/dialer/lead/:leadId" element={
-            <ProtectedRoute roles={['Manager', 'User']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><DialerLeadDetailsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Assign Leads (Manager + Admin) */}
           <Route path="/assign-leads" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><AssignLeadsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* My Assignments (QA Officer, Team Lead, Agent) */}
           <Route path="/my-assignments" element={
-            <ProtectedRoute roles={['User']}>
+            <ProtectedRoute roles={['QA Agent']}>
               <SidebarLayout><MyAssignmentsPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+
+          {/* Transfer QA */}
+          <Route path="/transfer-qa" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><TransferQAPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
           {/* Users */}
           <Route path="/users" element={
-            <ProtectedRoute roles={['Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
               <SidebarLayout><UserManagementPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
-          {/* Teams */}
-          <Route path="/teams" element={
-            <ProtectedRoute roles={['Manager']}>
-              <SidebarLayout><TeamsPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
+
 
           {/* Profile */}
           <Route path="/profile" element={

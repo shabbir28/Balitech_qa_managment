@@ -167,7 +167,7 @@ const getManagedUsersStats = async (req, res, next) => {
   try {
     const { campaign, from_date, to_date, search } = req.query;
     
-    let whereClause = "u.deleted_at IS NULL AND r.name IN ('User', 'QA')";
+    let whereClause = "u.deleted_at IS NULL AND r.name = 'QA Agent'";
     let params = [req.user.id];
     let paramIdx = 2;
 

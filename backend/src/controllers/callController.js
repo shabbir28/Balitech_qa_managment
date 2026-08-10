@@ -232,8 +232,7 @@ const getCalls = async (req, res, next) => {
     const params = [];
     let paramCount = 1;
 
-    // If User has an assigned campaign, restrict to that campaign's data only
-    if (req.user && req.user.role === 'User' && req.user.campaign_id) {
+    if (req.user && req.user.role === 'QA Agent' && req.user.campaign_id) {
       conditions.push(`cl.campaign_id = $${paramCount}`);
       params.push(req.user.campaign_id);
       paramCount++;
@@ -376,4 +375,26 @@ const getUploadBatches = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadCalls, getCalls, getCallById, deleteCall, getUploadBatches, parseFile, normalizeRow };
+const updateCallRecording = async (req, res, next) => {
+  try {
+    const { recording_url } = req.body;
+    if (!recording_url) {
+      return res.status(400).json({ success: false, message: 'recording_url is required' });
+    }
+
+    const result = await query(
+      'UPDATE call_leads SET recording_url = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = FALSE RETURNING id, recording_url',
+      [recording_url, req.params.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Call/lead not found.' });
+    }
+
+    res.json({ success: true, message: 'Recording attached successfully.', data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { uploadCalls, getCalls, getCallById, deleteCall, getUploadBatches, updateCallRecording, parseFile, normalizeRow };

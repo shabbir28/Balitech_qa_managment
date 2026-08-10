@@ -138,7 +138,7 @@ const EvaluationListPage = () => {
 
 
 
-  if (!hasRole('Manager')) {
+  if (!hasRole('Super Admin', 'QA Admin')) {
     return <div className="p-10 text-center text-slate-500">You do not have access to this page.</div>;
   }
 

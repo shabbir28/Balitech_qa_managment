@@ -90,7 +90,7 @@ const ProfilePage = () => {
   const [audioAssignment, setAudioAssignment] = useState(null);
 
   const fetchManagedUsers = useCallback(async () => {
-    if (user?.role !== 'Manager') return;
+    if (!['Super Admin', 'QA Admin'].includes(user?.role)) return;
     setLoadingUsers(true);
     try {
       const res = await api.get('/users/managed-stats');
@@ -173,7 +173,7 @@ const ProfilePage = () => {
           <h1 className="text-2xl font-black text-white tracking-tight">My Profile</h1>
           <p className="text-slate-400 text-xs mt-1.5 font-medium leading-relaxed">Manage your personal information, security, and preferences.</p>
         </div>
-        {user?.role === 'Manager' && (
+        {['Super Admin', 'QA Admin'].includes(user?.role) && (
           <div className="flex bg-[#0d1117] border border-white/[0.06] p-1 rounded-xl">
             <button
               onClick={() => setActiveTab('profile')}

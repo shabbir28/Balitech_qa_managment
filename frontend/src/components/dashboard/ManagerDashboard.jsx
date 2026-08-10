@@ -22,11 +22,11 @@ const CustomTooltip = ({ active, payload, label }) => {
 };
 
 const MetricCard = ({ title, value, sub, icon: Icon, trend, trendLabel, color }) => (
-  <div className="bg-gradient-to-b from-slate-800/40 to-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-6 relative overflow-hidden group hover:border-white/10 transition-all duration-500">
+  <div className="bg-gradient-to-b from-slate-800/40 to-slate-900/40 backdrop-blur-xl border border-white/5 rounded-2xl p-4 relative overflow-hidden group hover:border-white/10 transition-all duration-500">
     <div className={`absolute -right-10 -top-10 w-32 h-32 rounded-full blur-3xl opacity-20 group-hover:opacity-40 transition-opacity duration-500 bg-${color}-500`} />
-    <div className="flex justify-between items-start mb-4 relative z-10">
-      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center bg-${color}-500/10 text-${color}-400 border border-${color}-500/20 shadow-inner`}>
-        <Icon className="w-6 h-6" />
+    <div className="flex justify-between items-start mb-3 relative z-10">
+      <div className={`w-10 h-10 rounded-xl flex items-center justify-center bg-${color}-500/10 text-${color}-400 border border-${color}-500/20 shadow-inner`}>
+        <Icon className="w-5 h-5" />
       </div>
       {trend !== undefined && (
         <div className={`flex flex-col items-end`}>
@@ -39,20 +39,20 @@ const MetricCard = ({ title, value, sub, icon: Icon, trend, trendLabel, color })
       )}
     </div>
     <div className="relative z-10">
-      <h3 className="text-4xl font-black text-white tracking-tight mb-1">{value ?? '—'}</h3>
-      <p className="text-sm font-semibold text-slate-300">{title}</p>
-      {sub && <p className="text-xs text-slate-500 mt-1">{sub}</p>}
+      <h3 className="text-3xl font-black text-white tracking-tight mb-1 font-display">{value ?? '—'}</h3>
+      <p className="text-[13px] font-semibold text-slate-300">{title}</p>
+      {sub && <p className="text-xs text-slate-500 mt-0.5">{sub}</p>}
     </div>
   </div>
 );
 
 const ChartContainer = ({ title, sub, children }) => (
-  <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-3xl p-6 hover:border-white/10 transition-all duration-500">
-    <div className="mb-6">
-      <h3 className="text-lg font-bold text-white tracking-tight">{title}</h3>
-      {sub && <p className="text-xs text-slate-400 font-medium mt-1">{sub}</p>}
+  <div className="bg-slate-900/50 backdrop-blur-xl border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all duration-500">
+    <div className="mb-4">
+      <h3 className="text-[15px] font-bold text-white tracking-tight">{title}</h3>
+      {sub && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{sub}</p>}
     </div>
-    <div className="h-[280px]">
+    <div className="h-[220px] w-full min-w-0 min-h-0">
       {children}
     </div>
   </div>
@@ -64,9 +64,9 @@ export default function ManagerDashboard({ stats, charts }) {
   return (
     <div className="space-y-8 pb-12 font-sans">
       {/* Header section with gradient text */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 className="text-4xl md:text-5xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 mb-2">
+          <h1 className="text-3xl md:text-4xl font-black tracking-tighter text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-200 to-slate-400 mb-1 font-display">
             Manager Overview
           </h1>
           <p className="text-slate-400 font-medium text-sm">Comprehensive team analytics, QA metrics, and compliance logs.</p>
@@ -84,14 +84,14 @@ export default function ManagerDashboard({ stats, charts }) {
       </div>
 
       {/* KPI Grid - completely new look */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <MetricCard title="Evaluations" value={stats?.totalEvaluated?.toLocaleString()} sub="Total forms submitted" icon={ClipboardCheck} color="indigo" trend={12} trendLabel="vs last month" />
         <MetricCard title="Passed Calls" value={stats?.passedCalls?.toLocaleString()} sub="Score >= 75%" icon={CheckCircle} color="emerald" trend={5} />
         <MetricCard title="Critical Errors" value={stats?.criticalErrors?.toLocaleString()} sub="Compliance violations" icon={ShieldAlert} color="rose" trend={-2} trendLabel="vs last month" />
         <MetricCard title="Pending Feedback" value={stats?.pendingFeedback?.toLocaleString()} sub="Awaiting signatures" icon={MessageSquare} color="amber" />
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <div className="lg:col-span-2">
           <ChartContainer title="Team Performance Trend" sub="Average QA score over the last 6 months">
             {charts?.monthlyPerformance?.length > 0 ? (

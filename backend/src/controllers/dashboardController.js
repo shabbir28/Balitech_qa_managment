@@ -5,7 +5,7 @@ const { query } = require('../config/database');
  */
 const getDashboardStats = async (req, res, next) => {
   try {
-    const isUser = req.user.role === 'User';
+    const isUser = req.user.role === 'QA Agent';
     const userId = req.user.id;
 
     // For Users: filter evaluations by who performed them (evaluated_by), not agent_id
@@ -66,7 +66,7 @@ const getDashboardStats = async (req, res, next) => {
  */
 const getDashboardCharts = async (req, res, next) => {
   try {
-    const isUser = req.user.role === 'User';
+    const isUser = req.user.role === 'QA Agent';
     const userId = req.user.id;
     // For Users: filter evaluations by who performed them (evaluated_by)
     const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1` : `WHERE is_deleted = FALSE`;

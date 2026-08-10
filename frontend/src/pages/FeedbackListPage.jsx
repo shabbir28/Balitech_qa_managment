@@ -167,7 +167,7 @@ const FeedbackListPage = () => {
                           <button onClick={() => loadDetail(fb.id)} className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-colors" title="View">
                             <Eye size={16} />
                           </button>
-                          {hasRole('Manager') && fb.feedback_status !== 'Closed' && (
+                          {hasRole('Super Admin', 'QA Admin') && fb.feedback_status !== 'Closed' && (
                             <button onClick={() => handleClose(fb.id)} className="p-2 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors" title="Close">
                               <CheckCircle size={16} />
                             </button>
@@ -234,7 +234,7 @@ const FeedbackListPage = () => {
               )}
 
               {/* Improvement Suggestions */}
-              {hasRole('Manager') && (
+              {hasRole('Super Admin', 'QA Admin') && (
                 <div>
                   <label className="label">Improvement Suggestions</label>
                   <textarea
@@ -261,7 +261,7 @@ const FeedbackListPage = () => {
               )}
 
               {/* Add Coaching Comment */}
-              {hasRole('Manager') && (
+              {hasRole('Super Admin', 'QA Admin') && (
                 <div className="pt-2">
                   <label className="label">Add Coaching Comment</label>
                   <textarea

@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Phone, ClipboardCheck, AlertTriangle,
   MessageSquare, LogOut, Menu, X, Target,
-  UsersRound, Send, ClipboardList, Users2
+  UsersRound, Send, ClipboardList, ListChecks
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
@@ -23,31 +23,32 @@ const SidebarLayout = ({ children }) => {
 
   const navItems = [
     // Common
-    { name: 'Dashboard',       path: '/dashboard',       icon: LayoutDashboard, roles: ['Manager', 'User'] },
+    { name: 'Dashboard',       path: '/dashboard',       icon: LayoutDashboard, roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
 
     // Manager section
-    { name: 'My Team',         path: '/users',            icon: UsersRound,      roles: ['Manager'] },
-    { name: 'Teams',           path: '/teams',            icon: Users2,          roles: ['Manager'] },
-    { name: 'Campaigns',       path: '/campaigns',        icon: Target,          roles: ['Manager'] },
-    { name: 'Assign Leads',    path: '/assign-leads',     icon: Send,            roles: ['Manager'] },
+    { name: 'My Team',         path: '/users',            icon: UsersRound,      roles: ['Super Admin', 'QA Admin'] },
+
+    { name: 'Campaigns',       path: '/campaigns',        icon: Target,          roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Assign Leads',    path: '/assign-leads',     icon: Send,            roles: ['Super Admin', 'QA Admin'] },
 
     // Dialer
-    { name: 'Dialer',          path: '/dialer',           icon: Phone,           roles: ['Manager', 'User'] },
+    { name: 'Dialer',          path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
 
     // QA / Evaluator
-    { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['User'] },
-    { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Manager'] },
-    { name: 'Call Records',    path: '/calls',             icon: Phone,           roles: ['Manager'] },
+    { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },
+    { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Transfer QA',     path: '/transfer-qa',       icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Call Records',    path: '/calls',             icon: Phone,           roles: ['Super Admin', 'QA Admin'] },
 
     // Admin only
-    { name: 'Critical Errors', path: '/critical-errors',  icon: AlertTriangle,   roles: ['Manager'] },
-    { name: 'Feedback',        path: '/feedback',          icon: MessageSquare,   roles: ['Manager'] },
-    { name: 'My Feedback',     path: '/my-feedback',       icon: MessageSquare,   roles: ['User'] },
+    { name: 'Critical Errors', path: '/critical-errors',  icon: AlertTriangle,   roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Feedback',        path: '/feedback',          icon: MessageSquare,   roles: ['Super Admin', 'QA Admin'] },
+    { name: 'My Feedback',     path: '/my-feedback',       icon: MessageSquare,   roles: ['QA Agent'] },
   ];
 
   // Section headers for visual grouping
   const getSectionHeader = (path) => {
-    if (path === '/users') return 'Manager';
+    if (path === '/users') return 'Super Admin';
     if (path === '/my-assignments') return 'Workspace';
     if (path === '/critical-errors') return 'Quality Control';
     return null;
@@ -82,7 +83,7 @@ const SidebarLayout = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-5 px-4 space-y-1 custom-scrollbar">
+        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5 custom-scrollbar">
           {visibleItems.map((item, idx) => {
             const header = getSectionHeader(item.path);
             const prevItem = visibleItems[idx - 1];
@@ -91,13 +92,13 @@ const SidebarLayout = ({ children }) => {
             return (
               <div key={item.path}>
                 {showHeader && (
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-2 pt-5 pb-2">{header}</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pt-4 pb-1.5">{header}</p>
                 )}
                 <NavLink
                   to={item.path}
                   onClick={() => setIsOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
+                    `flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group relative ${
                       isActive
                         ? 'text-emerald-400 bg-emerald-500/10 font-semibold'
                         : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200 font-medium'
@@ -107,7 +108,7 @@ const SidebarLayout = ({ children }) => {
                   {({ isActive }) => (
                     <>
                       {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-emerald-500 rounded-r-full" />}
-                      <div className="flex items-center gap-3 text-sm">
+                      <div className="flex items-center gap-3 text-[13px]">
                         <item.icon className={`w-4 h-4 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
                         {item.name}
                       </div>
@@ -120,9 +121,9 @@ const SidebarLayout = ({ children }) => {
         </div>
 
         {/* User Footer */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950 shrink-0">
+        <div className="p-3 border-t border-slate-800 bg-slate-950 shrink-0">
           {/* Role Badge */}
-          <div className="px-3 py-2 mb-3 rounded-xl bg-slate-900 border border-slate-800 flex flex-col gap-1">
+          <div className="px-2.5 py-1.5 mb-2 rounded-lg bg-slate-900 border border-slate-800 flex flex-col gap-1">
             <div className="flex justify-between items-center">
               <p className="text-[10px] text-slate-300 font-bold">Logged in as</p>
               <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">{user?.role}</p>
@@ -137,25 +138,25 @@ const SidebarLayout = ({ children }) => {
           <NavLink
             to="/profile"
             onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-2 rounded-xl hover:bg-slate-900 transition-colors group mb-3"
+            className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-900 transition-colors group mb-2"
           >
-            <div className="w-8 h-8 rounded-lg bg-slate-800 flex items-center justify-center text-emerald-400 font-bold group-hover:bg-slate-700 transition-colors text-sm">
+            <div className="w-7 h-7 rounded-md bg-slate-800 flex items-center justify-center text-emerald-400 font-bold group-hover:bg-slate-700 transition-colors text-xs">
               {user?.name?.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-slate-200 truncate">{user?.name}</p>
-              <p className="text-[11px] text-slate-500 truncate">{user?.email}</p>
+              <p className="text-[13px] font-semibold text-slate-200 truncate">{user?.name}</p>
+              <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
             </div>
           </NavLink>
           <button
             onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-xl transition-colors mb-4"
+            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors mb-3"
           >
             <LogOut className="w-3.5 h-3.5" />
             Logout
           </button>
           
-          <div className="pt-4 border-t border-slate-800/50 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
+          <div className="pt-3 border-t border-slate-800/50 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
             <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Powered By</span>
             <img src={poweredByImage} alt="Powered by Go Connective" className="h-8 object-contain" />
           </div>

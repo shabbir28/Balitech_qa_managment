@@ -4,8 +4,8 @@ const { getCriticalErrors, createCriticalError, updateCriticalError, deleteCriti
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.get('/', authenticate, getCriticalErrors);
-router.post('/', authenticate, authorize('Manager'), createCriticalError);
-router.put('/:id', authenticate, authorize('Manager'), updateCriticalError);
-router.delete('/:id', authenticate, authorize('Manager'), deleteCriticalError);
+router.post('/', authenticate, authorize('Super Admin', 'QA Admin'), createCriticalError);
+router.put('/:id', authenticate, authorize('Super Admin', 'QA Admin'), updateCriticalError);
+router.delete('/:id', authenticate, authorize('Super Admin', 'QA Admin'), deleteCriticalError);
 
 module.exports = router;

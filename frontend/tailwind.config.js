@@ -34,7 +34,8 @@ export default {
         },
       },
       fontFamily: {
-        sans: ["Outfit", "Inter", "system-ui", "sans-serif"],
+        sans: ["Inter", "system-ui", "sans-serif"],
+        display: ["Outfit", "system-ui", "sans-serif"],
       },
       boxShadow: {
         premium:

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, User, Phone, Play, Calendar, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -7,6 +7,9 @@ import api from '../services/api';
 export default function DialerLeadDetailsPage() {
   const { leadId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const assignmentId = searchParams.get('assignment_id');
+  
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState(null);
   const [recordings, setRecordings] = useState([]);
@@ -49,20 +52,33 @@ export default function DialerLeadDetailsPage() {
 
   const handleEvaluate = async (recording) => {
     try {
-      const toastId = toast.loading('Importing lead for evaluation...');
-      const response = await api.post('/dialer/import-lead', {
-        lead_id: leadId,
-        recording_url: recording.location
-      });
-      toast.dismiss(toastId);
-      
-      if (response.data.success) {
-        toast.success('Ready to evaluate!');
-        navigate(`/evaluations/new?call_id=${response.data.call_id}`);
+      if (assignmentId) {
+        const toastId = toast.loading('Attaching recording to existing assignment...');
+        const response = await api.put(`/calls/${assignmentId}/recording`, {
+          recording_url: recording.location
+        });
+        toast.dismiss(toastId);
+        
+        if (response.data.success) {
+          toast.success('Ready to evaluate!');
+          navigate(`/evaluations/new?call_id=${assignmentId}`);
+        }
+      } else {
+        const toastId = toast.loading('Importing lead for evaluation...');
+        const response = await api.post('/dialer/import-lead', {
+          lead_id: leadId,
+          recording_url: recording.location
+        });
+        toast.dismiss(toastId);
+        
+        if (response.data.success) {
+          toast.success('Ready to evaluate!');
+          navigate(`/evaluations/new?call_id=${response.data.call_id}`);
+        }
       }
     } catch (error) {
-      console.error('Error importing lead for evaluation:', error);
-      toast.error('Failed to import lead for evaluation');
+      console.error('Error handling evaluate action:', error);
+      toast.error('Failed to prepare lead for evaluation');
     }
   };
 

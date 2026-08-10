@@ -4,6 +4,7 @@ import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Play, Pause, Volume2, Save } from 'lucide-react';
 import { format } from 'date-fns';
+import { useAuth } from '../context/AuthContext';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -24,6 +25,7 @@ const CHECKBOX_FIELDS = [
 const ManagerEvaluationViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
   const [evaluation, setEvaluation] = useState(null);
   const [metadata, setMetadata] = useState({});
@@ -103,14 +105,16 @@ const ManagerEvaluationViewPage = () => {
           <button onClick={() => navigate('/evaluations')} className="btn-secondary px-5 py-2.5">
             <ArrowLeft size={16} className="mr-2" /> Back to List
           </button>
-          <button 
-            onClick={handleSave} 
-            disabled={saving}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:opacity-50"
-          >
-            <Save className="w-4 h-4" />
-            {saving ? 'Saving...' : 'Save Changes'}
-          </button>
+          {user?.role !== 'QA Agent' && (
+            <button 
+              onClick={handleSave} 
+              disabled={saving}
+              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:opacity-50"
+            >
+              <Save className="w-4 h-4" />
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -221,10 +225,11 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <input 
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50"
                       value={metadata.teams || ''}
                       onChange={e => handleMetadataChange('teams', e.target.value)}
-                      placeholder="Teams"
+                      placeholder="Enter Team..."
+                      disabled={user?.role === 'QA Agent'}
                     />
                   </td>
 
@@ -245,10 +250,11 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
                     <input 
-                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50"
                       value={metadata.dids || ''}
                       onChange={e => handleMetadataChange('dids', e.target.value)}
                       placeholder="—"
+                      disabled={user?.role === 'QA Agent'}
                     />
                   </td>
 
@@ -260,13 +266,14 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <select
-                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 appearance-none cursor-pointer text-center ${
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 appearance-none cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
                         qaStatus === 'Accepted' 
                           ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500' 
                           : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
                       }`}
                       value={qaStatus}
                       onChange={e => setQaStatus(e.target.value)}
+                      disabled={user?.role === 'QA Agent'}
                     >
                       <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
                       <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
@@ -275,19 +282,21 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <textarea 
-                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar"
+                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar disabled:opacity-50"
                       value={metadata.agentSideFeedback || ''}
                       onChange={e => handleMetadataChange('agentSideFeedback', e.target.value)}
                       placeholder="Enter agent feedback..."
+                      disabled={user?.role === 'QA Agent'}
                     />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <textarea 
-                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar"
+                      className="w-full h-[140px] bg-slate-950 border border-slate-700 text-sm p-3 rounded-lg text-slate-200 resize-none focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all custom-scrollbar disabled:opacity-50"
                       value={metadata.laSideFeedback || ''}
                       onChange={e => handleMetadataChange('laSideFeedback', e.target.value)}
                       placeholder="Enter LA side feedback..."
+                      disabled={user?.role === 'QA Agent'}
                     />
                   </td>
 
@@ -295,12 +304,13 @@ const ManagerEvaluationViewPage = () => {
                   {CHECKBOX_FIELDS.map(f => (
                     <td key={f.key} className="p-3 border-r border-slate-800/50 align-top pt-5">
                       <div className="flex justify-center w-full">
-                        <label className="relative flex items-center p-1 rounded-full cursor-pointer hover:bg-slate-800 transition-colors">
+                        <label className={`relative flex items-center p-1 rounded-full ${user?.role === 'QA Agent' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-slate-800'}`}>
                           <input 
                             type="checkbox" 
+                            disabled={user?.role === 'QA Agent'}
                             checked={metadata[f.key] || false} 
                             onChange={e => handleMetadataChange(f.key, e.target.checked)}
-                            className="peer relative appearance-none w-6 h-6 border-2 border-slate-600 rounded-md bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer"
+                            className="peer relative appearance-none w-6 h-6 border-2 border-slate-600 rounded-md bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer disabled:cursor-not-allowed"
                           />
                           <svg
                             className="absolute w-4 h-4 mt-1 ml-1 pointer-events-none opacity-0 peer-checked:opacity-100 transition-opacity text-white top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"
@@ -319,7 +329,8 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <input 
                       list="manager-error-category-options"
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
+                      disabled={user?.role === 'QA Agent'}
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                       value={metadata.errorCategory || ''}
                       onChange={e => handleMetadataChange('errorCategory', e.target.value)}
                       placeholder="Select or type Category..."
@@ -339,7 +350,8 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-slate-800/50 align-top">
                     <input 
                       list="manager-la-side-error-category-options"
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
+                      disabled={user?.role === 'QA Agent'}
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                       value={metadata.laSideErrorCategory || ''}
                       onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
                       placeholder="Select or type LA Category..."

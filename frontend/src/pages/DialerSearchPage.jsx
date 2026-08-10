@@ -7,6 +7,7 @@ import api from '../services/api';
 export default function DialerSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialPhone = searchParams.get('phone') || '';
+  const assignmentId = searchParams.get('assignment_id');
   
   const [phone, setPhone]       = useState(initialPhone);
   const [leads, setLeads]       = useState([]);
@@ -183,7 +184,7 @@ export default function DialerSearchPage() {
                     <tr
                       key={lead.lead_id}
                       className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}`)}
+                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}${assignmentId ? `?assignment_id=${assignmentId}` : ''}`)}
                     >
                       <td className="py-4 px-6">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-400 font-mono text-sm border border-indigo-500/20">

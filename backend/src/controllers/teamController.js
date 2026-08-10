@@ -11,7 +11,7 @@ const { parseFile, normalizeRow } = require('./callController');
  */
 const getTeams = async (req, res, next) => {
   try {
-    const isManager = req.user.role === 'Manager';
+    const isManager = ['Super Admin', 'QA Admin'].includes(req.user.role);
     const params = isManager ? [] : [req.user.id];
     const where = isManager ? '' : 'WHERE t.manager_id = $1';
 
@@ -51,7 +51,7 @@ const deleteTeam = async (req, res, next) => {
     const { id } = req.params;
     const check = await query('SELECT manager_id FROM teams WHERE id = $1', [id]);
     if (!check.rows.length) return res.status(404).json({ success: false, message: 'Team not found.' });
-    if (req.user.role !== 'Manager' && check.rows[0].manager_id !== req.user.id)
+    if (!['Super Admin', 'QA Admin'].includes(req.user.role) && check.rows[0].manager_id !== req.user.id)
       return res.status(403).json({ success: false, message: 'Not authorised.' });
     await query('DELETE FROM teams WHERE id = $1', [id]);
     res.json({ success: true, message: 'Team deleted.' });
@@ -114,7 +114,7 @@ const getAvailableUsers = async (req, res, next) => {
        FROM users u
        JOIN roles r ON u.role_id = r.id
        LEFT JOIN campaigns c ON u.campaign_id = c.id
-       WHERE u.deleted_at IS NULL AND u.is_active = TRUE AND r.name IN ('User')
+       WHERE u.deleted_at IS NULL AND u.is_active = TRUE AND r.name IN ('QA Agent')
        ORDER BY u.name`,
       []
     );
@@ -138,7 +138,7 @@ const getAssignments = async (req, res, next) => {
     let params = [];
     let paramCount = 1;
 
-    if (role !== 'Manager') {
+    if (!['Super Admin', 'QA Admin'].includes(role)) {
       conditions.push(`la.assigned_to = $${paramCount++}`);
       params.push(req.user.id);
       // If the user has an assigned campaign, filter leads to that campaign only
@@ -163,14 +163,14 @@ const getAssignments = async (req, res, next) => {
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     // For User role with campaign filter we need to join call_leads in count query
-    const countJoin = (role !== 'Manager' && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
+    const countJoin = (!['Super Admin', 'QA Admin'].includes(role) && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
     const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     // Build stats params independently (simpler base filter)
-    const statsParams = role !== 'Manager' ? [req.user.id] : [req.user.id];
-    let statsWhere = role !== 'Manager' ? 'WHERE la.assigned_to = $1' : 'WHERE la.assigned_by = $1';
-    if (role === 'Manager' && user_id) {
+    const statsParams = !['Super Admin', 'QA Admin'].includes(role) ? [req.user.id] : [req.user.id];
+    let statsWhere = !['Super Admin', 'QA Admin'].includes(role) ? 'WHERE la.assigned_to = $1' : 'WHERE la.assigned_by = $1';
+    if (['Super Admin', 'QA Admin'].includes(role) && user_id) {
       statsWhere += ' AND la.assigned_to = $2';
       statsParams.push(user_id);
     }
@@ -262,8 +262,8 @@ const createAssignments = async (req, res, next) => {
 
       // Create lead record
       const leadRes = await query(
-        `INSERT INTO call_leads (agent_name, customer_phone, campaign_name, campaign_id, notes) 
-         VALUES ('Manual Entry', $1, $2, $3, 'Manually assigned') RETURNING id`,
+        `INSERT INTO call_leads (agent_name, agent_id, customer_phone, campaign_name, campaign_id, notes) 
+         VALUES ('Manual Entry', 'MANUAL', $1, $2, $3, 'Manually assigned') RETURNING id`,
         [phone.trim(), campaign_name || '', campId]
       );
 

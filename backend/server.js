@@ -21,6 +21,7 @@ const campaignRoutes = require('./src/routes/campaignRoutes');
 const teamRoutes = require('./src/routes/teamRoutes');
 const assignmentRoutes = require('./src/routes/assignmentRoutes');
 const dialerRoutes = require('./src/routes/dialerRoutes');
+const transferQaRoutes = require('./src/routes/transferQaRoutes');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -84,6 +85,7 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/dialer', dialerRoutes);
+app.use('/api/transfer-qa', transferQaRoutes);
 
 // ── Error Handling ────────────────────────────────────────────────────
 app.use(notFound);
@@ -98,3 +100,5 @@ app.listen(PORT, () => {
 });
 
 module.exports = app;
+// Triggered restart for new .env variables
+

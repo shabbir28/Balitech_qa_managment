@@ -42,13 +42,15 @@ const createEvaluation = async (req, res, next) => {
 
     const call = callResult.rows[0];
 
-    // Check already evaluated
+    // Check already evaluated by phone number to prevent evaluating the same number twice
     const alreadyEval = await query(
-      'SELECT id FROM qa_evaluations WHERE call_lead_id = $1 AND is_deleted = FALSE',
-      [call_lead_id]
+      `SELECT q.id FROM qa_evaluations q 
+       JOIN call_leads cl ON q.call_lead_id = cl.id 
+       WHERE cl.customer_phone = $1 AND q.is_deleted = FALSE`,
+      [call.customer_phone]
     );
     if (alreadyEval.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'This call has already been evaluated.' });
+      return res.status(409).json({ success: false, message: 'This phone number has already been evaluated.' });
     }
 
     const total_score = calculateTotalScore({
@@ -158,7 +160,7 @@ const getEvaluations = async (req, res, next) => {
     let pc = 1;
 
     // QA users see only evaluations they performed, filtered by their assigned campaign
-    if (req.user.role === 'User') {
+    if (req.user.role === 'QA Agent') {
       conditions.push(`qe.evaluated_by = $${pc}`);
       params.push(req.user.id);
       pc++;

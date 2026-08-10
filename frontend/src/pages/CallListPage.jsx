@@ -235,7 +235,7 @@ const CallListPage = () => {
           <h1 className="page-title">Call / Lead Records</h1>
           <p className="page-subtitle">{pagination?.total ?? 0} total records</p>
         </div>
-        {hasRole('Manager') && (
+        {hasRole('Super Admin', 'QA Admin') && (
           <button onClick={() => navigate('/calls/upload')} className="btn-primary">
             <Upload size={16} /> Upload File
           </button>
@@ -305,7 +305,7 @@ const CallListPage = () => {
             icon={Phone}
             title="No records found"
             description="Upload call records to get started or adjust your search filters."
-            action={hasRole('Manager') && (
+            action={hasRole('Super Admin', 'QA Admin') && (
               <button onClick={() => navigate('/calls/upload')} className="btn-primary">
                 <Upload size={16} /> Upload File
               </button>
@@ -378,7 +378,7 @@ const CallListPage = () => {
                       </td>
                       <td className="td">
                         <div className="flex items-center gap-2">
-                          {!call.is_evaluated && hasRole('Manager') && (
+                          {!call.is_evaluated && hasRole('Super Admin', 'QA Admin') && (
                             <button
                               onClick={() => navigate(`/evaluations/new?call_id=${call.id}`)}
                               className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all"
@@ -387,7 +387,7 @@ const CallListPage = () => {
                               <Eye size={16} />
                             </button>
                           )}
-                          {hasRole('Manager') && (
+                          {hasRole('Super Admin', 'QA Admin') && (
                             <button
                               onClick={() => setDeleteId(call.id)}
                               className="p-2 rounded-lg text-rose-400 hover:bg-rose-500/10 transition-all"
