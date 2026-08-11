@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '../context/AuthContext';
+import { useNavigate } from 'react-router-dom';
 import { EmptyState } from '../components/ui';
 import {
   ListChecks,
@@ -11,7 +12,14 @@ import {
   Clock,
   X,
   Search,
-  Check
+  Check,
+  Hash,
+  Activity,
+  User,
+  ChevronRight,
+  Users,
+  Zap,
+  Layers
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -36,10 +44,41 @@ const StatusBadge = ({ status }) => {
 
 /* ── Evaluate Modal ────────────────────────────────────────────────── */
 const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
+  const navigate = useNavigate();
   const [qaStatus, setQaStatus] = useState(transfer.qa_status || transfer.status || 'Pending');
   const [qaScore, setQaScore] = useState(transfer.qa_score || '');
   const [qaNotes, setQaNotes] = useState(transfer.qa_notes || '');
   const [submitting, setSubmitting] = useState(false);
+
+  const [dialerLoading, setDialerLoading] = useState(false);
+  const [dialerError, setDialerError] = useState(null);
+  const [dialerLeads, setDialerLeads] = useState([]);
+
+  useEffect(() => {
+    const fetchDialerData = async () => {
+      const phone = transfer.phone_number || transfer.phoneNumber || transfer.customer_number;
+      if (!phone) {
+        setDialerError("No phone number available to search.");
+        return;
+      }
+      
+      setDialerLoading(true);
+      try {
+        const searchRes = await api.get(`/dialer/search?phone=${encodeURIComponent(phone)}`);
+        if (searchRes.data.success && searchRes.data.data.leads && searchRes.data.data.leads.length > 0) {
+          setDialerLeads(searchRes.data.data.leads);
+        } else {
+          setDialerError("No lead found in Dialer for this number.");
+        }
+      } catch (err) {
+        setDialerError(err.response?.data?.message || "Failed to fetch from Dialer.");
+      } finally {
+        setDialerLoading(false);
+      }
+    };
+    
+    fetchDialerData();
+  }, [transfer]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -132,6 +171,110 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
             </div>
           </div>
 
+          {/* Dialer Leads Section */}
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-slate-900/50">
+              <h4 className="font-semibold text-white flex items-center gap-2 text-sm">
+                <Hash className="w-4 h-4 text-emerald-400" />
+                Search Results
+              </h4>
+              {dialerLeads.length > 0 && (
+                <span className="text-[10px] font-bold px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+                  {dialerLeads.length} Found
+                </span>
+              )}
+            </div>
+
+            {dialerLoading ? (
+              <div className="p-8 text-center text-xs text-slate-400 flex flex-col items-center gap-3">
+                <div className="w-5 h-5 border-2 border-indigo-500/20 border-t-indigo-500 rounded-full animate-spin" />
+                Searching for leads...
+              </div>
+            ) : dialerError ? (
+              <div className="p-6">
+                <div className="text-xs text-amber-400 flex items-center gap-2 bg-amber-500/10 p-3 rounded-xl border border-amber-500/20">
+                  <AlertTriangle className="w-5 h-5" /> {dialerError}
+                </div>
+              </div>
+            ) : dialerLeads.length > 0 ? (
+              <div className="overflow-x-auto max-h-[250px] overflow-y-auto">
+                <table className="w-full text-left border-collapse">
+                  <thead className="sticky top-0 bg-slate-950/90 backdrop-blur-sm z-10">
+                    <tr className="border-b border-slate-800">
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lead ID</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Name</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">List ID</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Agent</th>
+                      <th className="py-3 px-4 text-[10px] font-bold text-slate-400 uppercase tracking-wider">Last Call</th>
+                      <th className="py-3 px-4 text-right"></th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/50">
+                    {dialerLeads.map((lead) => (
+                      <tr 
+                        key={lead.lead_id} 
+                        className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
+                        onClick={() => navigate(`/dialer/lead/${lead.lead_id}?agent_name=${encodeURIComponent(transfer.hrms_real_name || transfer.agentName || '')}&team=${encodeURIComponent(transfer.team || '')}`)}
+                      >
+                        <td className="py-3 px-4">
+                          <span className="inline-flex items-center px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 font-mono text-xs border border-indigo-500/20">
+                            {lead.lead_id}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs font-medium text-slate-200">{lead.name || '—'}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className={`inline-flex items-center gap-1.5 font-medium px-2 py-0.5 rounded-full border text-[10px] ${
+                            lead.status === 'CALLBK' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                            lead.status === 'SALE'   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                            lead.status === 'DNC'    ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :
+                            'text-slate-400 bg-slate-800/50 border-slate-700'
+                          }`}>
+                            <Activity className="w-2.5 h-2.5" />
+                            {lead.status || '—'}
+                          </span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs font-medium text-slate-200 font-mono">{lead.phone}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-xs text-slate-400">{lead.list_id}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="flex items-center gap-1.5">
+                            <div className="w-5 h-5 rounded-full bg-slate-800 flex items-center justify-center">
+                              <User className="w-2.5 h-2.5 text-slate-400" />
+                            </div>
+                            <span className="text-xs text-slate-300">{lead.last_agent || '—'}</span>
+                          </div>
+                        </td>
+                        <td className="py-3 px-4">
+                          <span className="text-[10px] text-slate-500">{lead.last_call ? new Date(lead.last_call).toLocaleString() : '—'}</span>
+                        </td>
+                        <td className="py-3 px-4 text-right">
+                          <span className="inline-flex p-1.5 text-slate-500 group-hover:text-emerald-400 group-hover:bg-emerald-500/10 rounded-md transition-all">
+                            <ChevronRight className="w-4 h-4" />
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="p-8 text-center flex flex-col items-center justify-center">
+                <div className="w-12 h-12 bg-slate-800/50 rounded-full flex items-center justify-center mb-3">
+                  <Search className="w-5 h-5 text-slate-500" />
+                </div>
+                <h3 className="text-sm font-semibold text-slate-300">No leads found</h3>
+                <p className="text-slate-500 text-xs mt-1">We couldn't find any leads matching that phone number.</p>
+              </div>
+            )}
+          </div>
+
           <form id="evaluation-form" onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label className="block text-sm font-semibold text-slate-300 mb-1.5">QA Status <span className="text-rose-500">*</span></label>
@@ -197,7 +340,22 @@ const TransferQAPage = () => {
   
   const [selectedTransfer, setSelectedTransfer] = useState(null);
 
+  const [qaAgents, setQaAgents] = useState([]);
+  const [assigning, setAssigning] = useState(null);
+  
+  const [bulkQuantity, setBulkQuantity] = useState(10);
+  const [bulkAgent, setBulkAgent] = useState('');
+  const [bulkAssigning, setBulkAssigning] = useState(false);
+
   const { hasRole } = useAuth();
+
+  useEffect(() => {
+    if (hasRole('Super Admin', 'QA Admin')) {
+      api.get('/teams/members/available')
+        .then(res => setQaAgents(res.data.data || []))
+        .catch(err => console.error('Failed to load QA agents:', err));
+    }
+  }, [hasRole]);
 
   const fetchTransfers = useCallback(async () => {
     setLoading(true);
@@ -249,6 +407,38 @@ const TransferQAPage = () => {
     }
     return true;
   });
+
+  const handleBulkAssign = async () => {
+    if (!bulkAgent || bulkQuantity <= 0) {
+      toast.error('Please select an agent and a valid quantity.');
+      return;
+    }
+
+    // Get unassigned transfers from the currently filtered list
+    const unassignedTransfers = filteredTransfers.filter(t => !t.assigned_to);
+    if (unassignedTransfers.length === 0) {
+      toast.error('No unassigned transfers available in the current view.');
+      return;
+    }
+
+    const transfersToAssign = unassignedTransfers.slice(0, bulkQuantity);
+    const transferIds = transfersToAssign.map(t => t.transfer_id);
+
+    setBulkAssigning(true);
+    try {
+      const res = await api.post('/transfer-qa/assign-batch', {
+        transfer_ids: transferIds,
+        assigned_to: bulkAgent
+      });
+      toast.success(res.data.message || `${transferIds.length} transfers assigned successfully!`);
+      setBulkAgent('');
+      fetchTransfers();
+    } catch (error) {
+      toast.error(error.response?.data?.message || 'Failed to bulk assign transfers');
+    } finally {
+      setBulkAssigning(false);
+    }
+  };
 
   const tabs = [
     { id: 'pending', label: 'Pending QA' },
@@ -302,6 +492,86 @@ const TransferQAPage = () => {
         </div>
       </div>
 
+      {/* ── PROFESSIONAL BULK ASSIGN PANEL ── */}
+      {hasRole('Super Admin', 'QA Admin') && activeTab === 'pending' && (
+        <div className="bg-[#0f141f] border border-white/5 rounded-xl shadow-lg mb-6 overflow-hidden">
+          {/* Subtle accent bar at top */}
+          <div className="h-1 w-full bg-gradient-to-r from-indigo-500 to-indigo-600"></div>
+          
+          <div className="p-5 md:p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+            
+            {/* Left side: Header */}
+            <div className="flex items-start gap-4 w-full md:w-auto">
+              <div className="w-10 h-10 rounded-lg bg-indigo-500/10 flex items-center justify-center shrink-0 border border-indigo-500/20">
+                <Layers className="w-5 h-5 text-indigo-400" />
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-100">Bulk Assign Leads</h2>
+                <p className="text-sm text-slate-400 mt-0.5">Assign multiple pending transfers to a QA Agent in one click.</p>
+              </div>
+            </div>
+
+            {/* Right side: Form Controls */}
+            <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
+              
+              {/* Quantity Input */}
+              <div className="flex flex-col w-full sm:w-28">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Quantity</label>
+                <div className="relative">
+                  <Hash className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <input 
+                    type="number" 
+                    min="1"
+                    max="1000"
+                    value={bulkQuantity}
+                    onChange={(e) => setBulkQuantity(Number(e.target.value))}
+                    className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg h-10 pl-9 pr-3 text-sm text-slate-200 outline-none transition-all"
+                    placeholder="0"
+                  />
+                </div>
+              </div>
+
+              {/* Agent Select */}
+              <div className="flex flex-col w-full sm:w-56">
+                <label className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider mb-1.5 ml-1">Assign To</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                  <select 
+                    className="w-full bg-slate-900 border border-slate-700 hover:border-slate-600 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 rounded-lg h-10 pl-9 pr-8 text-sm text-slate-200 outline-none appearance-none transition-all cursor-pointer"
+                    value={bulkAgent}
+                    onChange={(e) => setBulkAgent(e.target.value)}
+                  >
+                    <option value="" className="text-slate-500">Select an Agent...</option>
+                    {qaAgents.map(agent => (
+                      <option key={agent.id} value={agent.id}>{agent.name}</option>
+                    ))}
+                  </select>
+                  <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none">
+                    <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                  </div>
+                </div>
+              </div>
+
+              {/* Submit Button */}
+              <div className="flex flex-col w-full sm:w-auto self-end mt-4 sm:mt-0">
+                <button 
+                  onClick={handleBulkAssign}
+                  disabled={bulkAssigning || !bulkAgent || bulkQuantity <= 0}
+                  className="h-10 px-6 rounded-lg bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white text-sm font-semibold flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors shadow-sm"
+                >
+                  {bulkAssigning ? (
+                    <><span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> Processing</>
+                  ) : (
+                    'Assign Leads'
+                  )}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* ── Data Table ─────────────────────────────────────── */}
       <div className="bg-[#0d1117] border border-white/5 rounded-2xl overflow-hidden shadow-xl">
         {loading ? (
@@ -337,6 +607,7 @@ const TransferQAPage = () => {
                   <th className="py-4 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">Zipcode</th>
                   <th className="py-4 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">Age</th>
                   <th className="py-4 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">Status</th>
+                  <th className="py-4 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">Assigned To</th>
                   <th className="py-4 px-5 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5 text-right">Action</th>
                 </tr>
               </thead>
@@ -359,6 +630,44 @@ const TransferQAPage = () => {
                     <td className="py-4 px-5 text-xs text-slate-300">{t.age || '—'}</td>
                     <td className="py-4 px-5">
                       <StatusBadge status={t.qa_status || t.status} />
+                    </td>
+                    <td className="py-4 px-5">
+                      {hasRole('Super Admin', 'QA Admin') ? (
+                        <div className="flex items-center gap-2">
+                          <select 
+                            className="bg-slate-900 border border-slate-700 text-slate-300 text-xs rounded-lg px-2 py-1 outline-none focus:border-indigo-500"
+                            value={t.assigned_to || ''}
+                            onChange={async (e) => {
+                              const newAssignee = e.target.value;
+                              if (!newAssignee) return;
+                              setAssigning(t.transfer_id);
+                              try {
+                                await api.post('/transfer-qa/assign', {
+                                  transfer_id: t.transfer_id,
+                                  assigned_to: newAssignee
+                                });
+                                toast.success('Transfer assigned successfully');
+                                fetchTransfers();
+                              } catch (err) {
+                                toast.error(err.response?.data?.message || 'Failed to assign transfer');
+                              } finally {
+                                setAssigning(null);
+                              }
+                            }}
+                            disabled={assigning === t.transfer_id}
+                          >
+                            <option value="">Unassigned</option>
+                            {qaAgents.map(agent => (
+                              <option key={agent.id} value={agent.id}>{agent.name}</option>
+                            ))}
+                          </select>
+                          {assigning === t.transfer_id && <span className="w-3 h-3 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></span>}
+                        </div>
+                      ) : (
+                        <span className="text-xs text-slate-400 font-medium">
+                          {t.assigned_to_name || 'Unassigned'}
+                        </span>
+                      )}
                     </td>
                     <td className="py-4 px-5 text-right">
                       {(t.qa_status || t.status)?.toLowerCase() === 'pending' || !(t.qa_status || t.status) ? (

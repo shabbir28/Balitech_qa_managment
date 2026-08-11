@@ -157,7 +157,7 @@ exports.getLeadInfo = async (req, res, next) => {
 
 exports.importLeadForEval = async (req, res, next) => {
   try {
-    const { lead_id, recording_url } = req.body;
+    const { lead_id, recording_url, agent_name } = req.body;
     if (!lead_id || !recording_url) {
       return res.status(400).json({ success: false, message: 'lead_id and recording_url are required' });
     }
@@ -165,7 +165,11 @@ exports.importLeadForEval = async (req, res, next) => {
     // Check if already imported by recording_url
     const existing = await query('SELECT id FROM call_leads WHERE recording_url = $1 AND is_deleted = FALSE LIMIT 1', [recording_url]);
     if (existing.rows.length > 0) {
-      return res.json({ success: true, call_id: existing.rows[0].id });
+      const existingId = existing.rows[0].id;
+      if (agent_name) {
+        await query('UPDATE call_leads SET agent_name = $1 WHERE id = $2', [agent_name, existingId]);
+      }
+      return res.json({ success: true, call_id: existingId });
     }
 
     // Fetch details from dialer
@@ -179,7 +183,7 @@ exports.importLeadForEval = async (req, res, next) => {
       `INSERT INTO call_leads (agent_name, agent_id, campaign_name, customer_name, customer_phone, call_date, recording_url, disposition) 
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
       [
-        lead.user || 'Unknown', 
+        agent_name || lead.user || 'Unknown', 
         lead.user || 'Unknown', 
         'Dialer Campaign', 
         lead.name || 'Unknown', 

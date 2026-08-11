@@ -6,7 +6,9 @@ const {
   getReviewedTransfers,
   getRejectedTransfers,
   getTransferStatus,
-  updateTransferStatus
+  updateTransferStatus,
+  assignTransfer,
+  assignBatchTransfers
 } = require('../controllers/transferQaController');
 
 // All transfer QA routes are protected
@@ -29,5 +31,11 @@ router.post('/update-status', updateTransferStatus);
 
 // GET /api/transfer-qa/:transfer_id
 router.get('/:transfer_id', getTransferStatus);
+
+// POST /api/transfer-qa/assign (Super Admin / QA Admin only)
+router.post('/assign', authorize('Super Admin', 'QA Admin'), assignTransfer);
+
+// POST /api/transfer-qa/assign-batch (Super Admin / QA Admin only)
+router.post('/assign-batch', authorize('Super Admin', 'QA Admin'), assignBatchTransfers);
 
 module.exports = router;

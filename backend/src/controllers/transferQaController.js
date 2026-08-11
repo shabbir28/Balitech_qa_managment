@@ -1,4 +1,5 @@
 const axios = require('axios');
+const { query } = require('../config/database');
 
 // Helper function to build the Google Sheet Webhook URL
 const getWebhookUrl = () => process.env.GOOGLE_SHEET_WEBHOOK_URL;
@@ -27,9 +28,37 @@ const getPendingTransfers = async (req, res, next) => {
     });
 
     if (response.data && response.data.success) {
+      let transfers = response.data.data || [];
+
+      // Fetch assignments from database
+      const assignRes = await query(`
+        SELECT ta.transfer_id, ta.assigned_to, u.name as assigned_to_name 
+        FROM transfer_assignments ta
+        JOIN users u ON ta.assigned_to = u.id
+      `);
+      
+      const assignmentMap = {};
+      assignRes.rows.forEach(r => {
+        assignmentMap[r.transfer_id] = { id: r.assigned_to, name: r.assigned_to_name };
+      });
+
+      transfers = transfers.map(t => {
+        const assignment = assignmentMap[t.transfer_id];
+        return {
+          ...t,
+          assigned_to: assignment ? assignment.id : null,
+          assigned_to_name: assignment ? assignment.name : null
+        };
+      });
+
+      // Filter for QA Agent
+      if (req.user && req.user.role === 'QA Agent') {
+        transfers = transfers.filter(t => t.assigned_to === req.user.id);
+      }
+
       return res.status(200).json({
         success: true,
-        data: response.data.data || [],
+        data: transfers,
         message: 'Pending transfers fetched successfully'
       });
     } else {
@@ -241,10 +270,86 @@ const updateTransferStatus = async (req, res, next) => {
   }
 };
 
+/**
+ * @desc    Assign a transfer to a QA Agent
+ * @route   POST /api/transfer-qa/assign
+ * @access  Private (Superadmin only)
+ */
+const assignTransfer = async (req, res, next) => {
+  try {
+    const { transfer_id, assigned_to } = req.body;
+    
+    if (!transfer_id || !assigned_to) {
+      return res.status(400).json({ success: false, message: 'Transfer ID and assigned QA Agent are required.' });
+    }
+
+    // Upsert assignment
+    await query(
+      `INSERT INTO transfer_assignments (transfer_id, assigned_to, assigned_by) 
+       VALUES ($1, $2, $3)
+       ON CONFLICT (transfer_id) 
+       DO UPDATE SET assigned_to = EXCLUDED.assigned_to, assigned_by = EXCLUDED.assigned_by, assigned_at = NOW()`,
+      [transfer_id, assigned_to, req.user.id]
+    );
+
+    return res.status(200).json({
+      success: true,
+      message: 'Transfer assigned successfully.'
+    });
+  } catch (error) {
+    console.error('Error assigning transfer:', error.message);
+    next(error);
+  }
+};
+
+/**
+ * @desc    Bulk assign transfers to a QA Agent
+ * @route   POST /api/transfer-qa/assign-batch
+ * @access  Private (Superadmin / QA Admin only)
+ */
+const assignBatchTransfers = async (req, res, next) => {
+  try {
+    const { transfer_ids, assigned_to } = req.body;
+    
+    if (!transfer_ids || !Array.isArray(transfer_ids) || transfer_ids.length === 0 || !assigned_to) {
+      return res.status(400).json({ success: false, message: 'An array of transfer IDs and an assigned QA Agent are required.' });
+    }
+
+    // Build the query to insert multiple rows
+    const values = [];
+    const params = [];
+    let paramIndex = 1;
+
+    transfer_ids.forEach(id => {
+      values.push(`($${paramIndex++}, $${paramIndex++}, $${paramIndex++})`);
+      params.push(id, assigned_to, req.user.id);
+    });
+
+    const queryStr = `
+      INSERT INTO transfer_assignments (transfer_id, assigned_to, assigned_by) 
+      VALUES ${values.join(', ')}
+      ON CONFLICT (transfer_id) 
+      DO UPDATE SET assigned_to = EXCLUDED.assigned_to, assigned_by = EXCLUDED.assigned_by, assigned_at = NOW()
+    `;
+
+    await query(queryStr, params);
+
+    return res.status(200).json({
+      success: true,
+      message: `${transfer_ids.length} transfers assigned successfully.`
+    });
+  } catch (error) {
+    console.error('Error in bulk assignment:', error.message);
+    next(error);
+  }
+};
+
 module.exports = {
   getPendingTransfers,
   getReviewedTransfers,
   getRejectedTransfers,
   getTransferStatus,
-  updateTransferStatus
+  updateTransferStatus,
+  assignTransfer,
+  assignBatchTransfers
 };

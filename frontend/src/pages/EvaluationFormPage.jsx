@@ -38,11 +38,15 @@ const INITIAL_METADATA = {
 const EvaluationFormPage = () => {
   const [searchParams] = useSearchParams();
   const callId = searchParams.get('call_id');
+  const teamParam = searchParams.get('team');
   const navigate = useNavigate();
   const { user } = useAuth();
 
   const [call, setCall] = useState(null);
-  const [metadata, setMetadata] = useState(INITIAL_METADATA);
+  const [metadata, setMetadata] = useState({
+    ...INITIAL_METADATA,
+    teams: teamParam || ''
+  });
   const [qaStatus, setQaStatus] = useState('Accepted');
   const [evaluationDate, setEvaluationDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
@@ -61,7 +65,7 @@ const EvaluationFormPage = () => {
         const callData = res.data.data;
         if (callData.is_evaluated) {
           toast.error('This call has already been evaluated! You cannot edit it.');
-          navigate('/my-assignments');
+          navigate('/evaluations');
           return;
         }
         setCall(callData);

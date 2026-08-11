@@ -9,6 +9,8 @@ export default function DialerLeadDetailsPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const assignmentId = searchParams.get('assignment_id');
+  const agentNameParam = searchParams.get('agent_name');
+  const teamParam = searchParams.get('team');
   
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState(null);
@@ -67,13 +69,14 @@ export default function DialerLeadDetailsPage() {
         const toastId = toast.loading('Importing lead for evaluation...');
         const response = await api.post('/dialer/import-lead', {
           lead_id: leadId,
-          recording_url: recording.location
+          recording_url: recording.location,
+          agent_name: agentNameParam
         });
         toast.dismiss(toastId);
         
         if (response.data.success) {
           toast.success('Ready to evaluate!');
-          navigate(`/evaluations/new?call_id=${response.data.call_id}`);
+          navigate(`/evaluations/new?call_id=${response.data.call_id}${teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''}`);
         }
       }
     } catch (error) {
