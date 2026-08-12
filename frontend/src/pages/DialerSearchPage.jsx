@@ -10,6 +10,7 @@ export default function DialerSearchPage() {
   const assignmentId = searchParams.get('assignment_id');
   
   const [phone, setPhone]       = useState(initialPhone);
+  const [dialerType, setDialerType] = useState(searchParams.get('dialer') || 'pharmacy');
   const [leads, setLeads]       = useState([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
@@ -27,7 +28,7 @@ export default function DialerSearchPage() {
     setSearched(false);
 
     try {
-      const response = await api.get(`/dialer/search?phone=${encodeURIComponent(searchPhone)}`);
+      const response = await api.get(`/dialer/search?phone=${encodeURIComponent(searchPhone)}&dialer=${encodeURIComponent(dialerType)}`);
       if (response.data.success) {
         setLeads(response.data.data.leads || []);
         setSearched(true);
@@ -68,7 +69,7 @@ export default function DialerSearchPage() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    setSearchParams({ phone });
+    setSearchParams({ phone, dialer: dialerType });
     await performSearch(phone);
   };
 
@@ -96,6 +97,22 @@ export default function DialerSearchPage() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
               />
+            </div>
+          </div>
+          <div className="w-full sm:w-48 space-y-2">
+            <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Dialer</label>
+            <div className="relative">
+              <select
+                className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-medium appearance-none"
+                value={dialerType}
+                onChange={(e) => setDialerType(e.target.value)}
+              >
+                <option value="pharmacy">Pharmacy Dialer</option>
+                <option value="medicare">Medicare Dialer</option>
+              </select>
+              <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none">
+                <ChevronRight className="w-4 h-4 text-slate-500 rotate-90" />
+              </div>
             </div>
           </div>
           <button
@@ -184,7 +201,7 @@ export default function DialerSearchPage() {
                     <tr
                       key={lead.lead_id}
                       className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}${assignmentId ? `?assignment_id=${assignmentId}` : ''}`)}
+                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}${assignmentId ? `&assignment_id=${assignmentId}` : ''}`)}
                     >
                       <td className="py-4 px-6">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-400 font-mono text-sm border border-indigo-500/20">

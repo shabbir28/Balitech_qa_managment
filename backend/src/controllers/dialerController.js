@@ -3,22 +3,38 @@
 
 const { query } = require('../config/database');
 
-const DIALER_BASE    = process.env.DIALER_API_URL && process.env.DIALER_API_URL.includes('.php')
-  ? process.env.DIALER_API_URL.replace(/\/[^\/]+$/, '')
-  : (process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/BkLuyT');
-const DIALER_USER    = process.env.DIALER_API_USER || 'CRM_API';
-const DIALER_PASS    = process.env.DIALER_API_PASS || 'test123dssddscc';
+function getDialerConfig(type) {
+  if (type === 'medicare') {
+    const rawUrl = process.env.MEDICARE_DIALER_URL || 'https://balitgpt7s.dialerhosting.com/z6IRf9c/admin.php';
+    return {
+      baseUrl: rawUrl.includes('.php') ? rawUrl.replace(/\/[^\/]+$/, '') : rawUrl,
+      user: process.env.MEDICARE_DIALER_USER || 'CRM_API',
+      pass: process.env.MEDICARE_DIALER_PASS || 'CRM_APIadsfad',
+      name: 'Medicare Dialer'
+    };
+  }
+  // Default to Pharmacy
+  const rawUrl = process.env.PHARMACY_DIALER_URL || process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/BkLuyT/admin.php';
+  return {
+    baseUrl: rawUrl.includes('.php') ? rawUrl.replace(/\/[^\/]+$/, '') : rawUrl,
+    user: process.env.PHARMACY_DIALER_USER || process.env.DIALER_API_USER || 'CRM_API2',
+    pass: process.env.PHARMACY_DIALER_PASS || process.env.DIALER_API_PASS || 'test123dssddscc',
+    name: 'Pharmacy Dialer'
+  };
+}
+
 const RECORDINGS_BASE = process.env.DIALER_RECORDINGS_URL || 'http://167.235.117.217/RECORDINGS/MP3';
 
-const AUTH_HEADER = 'Basic ' + Buffer.from(`${DIALER_USER}:${DIALER_PASS}`).toString('base64');
-
 // Helper to fetch HTML
-async function fetchAdminPage(path, method = 'GET', body = null) {
-  const baseUrl = DIALER_BASE.replace(/\/+$/, '');
+exports.fetchAdminPage = async function fetchAdminPage(path, dialerType = 'pharmacy', method = 'GET', body = null) {
+  const config = getDialerConfig(dialerType);
+  const baseUrl = config.baseUrl.replace(/\/+$/, '');
   const url = path.startsWith('http') ? path : `${baseUrl}/${path}`;
+  const authHeader = 'Basic ' + Buffer.from(`${config.user}:${config.pass}`).toString('base64');
+  
   const options = {
     method,
-    headers: { Authorization: AUTH_HEADER },
+    headers: { Authorization: authHeader },
     signal: AbortSignal.timeout(15000),
   };
   if (body && method === 'POST') {
@@ -28,13 +44,13 @@ async function fetchAdminPage(path, method = 'GET', body = null) {
   
   const res = await fetch(url, options);
   if (res.status === 401 || res.status === 403) {
-    throw new Error('Authentication failed for Vicidial Admin');
+    throw new Error(`Authentication failed for ${config.name} Admin`);
   }
   return await res.text();
 }
 
 // Extract rows from HTML table
-function extractLeadsFromHtml(html) {
+exports.extractLeadsFromHtml = function extractLeadsFromHtml(html) {
   const leads = [];
   // Find table rows
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
@@ -69,7 +85,7 @@ function extractLeadsFromHtml(html) {
 // ─── Search lead by phone number ──────────────────────────────────────────────
 exports.searchLead = async (req, res, next) => {
   try {
-    const { phone } = req.query;
+    const { phone, dialer = 'pharmacy' } = req.query;
     if (!phone) {
       return res.status(400).json({ success: false, message: 'Phone number is required' });
     }
@@ -77,11 +93,11 @@ exports.searchLead = async (req, res, next) => {
     const cleanPhone = phone.replace(/\D/g, '').replace(/^1/, '');
 
     try {
-      console.log('Searching for:', cleanPhone);
+      console.log('Searching for:', cleanPhone, 'in', dialer);
       const body = new URLSearchParams({ phone: cleanPhone, SUBMIT: 'SUBMIT' }).toString();
-      const html = await fetchAdminPage('admin_search_lead.php', 'POST', body);
+      const html = await exports.fetchAdminPage('admin_search_lead.php', dialer, 'POST', body);
       
-      const leads = extractLeadsFromHtml(html);
+      const leads = exports.extractLeadsFromHtml(html);
       console.log('Extracted leads count:', leads.length);
       
       return res.json({
@@ -100,8 +116,8 @@ exports.searchLead = async (req, res, next) => {
 };
 
 // Helper to extract lead details from dialer
-async function fetchLeadDetails(leadId) {
-  const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
+async function fetchLeadDetails(leadId, dialerType = 'pharmacy') {
+  const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`, dialerType);
   
   const extractField = (name) => {
     const rx = new RegExp(`name=["']?${name}["']?\\s+[^>]*value=["']?([^"'>\\s]*)["']?`, 'i');
@@ -148,7 +164,8 @@ async function fetchLeadDetails(leadId) {
 exports.getLeadInfo = async (req, res, next) => {
   try {
     const { leadId } = req.params;
-    const data = await fetchLeadDetails(leadId);
+    const { dialer = 'pharmacy' } = req.query;
+    const data = await fetchLeadDetails(leadId, dialer);
     return res.json({ success: true, data });
   } catch (error) {
     next(error);
@@ -157,7 +174,7 @@ exports.getLeadInfo = async (req, res, next) => {
 
 exports.importLeadForEval = async (req, res, next) => {
   try {
-    const { lead_id, recording_url, agent_name } = req.body;
+    const { lead_id, recording_url, agent_name, dialer = 'pharmacy' } = req.body;
     if (!lead_id || !recording_url) {
       return res.status(400).json({ success: false, message: 'lead_id and recording_url are required' });
     }
@@ -173,11 +190,13 @@ exports.importLeadForEval = async (req, res, next) => {
     }
 
     // Fetch details from dialer
-    const lead = await fetchLeadDetails(lead_id);
+    const lead = await fetchLeadDetails(lead_id, dialer);
 
     // Default call_date fallback
     let callDate = lead.last_call ? new Date(lead.last_call) : new Date();
     if (isNaN(callDate)) callDate = new Date();
+
+    const campaignName = dialer === 'medicare' ? 'Medicare Dialer' : 'Pharmacy Dialer';
 
     const insertRes = await query(
       `INSERT INTO call_leads (agent_name, agent_id, campaign_name, customer_name, customer_phone, call_date, recording_url, disposition) 
@@ -185,7 +204,7 @@ exports.importLeadForEval = async (req, res, next) => {
       [
         agent_name || lead.user || 'Unknown', 
         lead.user || 'Unknown', 
-        'Dialer Campaign', 
+        campaignName, 
         lead.name || 'Unknown', 
         lead.phone || 'Unknown', 
         callDate.toISOString(), 
@@ -204,7 +223,8 @@ exports.importLeadForEval = async (req, res, next) => {
 exports.getRecordings = async (req, res, next) => {
   try {
     const { leadId } = req.params;
-    const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`);
+    const { dialer = 'pharmacy' } = req.query;
+    const html = await exports.fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`, dialer);
     
     const recordings = [];
     

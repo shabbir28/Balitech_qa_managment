@@ -19,6 +19,7 @@ import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
 import CampaignsPage from './pages/CampaignsPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
+import DialerSalesPage from './pages/DialerSalesPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
@@ -118,6 +119,11 @@ function App() {
           <Route path="/dialer" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><DialerSearchPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer-sales" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><DialerSalesPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/dialer/lead/:leadId" element={

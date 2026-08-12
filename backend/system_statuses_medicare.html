@@ -1,0 +1,1137 @@
+<html>
+<head>
+<!-- VERSION: 2.14-838a   BUILD: 211217-0732   ADD: 3   PHP_SELF: /z6IRf9c/admin.php-->
+<META NAME="ROBOTS" CONTENT="NONE">
+<META NAME="COPYRIGHT" CONTENT="&copy; 2021 ViciDial Group">
+<META NAME="AUTHOR" CONTENT="ViciDial Group">
+<script language="JavaScript" src="calendar_db.js"></script>
+<script language="JavaScript" src="help.js"></script>
+<div id='HelpDisplayDiv' class='help_info' style='display:none;'></div><link rel="stylesheet" href="calendar.css">
+<link rel="stylesheet" type="text/css" href="vicidial_stylesheet.php">
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+<META HTTP-EQUIV="Expires" CONTENT="-1">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<title>ADMINISTRATION: Modify User</title>
+<script language="Javascript">
+var field_name = '';
+var user = 'CRM_API';
+var epoch = '1786481670';
+
+	
+	var weak = new Image();
+	weak.src = "images/weak.png";
+	var medium = new Image();
+	medium.src = "images/medium.png";
+	var strong = new Image();
+	strong.src = "images/strong.png";
+
+	function pwdChanged(pwd_field_str, pwd_img_str, pwd_len_field, pwd_len_min) 
+		{
+		var pwd_field = document.getElementById(pwd_field_str);
+		var pwd_field_value = pwd_field.value;
+		var pwd_img = document.getElementById(pwd_img_str);
+		var pwd_len = pwd_field_value.length
+
+	//	var strong_regex = new RegExp( "^(?=.{8,})(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])", "g" );
+	//	var medium_regex = new RegExp( "^(?=.{6,})(((?=.*[a-z])(?=.*[A-Z]))|((?=.*[a-z])(?=.*[0-9]))|((?=.*[A-Z])(?=.*[0-9]))).*$", "g" );
+		var strong_regex = new RegExp( "^(?=.{20,})(?=.*[a-zA-Z])(?=.*[0-9])", "g" );
+		var medium_regex = new RegExp( "^(?=.{10,})(?=.*[a-zA-Z])(?=.*[0-9])", "g" );
+
+		if (strong_regex.test(pwd_field.value) ) 
+			{
+			if (pwd_img.src != strong.src)
+				{pwd_img.src = strong.src;}
+			} 
+		else if (medium_regex.test( pwd_field.value) ) 
+			{
+			if (pwd_img.src != medium.src) 
+				{pwd_img.src = medium.src;}
+			}
+		else 
+			{
+			if (pwd_img.src != weak.src) 
+				{pwd_img.src = weak.src;}
+			}
+		if ( (pwd_len_min > 0) && (pwd_len_min > pwd_len) )
+			{document.getElementById(pwd_len_field).innerHTML = "<font color=red><b>" + pwd_len + "</b></font>";}
+		else
+			{document.getElementById(pwd_len_field).innerHTML = "<font color=black><b>" + pwd_len + "</b></font>";}
+		}
+
+	function openNewWindow(url) 
+		{
+		window.open (url,"",'width=620,height=300,scrollbars=yes,menubar=yes,address=yes');
+		}
+	function scriptInsertField() 
+		{
+		openField = '--A--';
+		closeField = '--B--';
+		var textBox = document.scriptForm.script_text;
+		var scriptIndex = document.getElementById("selectedField").selectedIndex;
+		var insValue =  document.getElementById('selectedField').options[scriptIndex].value;
+		if (document.selection) 
+			{
+			//IE
+			textBox = document.scriptForm.script_text;
+			insValue = document.scriptForm.selectedField.options[document.scriptForm.selectedField.selectedIndex].text;
+			textBox.focus();
+			sel = document.selection.createRange();
+			sel.text = openField + insValue + closeField;
+			} 
+		else if (textBox.selectionStart || textBox.selectionStart == 0) 
+			{
+			//Mozilla
+			var startPos = textBox.selectionStart;
+			var endPos = textBox.selectionEnd;
+			textBox.value = textBox.value.substring(0, startPos)
+			+ openField + insValue + closeField
+			+ textBox.value.substring(endPos, textBox.value.length);
+			}
+		else 
+			{
+			textBox.value += openField + insValue + closeField;
+			}
+		}
+
+		var pass = 'CRM_APIadsfad';
+
+	mouseY=0;
+	function getMousePos(event) {
+		mouseY=event.pageY;
+	}
+	document.addEventListener("click", getMousePos);
+
+	function launch_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=sounds_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function launch_moh_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=moh_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function launch_vm_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=vm_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function close_chooser()
+		{
+		document.getElementById("audio_chooser_span").style.visibility = 'hidden';
+		document.getElementById("audio_chooser_span").innerHTML = '';
+		}
+
+	function user_submit()
+		{
+		var user_field = document.getElementById("user");
+		user_field.disabled = false;
+		document.userform.submit();
+		}
+
+	function play_browser_sound(temp_element,temp_volume)
+		{
+		var taskIndex = document.getElementById(temp_element).selectedIndex;
+		var taskValue = document.getElementById(temp_element).options[taskIndex].value;
+		var temp_selected_element = 'BAS_' + taskValue;
+		if ( (taskValue != '---NONE---') && (taskValue != '---DISABLED---') && (taskValue != '') )
+			{
+			var temp_audio = document.getElementById(temp_selected_element);
+			var taskVolIndex = document.getElementById(temp_volume).selectedIndex;
+			var taskVolValue = document.getElementById(temp_volume).options[taskVolIndex].value;
+			var temp_js_volume = (taskVolValue * .01);
+			temp_audio.volume = temp_js_volume;
+		//	alert(temp_selected_element + ' ' + temp_js_volume);
+			temp_audio.play();
+			}
+		}
+	</script>
+
+<style type="text/css">
+<!--
+
+
+
+.auraltext
+	{
+	position: absolute;
+	font-size: 0;
+	left: -1000px;
+	}
+.chart_td
+	{background-image: url(images/gridline58.gif); background-repeat: repeat-x; background-position: left top; border-left: 1px solid #e5e5e5; border-right: 1px solid #e5e5e5; padding:0; border-bottom: 1px solid #e5e5e5; background-color:transparent;}
+
+.head_style
+	{
+	background-color: 738035;
+	}
+.head_style:hover{background-color: #262626;}
+
+.head_style_selected
+	{
+	background-color: C4CF8B;
+	}
+.head_style_selected:hover{background-color: C4CF8B;}
+
+.subhead_style
+	{
+	background-color: #E6E6E6;
+	}
+.subhead_style:hover{background-color: white;}
+
+.subhead_style_selected
+	{
+	background-color: #C6C6C6;
+	}
+.subhead_style_selected:hover{background-color: #C6C6C6;}
+
+.adminmenu_style_selected
+	{
+	background-color: white;
+	}
+.adminmenu_style_selected:hover{background-color: #E6E6E6;}
+
+.records_list_x
+	{
+	background-color: #C4CF8B;
+	}
+.records_list_x:hover{background-color: #E6E6E6;}
+
+.records_list_y
+	{
+	background-color: #B6C572;
+	}
+.records_list_y:hover{background-color: #E6E6E6;}
+
+
+.horiz_line
+	{
+	height: 0px;
+	margin: 0px;
+	border-bottom: 1px solid #E6E6E6;
+	font-size: 1px;
+	}
+.horiz_line_grey
+	{
+	height: 0px;
+	margin: 0px;
+	border-bottom: 1px solid #9E9E9E;
+	font-size: 1px;
+	}
+
+.sub_sub_head_links
+	{
+	font-family:HELVETICA;
+	font-size:11;
+	color:BLACK;
+	}
+
+-->
+
+</style>
+
+</head>
+<BODY BGCOLOR=white marginheight=0 marginwidth=0 leftmargin=0 topmargin=0>
+<!-- INTERNATIONALIZATION-LINKS-PLACEHOLDER-VICIDIAL -->
+<CENTER>
+
+<TABLE BGCOLOR=white cellpadding=0 cellspacing=0>
+<!-- BEGIN SIDEBAR NAVIGATION -->
+<TR><TD VALIGN=TOP WIDTH=170 BGCOLOR=#738035 ALIGN=CENTER VALIGN=MIDDLE>
+<A HREF="./admin.php"><IMG SRC="./images/vicidial_admin_web_logo.png" WIDTH=170 HEIGHT=45 BORDER=0 ALT="System logo"></A>
+<B><FONT FACE="ARIAL,HELVETICA" COLOR=white>ADMINISTRATION</FONT></B><BR>
+
+	<TABLE CELLPADDING=2 CELLSPACING=0 BGCOLOR=#738035 WIDTH=160>
+		<!-- REPORTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=999999';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=999999" STYLE="text-decoration:none;"><img src="images/icon_reports.png" border=0 alt="Reports" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Reports </a>
+	</TD></TR>
+
+	<!-- USERS NAVIGATION -->
+	<TR WIDTH=100%><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR WIDTH=160 BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=0A';"><TD ALIGN=LEFT CLASS="head_style_selected" WIDTH=160>
+	<a href="/z6IRf9c/admin.php?ADD=0A" STYLE="text-decoration:none;"><img src="images/icon_black_users.png" border=0 alt="Users" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:BLACK"><b>Users</a>
+	</TD></TR>
+		<TR CLASS="subhead_style_selected" onclick="window.document.location='/z6IRf9c/admin.php?ADD=0A';"><TD ALIGN=LEFT>
+	 &nbsp; <a href="/z6IRf9c/admin.php?ADD=0A" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Show Users </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1';"><TD ALIGN=LEFT>
+		 &nbsp; <a href="/z6IRf9c/admin.php?ADD=1" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Add A New User </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1A';"><TD ALIGN=LEFT>
+	 &nbsp; <a href="/z6IRf9c/admin.php?ADD=1A" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Copy User </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=550';"><TD ALIGN=LEFT>
+		 &nbsp; <a href="/z6IRf9c/admin.php?ADD=550" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Search For A User </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='./user_stats.php?user=';"><TD ALIGN=LEFT>
+	 &nbsp; <a href="./user_stats.php?user=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">User Stats </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='./user_status.php?user=';"><TD ALIGN=LEFT>
+	 &nbsp; <a href="./user_status.php?user=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">User Status </a>
+	</TR><TR CLASS="subhead_style" onclick="window.document.location='./AST_agent_time_sheet.php?agent=';"><TD ALIGN=LEFT>
+	 &nbsp; <a href="./AST_agent_time_sheet.php?agent=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Time Sheet </a> </TD></TR>
+	 	<!-- CAMPAIGNS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=10" STYLE="text-decoration:none;"><img src="images/icon_campaigns.png" border=0 alt="Campaigns" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Campaigns</a>
+	</TD></TR>
+		<!-- LISTS NAVIGATION -->
+			<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+		<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=100';"><TD ALIGN=LEFT CLASS="head_style"><a href="/z6IRf9c/admin.php?ADD=100" STYLE="text-decoration:none;"><img src="images/icon_lists.png" border=0 alt="Lists" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Lists</a></TD></TR>
+			<!-- SCRIPTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=1000000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=1000000" STYLE="text-decoration:none;"><img src="images/icon_scripts.png" border=0 alt="Scripts" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Scripts </a>
+	</TD></TR>
+		<!-- FILTERS NAVIGATION -->
+			<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+		<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10000000';"><TD ALIGN=LEFT CLASS="head_style"><a href="/z6IRf9c/admin.php?ADD=10000000" STYLE="text-decoration:none;"><img src="images/icon_filters.png" border=0 alt="Filters" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Filters </a></TD></TR>
+			<!-- INGROUPS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=1001';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=1001" STYLE="text-decoration:none;"><img src="images/icon_inbound.png" border=0 alt="Inbound" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Inbound </a>
+	</TD></TR>
+		<!-- USERGROUPS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=100000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=100000" STYLE="text-decoration:none;"><img src="images/icon_usergroups.png" border=0 alt="User Groups" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> User Groups </a>
+	</TD></TR>
+		<!-- REMOTEAGENTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=10000" STYLE="text-decoration:none;"><img src="images/icon_remoteagents.png" border=0 alt="Remote Agents" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Remote Agents </a>
+	</TD></TR>
+		<!-- ADMIN NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=999998';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=999998" STYLE="text-decoration:none;"><img src="images/icon_admin.png" border=0 alt="Admin" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Admin </a>
+	</TD></TR>
+		<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	</TABLE>
+	<BR>&nbsp;
+</TD><TD VALIGN=TOP WIDTH=770 BGCOLOR=#E0E7C2>
+<!-- END SIDEBAR NAVIGATION -->
+
+<span style="position:absolute;left:300px;top:30px;z-index:1;visibility:hidden;" id="audio_chooser_span">
+
+</span>
+
+<TABLE BGCOLOR=#E0E7C2 cellpadding=2 cellspacing=0 WIDTH=770 HEIGHT=15>
+<TR BGCOLOR=#738035><TD ALIGN=LEFT BGCOLOR=#738035><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B><a href="../z6IRf9c/welcome.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>HOME</a> | <A HREF="../agc/timeclock.php?referrer=admin" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Timeclock</A> | <a href="manager_chat_interface.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Chat</a> | <a href="/z6IRf9c/admin.php?force_logout=1" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>Logout</a> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>(CRM_API)</FONT>
+
+
+</TD><TD ALIGN=RIGHT><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Tuesday August 11, 2026 16:54:30 PM &nbsp; </B></TD></TR>
+
+<TR BGCOLOR=#738035>
+
+
+
+
+
+
+
+</TR>
+		<TR BGCOLOR=#E6E6E6><TD ALIGN=LEFT COLSPAN=2> &nbsp; <a href="./user_stats.php?user=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;">User Stats </a> &nbsp; | &nbsp; <a href="./user_status.php?user=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;">User Status </a> &nbsp; | &nbsp; <a href="./AST_agent_time_sheet.php?agent=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;">Time Sheet </a> &nbsp; | &nbsp; <a href="./AST_agent_days_detail.php?user=" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;">Days Status </a></TD></TR>
+	<TR><TD ALIGN=LEFT COLSPAN=2 HEIGHT=2 BGCOLOR=#738035></TD></TR>
+<TR><TD ALIGN=LEFT COLSPAN=2>
+<TABLE><TR><TD>
+<FONT FACE="ARIAL,HELVETICA" COLOR=BLACK SIZE=2><br>MODIFY A USERS RECORD: <form action=/z6IRf9c/admin.php method=POST>
+<input type=hidden name=ADD value=4B>
+<input type=hidden name=custom_fields_modify value="">
+<input type=hidden name=user value="">
+<center><TABLE width=750 cellspacing=3>
+<tr bgcolor=#C4CF8B><td align=right>User Number: </td><td align=left><b></b><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-user')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Password: </td><td align=left style="display:table-cell; vertical-align:middle;" NOWRAP><input type=text id=reg_pass name=pass size=50 maxlength=100 value="" onkeyup="return pwdChanged('reg_pass','reg_pass_img','pass_length','0');"><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-pass')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; &nbsp; <font size=1>Strength:</font> <IMG id=reg_pass_img src='images/pixel.gif' style="vertical-align:middle;" onLoad="return pwdChanged('reg_pass','reg_pass_img','pass_length','0');"> &nbsp; <font size=1> Length: <span id=pass_length name=pass_length>0</span></font></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Force Change Password: </td><td align=left><select size=1 name=force_change_password><option value='Y'>Y</option><option value='N'>N</option><option value="" SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-force_change_password')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Last Login Info: </td><td align=left><b> -  -  </b><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-last_login_date')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Full Name: </td><td align=left><input type=text name=full_name size=30 maxlength=30 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-full_name')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>User Level: </td><td align=left><select size=1 name=user_level><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option><option>7</option><option>8</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-user_level')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right><A HREF="/z6IRf9c/admin.php?ADD=311111&user_group=">User Group</A>: </td><td align=left><select size=1 name=user_group>
+<option value="7777">7777 - 7777</option>
+<option value="Agents">Agents - MEDICARE</option>
+<option value="Ahsan_Bhai">Ahsan_Bhai - Ahsan_Bhai</option>
+<option value="Balitech2">Balitech2 - Balitech2</option>
+<option value="Balitech2Closer">Balitech2Closer - Balitech2</option>
+<option value="Balitech3">Balitech3 - Balitech3</option>
+<option value="Balitech3Closer">Balitech3Closer - Balitech3</option>
+<option value="BootCampers">BootCampers - BootCampers</option>
+<option value="BradTL">BradTL - BradTL</option>
+<option value="Champions">Champions - Team John</option>
+<option value="ChampionsCloser">ChampionsCloser - Team Jhon</option>
+<option value="Client">Client - Client</option>
+<option value="Conf">Conf - Conf</option>
+<option value="Connectivo">Connectivo - Connectivo</option>
+<option value="David">David - David.</option>
+<option value="HashimTL">HashimTL - HashimTL</option>
+<option value="ISB_OFFICE">ISB_OFFICE - ISB_OFFICE</option>
+<option value="ISB_OFFICECloser">ISB_OFFICECloser - ISB_OFFICE</option>
+<option value="ITUSER">ITUSER - ITUSER</option>
+<option value="JohnMurphy">JohnMurphy - JohnMurphy</option>
+<option value="MED_IN">MED_IN - Med_Inhouse</option>
+<option value="primo">primo - primo</option>
+<option value="TeamA">TeamA - Brad_Wilson</option>
+<option value="TeamAB">TeamAB - TeamABlock</option>
+<option value="TeamACloser">TeamACloser - Team Kevin</option>
+<option value="TeamAdam">TeamAdam - TeamAdam</option>
+<option value="TeamAsad">TeamAsad - Team Asad Medicare</option>
+<option value="TEAMB">TEAMB - Team_Adam</option>
+<option value="TeamBB">TeamBB - TeamBBlock</option>
+<option value="TeamBCloser">TeamBCloser - Team Wolves</option>
+<option value="TeamBrad">TeamBrad - TeamBrad</option>
+<option value="TeamC">TeamC - Team Madrid</option>
+<option value="TeamCCloser">TeamCCloser - Team Madrid</option>
+<option value="TeamD">TeamD - Team Avengers</option>
+<option value="TeamDCloser">TeamDCloser - Team Avengers</option>
+<option value="TeamJohn">TeamJohn - TeamJohn</option>
+<option value="Teamlead">Teamlead - Teamlead</option>
+<option value="TelcastClient">TelcastClient - TelcastClient</option>
+<option value="Telcom">Telcom - Telcom</option>
+<option SELECTED></option>
+</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-user_group')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Phone Login: </td><td align=left><input type=text name=phone_login size=20 maxlength=20 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-phone_login')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Phone Pass: </td><td align=left><input type=text name=phone_pass size=40 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-phone_pass')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP>
+</td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Active: </td><td align=left><select size=1 name=active><option value='Y'>Y</option><option value='N'>N</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-active')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Voicemail ID: </td><td align=left><input type=text name=voicemail_id id=voicemail_id size=12 maxlength=10 value=""> <a href="javascript:launch_vm_chooser('voicemail_id','vm');">voicemail chooser</a><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-voicemail_id')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Email: </td><td align=left><input type=text name=email size=40 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-email')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Mobile Number: </td><td align=left><input type=text name=mobile_number size=20 maxlength=20 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-mobile_number')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>User Code: </td><td align=left><input type=text name=user_code size=40 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-optional')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>User Location: </td><td align=left><select size=1 name=user_location><option SELECTED value=""> - default</option>
+</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-user_location')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Main Territory: </td><td align=left><input type=text name=territory size=40 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-optional')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>User Nickname: </td><td align=left><input type=text name=user_nickname size=40 maxlength=50 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-user_nickname')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td><input type=hidden name=user_new_lead_limit value=""></td></tr>
+<tr bgcolor=#738035><td colspan=2 align=center><font color=white><B>AGENT INTERFACE OPTIONS:</B></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Choose Ingroups: </td><td align=left><select size=1 name=agent_choose_ingroups><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_choose_ingroups')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Choose Blended: </td><td align=left><select size=1 name=agent_choose_blended><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_choose_blended')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Hot Keys Active: </td><td align=left><select size=1 name=hotkeys_active><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-hotkeys_active')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Scheduled Callbacks: </td><td align=left><select size=1 name=scheduled_callbacks><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-scheduled_callbacks')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent-Only Callbacks: </td><td align=left><select size=1 name=agentonly_callbacks><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agentonly_callbacks')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Next-Dial My Callbacks Override: </td><td align=left><select size=1 name=next_dial_my_callbacks><option value='NOT_ACTIVE'>NOT_ACTIVE</option><option value='ENABLED'>ENABLED</option><option value='DISABLED'>DISABLED</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-next_dial_my_callbacks')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Call Manual: </td><td align=left><select size=1 name=agentcall_manual><option>0</option><option>1</option><option>2</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agentcall_manual')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Manual Dial Filter Override: </td><td align=left><select size=1 name=manual_dial_filter>
+				<option value='DISABLED'>DISABLED</option>
+				<option value='NONE'>NONE</option>
+				<option value='DNC_ONLY'>DNC_ONLY</option>
+				<option value='CAMPDNC_ONLY'>CAMPDNC_ONLY</option>
+				<option value='INTERNALDNC_ONLY'>INTERNALDNC_ONLY</option>
+				<option value='DNC_AND_CAMPDNC'>DNC_AND_CAMPDNC</option>
+				<option value='CAMPLISTS_ONLY'>CAMPLISTS_ONLY</option>
+				<option value='CAMPLISTS_ALL'>CAMPLISTS_ALL</option>
+				<option value='SYSTEM'>SYSTEM</option>
+				<option value='DNC_AND_CAMPLISTS'>DNC_AND_CAMPLISTS</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS'>CAMPDNC_ONLY_AND_CAMPLISTS</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS'>INTERNALDNC_ONLY_AND_CAMPLISTS</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS'>DNC_AND_CAMPDNC_AND_CAMPLISTS</option>
+				<option value='DNC_AND_CAMPLISTS_ALL'>DNC_AND_CAMPLISTS_ALL</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS_ALL'>CAMPDNC_ONLY_AND_CAMPLISTS_ALL</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS_ALL'>INTERNALDNC_ONLY_AND_CAMPLISTS_ALL</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL'>DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL</option>
+				<option value='DNC_AND_SYSTEM'>DNC_AND_SYSTEM</option>
+				<option value='CAMPDNC_ONLY_AND_SYSTEM'>CAMPDNC_ONLY_AND_SYSTEM</option>
+				<option value='INTERNALDNC_ONLY_AND_SYSTEM'>INTERNALDNC_ONLY_AND_SYSTEM</option>
+				<option value='DNC_AND_CAMPDNC_AND_SYSTEM'>DNC_AND_CAMPDNC_AND_SYSTEM</option>
+				<option value='NONE_WITH_ALT'>NONE_WITH_ALT</option>
+				<option value='DNC_ONLY_WITH_ALT'>DNC_ONLY_WITH_ALT</option>
+				<option value='CAMPDNC_ONLY_WITH_ALT'>CAMPDNC_ONLY_WITH_ALT</option>
+				<option value='INTERNALDNC_ONLY_WITH_ALT'>INTERNALDNC_ONLY_WITH_ALT</option>
+				<option value='DNC_AND_CAMPDNC_WITH_ALT'>DNC_AND_CAMPDNC_WITH_ALT</option>
+				<option value='CAMPLISTS_ONLY_WITH_ALT'>CAMPLISTS_ONLY_WITH_ALT</option>
+				<option value='CAMPLISTS_ALL_WITH_ALT'>CAMPLISTS_ALL_WITH_ALT</option>
+				<option value='SYSTEM_WITH_ALT'>SYSTEM_WITH_ALT</option>
+				<option value='DNC_AND_CAMPLISTS_WITH_ALT'>DNC_AND_CAMPLISTS_WITH_ALT</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS_WITH_ALT'>CAMPDNC_ONLY_AND_CAMPLISTS_WITH_ALT</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS_WITH_ALT'>INTERNALDNC_ONLY_AND_CAMPLISTS_WITH_ALT</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS_WITH_ALT'>DNC_AND_CAMPDNC_AND_CAMPLISTS_WITH_ALT</option>
+				<option value='DNC_AND_CAMPLISTS_ALL_WITH_ALT'>DNC_AND_CAMPLISTS_ALL_WITH_ALT</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT'>CAMPDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT'>INTERNALDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL_WITH_ALT'>DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL_WITH_ALT</option>
+				<option value='DNC_AND_SYSTEM_WITH_ALT'>DNC_AND_SYSTEM_WITH_ALT</option>
+				<option value='CAMPDNC_ONLY_AND_SYSTEM_WITH_ALT'>CAMPDNC_ONLY_AND_SYSTEM_WITH_ALT</option>
+				<option value='INTERNALDNC_ONLY_AND_SYSTEM_WITH_ALT'>INTERNALDNC_ONLY_AND_SYSTEM_WITH_ALT</option>
+				<option value='DNC_AND_CAMPDNC_AND_SYSTEM_WITH_ALT'>DNC_AND_CAMPDNC_AND_SYSTEM_WITH_ALT</option>
+				<option value='NONE_WITH_ALT_ADDR3'>NONE_WITH_ALT_ADDR3</option>
+				<option value='DNC_ONLY_WITH_ALT_ADDR3'>DNC_ONLY_WITH_ALT_ADDR3</option>
+				<option value='CAMPDNC_ONLY_WITH_ALT_ADDR3'>CAMPDNC_ONLY_WITH_ALT_ADDR3</option>
+				<option value='INTERNALDNC_ONLY_WITH_ALT_ADDR3'>INTERNALDNC_ONLY_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPDNC_WITH_ALT_ADDR3'>DNC_AND_CAMPDNC_WITH_ALT_ADDR3</option>
+				<option value='CAMPLISTS_ONLY_WITH_ALT_ADDR3'>CAMPLISTS_ONLY_WITH_ALT_ADDR3</option>
+				<option value='CAMPLISTS_ALL_WITH_ALT_ADDR3'>CAMPLISTS_ALL_WITH_ALT_ADDR3</option>
+				<option value='SYSTEM_WITH_ALT_ADDR3'>SYSTEM_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPLISTS_WITH_ALT_ADDR3'>DNC_AND_CAMPLISTS_WITH_ALT_ADDR3</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS_WITH_ALT_ADDR3'>CAMPDNC_ONLY_AND_CAMPLISTS_WITH_ALT_ADDR3</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS_WITH_ALT_ADDR3'>INTERNALDNC_ONLY_AND_CAMPLISTS_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS_WITH_ALT_ADDR3'>DNC_AND_CAMPDNC_AND_CAMPLISTS_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3'>DNC_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3</option>
+				<option value='CAMPDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3'>CAMPDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3</option>
+				<option value='INTERNALDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3'>INTERNALDNC_ONLY_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3'>DNC_AND_CAMPDNC_AND_CAMPLISTS_ALL_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_SYSTEM_WITH_ALT_ADDR3'>DNC_AND_SYSTEM_WITH_ALT_ADDR3</option>
+				<option value='CAMPDNC_ONLY_AND_SYSTEM_WITH_ALT_ADDR3'>CAMPDNC_ONLY_AND_SYSTEM_WITH_ALT_ADDR3</option>
+				<option value='INTERNALDNC_ONLY_AND_SYSTEM_WITH_ALT_ADDR3'>INTERNALDNC_ONLY_AND_SYSTEM_WITH_ALT_ADDR3</option>
+				<option value='DNC_AND_CAMPDNC_AND_SYSTEM_WITH_ALT_ADDR3'>DNC_AND_CAMPDNC_AND_SYSTEM_WITH_ALT_ADDR3</option>
+				<option value='CALLBACK'>CALLBACK</option>
+				<option value='DNC_AND_CALLBACK'>DNC_AND_CALLBACK</option>
+				<option value='CAMPDNC_ONLY_AND_CALLBACK'>CAMPDNC_ONLY_AND_CALLBACK</option>
+				<option value='INTERNALDNC_ONLY_AND_CALLBACK'>INTERNALDNC_ONLY_AND_CALLBACK</option>
+				<option value='DNC_AND_CAMPDNC_AND_CALLBACK'>DNC_AND_CAMPDNC_AND_CALLBACK</option>
+				<option value='NONE_WITH_ALT_AND_CALLBACK'>NONE_WITH_ALT_AND_CALLBACK</option>
+				<option value='DNC_ONLY_WITH_ALT_AND_CALLBACK'>DNC_ONLY_WITH_ALT_AND_CALLBACK</option>
+				<option value='CAMPDNC_ONLY_WITH_ALT_AND_CALLBACK'>CAMPDNC_ONLY_WITH_ALT_AND_CALLBACK</option>
+				<option value='INTERNALDNC_ONLY_WITH_ALT_AND_CALLBACK'>INTERNALDNC_ONLY_WITH_ALT_AND_CALLBACK</option>
+				<option value='DNC_AND_CAMPDNC_WITH_ALT_AND_CALLBACK'>DNC_AND_CAMPDNC_WITH_ALT_AND_CALLBACK</option>
+				<option value='NONE_WITH_ALT_ADDR3_AND_CALLBACK'>NONE_WITH_ALT_ADDR3_AND_CALLBACK</option>
+				<option value='DNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK'>DNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK</option>
+				<option value='CAMPDNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK'>CAMPDNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK</option>
+				<option value='INTERNALDNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK'>INTERNALDNC_ONLY_WITH_ALT_ADDR3_AND_CALLBACK</option>
+				<option value='DNC_AND_CAMPDNC_WITH_ALT_ADDR3_AND_CALLBACK'>DNC_AND_CAMPDNC_WITH_ALT_ADDR3_AND_CALLBACK</option>
+				<option value='' SELECTED></option>
+				</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-manual_dial_filter')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right></td><td align=left><input type=hidden name=agentcall_email value=></td></tr>
+<tr bgcolor=#C4CF8B><td align=right></td><td align=left><input type=hidden name=agentcall_chat value=></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Recording: </td><td align=left><select size=1 name=vicidial_recording><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_recording')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Transfers: </td><td align=left><select size=1 name=vicidial_transfers><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_transfers')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Closer Default Blended: </td><td align=left><select size=1 name=closer_default_blended><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-closer_default_blended')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right></td><td align=left><input type=hidden name=user_choose_language value=><input type=hidden name=selected_language value=""></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Recording Override: </td><td align=left><select size=1 name=vicidial_recording_override><option value='DISABLED'>DISABLED</option><option value='NEVER'>NEVER</option><option value='ONDEMAND'>ONDEMAND</option><option value='ALLCALLS'>ALLCALLS</option><option value='ALLFORCE'>ALLFORCE</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_recording_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td colspan=2><input type=hidden name=mute_recordings value=""></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Alter Customer Data Override: </td><td align=left><select size=1 name=alter_custdata_override><option value='NOT_ACTIVE'>NOT_ACTIVE</option><option value='ALLOW_ALTER'>ALLOW_ALTER</option><option value=''  SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-alter_custdata_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Alter Customer Phone Override: </td><td align=left><select size=1 name=alter_custphone_override><option value='NOT_ACTIVE'>NOT_ACTIVE</option><option value='ALLOW_ALTER'>ALLOW_ALTER</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-alter_custphone_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Shift Enforcement Override: </td><td align=left><select size=1 name=agent_shift_enforcement_override><option value='DISABLED'>DISABLED</option><option value='OFF'>OFF</option><option value='START'>START</option><option value='ALL'>ALL</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_shift_enforcement_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Call Log View Override: </td><td align=left><select size=1 name=agent_call_log_view_override><option value='DISABLED'>DISABLED</option><option value='Y'>Y</option><option value='N'>N</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_call_log_view_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Campaign Hide Call Log Override: </td><td align=left><select size=1 name=hide_call_log_info><option value='DISABLED'>DISABLED</option><option value='Y'>Y</option><option value='N'>N</option><option value='SHOW_1'>SHOW_1</option><option value='SHOW_2'>SHOW_2</option><option value='SHOW_3'>SHOW_3</option><option value='SHOW_4'>SHOW_4</option><option value='SHOW_5'>SHOW_5</option><option value='SHOW_6'>SHOW_6</option><option value='SHOW_7'>SHOW_7</option><option value='SHOW_8'>SHOW_8</option><option value='SHOW_9'>SHOW_9</option><option value='SHOW_10'>SHOW_10</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-hide_call_log_info')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Lead Search Override: </td><td align=left><select size=1 name=agent_lead_search><option value='DISABLED'>DISABLED</option><option value='ENABLED'>ENABLED</option><option value='LIVE_CALL_INBOUND'>LIVE_CALL_INBOUND</option><option value='LIVE_CALL_INBOUND_AND_MANUAL'>LIVE_CALL_INBOUND_AND_MANUAL</option><option value='NOT_ACTIVE'>NOT_ACTIVE</option><option value='' SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-agent_lead_search_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right><a href="/z6IRf9c/admin.php?ADD=31111111&lead_filter_id=">Lead Filter</a>: </td><td align=left><select size=1 name=lead_filter_id>
+<option value="">NONE</option>
+<option value="ALL_GOOD_STATES">ALL_GOOD_STATES - ALL_GOOD_STATES</option>
+<option value="CLIENT_RECOMMENDED">CLIENT_RECOMMENDED - CLIENT_RECOMMENDED</option>
+<option value="D2_MED_25NOV">D2_MED_25NOV - D2_MED_25NOV</option>
+<option value="D4_GOOD_STATES">D4_GOOD_STATES - D4_Good_States</option>
+<option value="D4_GOOD_STATES_NY">D4_GOOD_STATES_NY - D4_Good_States_NY</option>
+<option value="D4_NOT_IN">D4_NOT_IN - D4_NOT_IN</option>
+<option value="D4_NOT_IN_NEW">D4_NOT_IN_NEW - D4_NOT_IN_New</option>
+<option value="D4_NOT_IN-TEST">D4_NOT_IN-TEST - D4_NOT_IN-test</option>
+<option value="D5_15_STATES">D5_15_STATES - D5_15_States</option>
+<option value="D5_GOODSTATES">D5_GOODSTATES - D5_GoodStates</option>
+<option value="D5_GOODSTATESNEW">D5_GOODSTATESNEW - D5_GoodStatesnew</option>
+<option value="DHM_STATES_FILTER">DHM_STATES_FILTER - DHM_STATES_FILTER</option>
+<option value="DHM-N">DHM-N - DHM-N</option>
+<option value="DHMNEW19NOV">DHMNEW19NOV - DHMNEW19NOV</option>
+<option value="DHMNEWCAR19NOV">DHMNEWCAR19NOV - DHM NEW CAR 19Nov</option>
+<option value="GREENSTATESONLY">GREENSTATESONLY - Green States Only</option>
+<option value="HI">HI - HI</option>
+<option value="MDDCSDNDWYVTAK">MDDCSDNDWYVTAK - MD,DC,SD,ND,WY,VT,AK,PR</option>
+<option value="MED_REV_20">MED_REV_20 - MED_REV_20</option>
+<option value="MED1_MED2">MED1_MED2 - MED1_MED2</option>
+<option value="MED1_MED2_CA">MED1_MED2_CA - MED1_MED2_CA</option>
+<option value="NOTINDC-MA">NOTINDC-MA - NotInDC-MA</option>
+<option value="PRIORITYD5">PRIORITYD5 - Priority D5</option>
+<option value="SDMDAKNDW">SDMDAKNDW - SD, MD , AK , ND , WV , MN</option>
+<option value="THE_D4_FILTER">THE_D4_FILTER - THE_D4_FILTER</option>
+<option value="THE_D4_FILTER_CARM">THE_D4_FILTER_CARM - THE_D4_FILTER_CARM</option>
+<option value="TODAY_19JUNE">TODAY_19JUNE - Today_19June</option>
+<option selected value=""> - </option>
+</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-lead_filter_id')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> <i>only enabled with no-hopper manual dialing</i></td></tr>
+<tr bgcolor=#C4CF8B><td colspan=2><input type=hidden name=user_hide_realtime value=""></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Alert Enabled: </td><td align=left> <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-alert_enabled')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Allow Alerts: </td><td align=left><select size=1 name=allow_alerts><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-allow_alerts')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Preset Contact Search: </td><td align=left><select size=1 name=preset_contact_search><option value='NOT_ACTIVE'>NOT_ACTIVE</option><option value='DISABLED'>DISABLED</option><option SELECTED value=''></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-preset_contact_search')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Max Inbound Calls: </td><td align=left><input type=text name=max_inbound_calls size=6 maxlength=5 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_inbound_calls')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; &nbsp; <i>inbound calls today: 0</i></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Max Inbound Calls Filtering Enabled: </td><td align=left><select size=1 name=max_inbound_filter_enabled><option>0</option><option>1</option><option SELECTED></option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_inbound_filter_enabled')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; &nbsp; <i>inbound filtered calls today: 0</i></td></tr>
+<tr bgcolor=#C4CF8B><td align=center valign=top colspan=2>Max Inbound Calls Filtering Options: </td></tr>
+<tr><td colspan=2 align=right><table border=0 cellspacing=3><tr><td align=left>Filter Statuses:<IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_inbound_filter_statuses')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; <br><select MULTIPLE size=6 name=max_inbound_filter_statuses[]><option value="A" >A</option>
+<option value="AA" >AA</option>
+<option value="AB" >AB</option>
+<option value="ADC" >ADC</option>
+<option value="ADCT" >ADCT</option>
+<option value="AFAX" >AFAX</option>
+<option value="AFTHRS" >AFTHRS</option>
+<option value="AL" >AL</option>
+<option value="AM" >AM</option>
+<option value="B" >B</option>
+<option value="CALLBK" >CALLBK</option>
+<option value="CBHOLD" >CBHOLD</option>
+<option value="D1" >D1</option>
+<option value="D4" >D4</option>
+<option value="D5" >D5</option>
+<option value="D6" >D6</option>
+<option value="D6CPL" >D6CPL</option>
+<option value="D7" >D7</option>
+<option value="DAIR" >DAIR</option>
+<option value="DC" >DC</option>
+<option value="DEC" >DEC</option>
+<option value="DNC" >DNC</option>
+<option value="DNCC" >DNCC</option>
+<option value="DNCL" >DNCL</option>
+<option value="DROP" >DROP</option>
+<option value="ERI" >ERI</option>
+<option value="HI" >HI</option>
+<option value="HI2" >HI2</option>
+<option value="HIB" >HIB</option>
+<option value="HIC" >HIC</option>
+<option value="HIMAIN" >HIMAIN</option>
+<option value="IQNANQ" >IQNANQ</option>
+<option value="IVRXFR" >IVRXFR</option>
+<option value="LRERR" >LRERR</option>
+<option value="LSMERG" >LSMERG</option>
+<option value="MAXCAL" >MAXCAL</option>
+<option value="MLINAT" >MLINAT</option>
+<option value="N" >N</option>
+<option value="NA" >NA</option>
+<option value="NAB" >NAB</option>
+<option value="NANQUE" >NANQUE</option>
+<option value="NEW" >NEW</option>
+<option value="NI" >NI</option>
+<option value="OverCX" >OverCX</option>
+<option value="PDROP" >PDROP</option>
+<option value="PM" >PM</option>
+<option value="PU" >PU</option>
+<option value="QCFAIL" >QCFAIL</option>
+<option value="QVMAIL" >QVMAIL</option>
+<option value="RAXFER" >RAXFER</option>
+<option value="RQXFER" >RQXFER</option>
+<option value="SALE" >SALE</option>
+<option value="SVYCLM" >SVYCLM</option>
+<option value="SVYEXT" >SVYEXT</option>
+<option value="SVYHU" >SVYHU</option>
+<option value="SVYREC" >SVYREC</option>
+<option value="SVYVM" >SVYVM</option>
+<option value="TIMEOT" >TIMEOT</option>
+<option value="XDROP" >XDROP</option>
+<option value="XFER" >XFER</option>
+<option value="AE" >AE</option>
+<option value="CD" >CD</option>
+<option value="D10ACA" >D10ACA</option>
+<option value="D1ACA" >D1ACA</option>
+<option value="D2" >D2</option>
+<option value="D3" >D3</option>
+<option value="D4ACA" >D4ACA</option>
+<option value="D7ACA" >D7ACA</option>
+<option value="EC" >EC</option>
+<option value="FAS" >FAS</option>
+<option value="FUA" >FUA</option>
+<option value="GI" >GI</option>
+<option value="HA" >HA</option>
+<option value="HUAP" >HUAP</option>
+<option value="HUBP" >HUBP</option>
+<option value="IL" >IL</option>
+<option value="IL" >IL</option>
+<option value="INL" >INL</option>
+<option value="INM" >INM</option>
+<option value="LB" >LB</option>
+<option value="MED" >MED</option>
+<option value="MEDC" >MEDC</option>
+<option value="NB" >NB</option>
+<option value="ND" >ND</option>
+<option value="NQ" >NQ</option>
+<option value="NS" >NS</option>
+<option value="OA" >OA</option>
+<option value="QHU" >QHU</option>
+<option value="RTBD3" >RTBD3</option>
+<option value="TAAACA" >TAAACA</option>
+<option value="U65" >U65</option>
+<option value="UA" >UA</option>
+</select></td>
+<td align=left>Filter In-Groups:<IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_inbound_filter_ingroups')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; <br><select MULTIPLE size=6 name=max_inbound_filter_ingroups[]><option value="AGENTDIRECT" >AGENTDIRECT - Single Agent Direct Queue</option>
+<option value="AGENTDIRECT_CHAT" >AGENTDIRECT_CHAT - Agent Direct Queue for Chats</option>
+<option value="AI_BOTS" >AI_BOTS - AI_BOTS</option>
+<option value="balimed1TObalitgpt7s" >balimed1TObalitgpt7s - AL</option>
+<option value="balimed2_sip2sip" >balimed2_sip2sip - AB</option>
+<option value="balimed3TOgpt7s" >balimed3TOgpt7s - balimed3TOgpt7s</option>
+<option value="Balit5" >Balit5 - Balit5</option>
+<option value="Balitech_ST" >Balitech_ST - Balitech-ST</option>
+<option value="Balitech7" >Balitech7 - BR</option>
+<option value="Balitech7_2" >Balitech7_2 - Balitech7_2</option>
+<option value="BalitechMED1" >BalitechMED1 - Balitech-MED1</option>
+<option value="balitechmed1TObalitg" >balitechmed1TObalitg - balitechmed1TObalitgpt7</option>
+<option value="BalitechMED2" >BalitechMED2 - Balitech-MED1 002</option>
+<option value="balitechvoice" >balitechvoice - balitechvoice</option>
+<option value="Balitmed3_2" >Balitmed3_2 - Balitmed3_2</option>
+<option value="BT_1" >BT_1 - NAQI</option>
+<option value="BT1" >BT1 - BT-1</option>
+<option value="Bt1001" >Bt1001 - Bt1001</option>
+<option value="Bt1002" >Bt1002 - Bt1002</option>
+<option value="BT1Queu" >BT1Queu - BT1Queu</option>
+<option value="BT4001" >BT4001 - BT4001</option>
+<option value="BT4002" >BT4002 - BT4002</option>
+<option value="CallCO" >CallCO - CallCO</option>
+<option value="CallCoMED" >CallCoMED - CallCo-MED</option>
+<option value="ClientDiD" >ClientDiD - ClientDiD</option>
+<option value="CloserTest" >CloserTest - CloserTest</option>
+<option value="dropped002toMedSe" >dropped002toMedSe - dropped 002 to MedSe</option>
+<option value="DropsOf002Inbound" >DropsOf002Inbound - DropsOf002Inbound</option>
+<option value="DropsOfBT1" >DropsOfBT1 - DropsOfBT1</option>
+<option value="Fronters" >Fronters - Fronters</option>
+<option value="inhouse" >inhouse - NAQI</option>
+<option value="INTXFER" >INTXFER - INTXFER</option>
+<option value="MED2001" >MED2001 - MED2001</option>
+<option value="MED2002" >MED2002 - MED2002</option>
+<option value="OverflowGPT7" >OverflowGPT7 - Over flow GPT7</option>
+<option value="PremiumD1" >PremiumD1 - PremiumD1</option>
+<option value="PremiumD2" >PremiumD2 - PremiumD2</option>
+<option value="ST_NEW" >ST_NEW - CRM</option>
+<option value="TelcomFronters" >TelcomFronters - Telcom-Fronters</option>
+<option value="Test" >Test - Test</option>
+</select></td>
+<td align=center width=80>Filter Minimum Seconds:<IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_inbound_filter_min_sec')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; <br><input type=text name=max_inbound_filter_min_sec size=6 maxlength=5 value=""></td></tr></table></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Max Manual Dial Hopper Calls: </td><td align=left><input type=text name=max_hopper_calls size=6 maxlength=5 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_hopper_calls')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; &nbsp; <i>hopper calls today: 0</i></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Max Manual Dial Hopper Calls Per Hour: </td><td align=left><input type=text name=max_hopper_calls_hour size=6 maxlength=5 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-max_hopper_calls_hour')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP> &nbsp; &nbsp; <i>hopper calls this hour: 0</i></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Wrap Seconds Override: </td><td align=left><input type=text name=wrapup_seconds_override size=6 maxlength=5 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-wrapup_seconds_override')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Agent Ready Max Logout Override: </td><td align=left><input type=text name=ready_max_logout size=7 maxlength=6 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-ready_max_logout')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Additional Status Group: </td><td align=left><select size=1 name=status_group_id><option value="">NONE</option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-status_group_id')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<script language="JavaScript">
+ARYcampaign_js_rank = new Array('');
+ARYcampaign_js_grade = new Array('');
+ARYingroup_js_rank = new Array('RANK_AGENTDIRECT','RANK_AGENTDIRECT_CHAT','RANK_AI_BOTS','RANK_balimed1TObalitgpt7s','RANK_balimed2_sip2sip','RANK_balimed3TOgpt7s','RANK_Balit5','RANK_Balitech_ST','RANK_Balitech7','RANK_Balitech7_2','RANK_BalitechMED1','RANK_balitechmed1TObalitg','RANK_BalitechMED2','RANK_balitechvoice','RANK_Balitmed3_2','RANK_BT_1','RANK_BT1','RANK_Bt1001','RANK_Bt1002','RANK_BT1Queu','RANK_BT4001','RANK_BT4002','RANK_CallCO','RANK_CallCoMED','RANK_ClientDiD','RANK_CloserTest','RANK_dropped002toMedSe','RANK_DropsOf002Inbound','RANK_DropsOfBT1','RANK_Fronters','RANK_inhouse','RANK_INTXFER','RANK_MED2001','RANK_MED2002','RANK_OverflowGPT7','RANK_PremiumD1','RANK_PremiumD2','RANK_ST_NEW','RANK_TelcomFronters','RANK_Test');
+ARYingroup_js_grade = new Array('GRADE_AGENTDIRECT','GRADE_AGENTDIRECT_CHAT','GRADE_AI_BOTS','GRADE_balimed1TObalitgpt7s','GRADE_balimed2_sip2sip','GRADE_balimed3TOgpt7s','GRADE_Balit5','GRADE_Balitech_ST','GRADE_Balitech7','GRADE_Balitech7_2','GRADE_BalitechMED1','GRADE_balitechmed1TObalitg','GRADE_BalitechMED2','GRADE_balitechvoice','GRADE_Balitmed3_2','GRADE_BT_1','GRADE_BT1','GRADE_Bt1001','GRADE_Bt1002','GRADE_BT1Queu','GRADE_BT4001','GRADE_BT4002','GRADE_CallCO','GRADE_CallCoMED','GRADE_ClientDiD','GRADE_CloserTest','GRADE_dropped002toMedSe','GRADE_DropsOf002Inbound','GRADE_DropsOfBT1','GRADE_Fronters','GRADE_inhouse','GRADE_INTXFER','GRADE_MED2001','GRADE_MED2002','GRADE_OverflowGPT7','GRADE_PremiumD1','GRADE_PremiumD2','GRADE_ST_NEW','GRADE_TelcomFronters','GRADE_Test');
+var campaign_js_rank_ct = '0';
+var campaign_js_grade_ct = '0';
+var ingroup_js_rank_ct = '40';
+var ingroup_js_grade_ct = '40';
+
+function campaign_rank_val_change()
+	{
+	var camp_rank_select = document.getElementById("campaign_js_rank_select");
+	var camp_rank_selected = camp_rank_select.value
+	if (camp_rank_selected.length > 0)
+		{
+		var loop_ct=0;
+		while(loop_ct < campaign_js_rank_ct)
+			{
+			document.getElementById(ARYcampaign_js_rank[loop_ct]).value = camp_rank_selected;
+			loop_ct++;
+			}
+		}
+	}
+function campaign_grade_val_change()
+	{
+	var camp_grade_select = document.getElementById("campaign_js_grade_select");
+	var camp_grade_selected = camp_grade_select.value
+	if (camp_grade_selected.length > 0)
+		{
+		var loop_ct=0;
+		while(loop_ct < campaign_js_grade_ct)
+			{
+			document.getElementById(ARYcampaign_js_grade[loop_ct]).value = camp_grade_selected;
+			loop_ct++;
+			}
+		}
+	}
+function ingroup_rank_val_change()
+	{
+	var camp_rank_select = document.getElementById("ingroup_js_rank_select");
+	var camp_rank_selected = camp_rank_select.value
+	if (camp_rank_selected.length > 0)
+		{
+		var loop_ct=0;
+		while(loop_ct < ingroup_js_rank_ct)
+			{
+			document.getElementById(ARYingroup_js_rank[loop_ct]).value = camp_rank_selected;
+			loop_ct++;
+			}
+		}
+	}
+function ingroup_grade_val_change()
+	{
+	var camp_grade_select = document.getElementById("ingroup_js_grade_select");
+	var camp_grade_selected = camp_grade_select.value
+	if (camp_grade_selected.length > 0)
+		{
+		var loop_ct=0;
+		while(loop_ct < ingroup_js_grade_ct)
+			{
+			document.getElementById(ARYingroup_js_grade[loop_ct]).value = camp_grade_selected;
+			loop_ct++;
+			}
+		}
+	}
+</script>
+<tr bgcolor=#C4CF8B><td align=center colspan=2>Campaign Ranks: <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-campaign_ranks')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP><BR>
+<table border=0 width=850>
+<tr bgcolor=#738035><td><font color=white> &nbsp; CAMPAIGN</td>
+<td nowrap><font color=white> &nbsp; RANK &nbsp; <br><select name="campaign_js_rank_select" id="campaign_js_rank_select" size=1 style="font-family: sans-serif; font-size: 10px; overflow: hidden;"><option value="">-></option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select><a href="#" onclick="campaign_rank_val_change();return false;"><font size=1 color=white>change</font></a></td>
+<td nowrap><font color=white> &nbsp; GRADE &nbsp; <br><select name="campaign_js_grade_select" id="campaign_js_grade_select" size=1 style="font-family: sans-serif; font-size: 10px; overflow: hidden;"><option value="">-></option><option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select><a href="#" onclick="campaign_grade_val_change();return false;"><font size=1 color=white>change</font></a></td>
+<td nowrap><font color=white> &nbsp; CALLS &nbsp; </td><td ALIGN=CENTER><font color=white>WEB VARS</td></tr>
+<tr bgcolor="#B6C572"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=001">001</a> - Outbound </td><td> &nbsp; <select size=1 name=RANK_001 id=RANK_001 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_001 id=GRADE_001 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_001 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=002">002</a> - Medicare closer </td><td> &nbsp; <select size=1 name=RANK_002 id=RANK_002 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_002 id=GRADE_002 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_002 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=003">003</a> - TEAM-B </td><td> &nbsp; <select size=1 name=RANK_003 id=RANK_003 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_003 id=GRADE_003 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_003 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=004">004</a> - Client </td><td> &nbsp; <select size=1 name=RANK_004 id=RANK_004 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_004 id=GRADE_004 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_004 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=11111">11111</a> - Inbound_CallbacksTese </td><td> &nbsp; <select size=1 name=RANK_11111 id=RANK_11111 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_11111 id=GRADE_11111 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_11111 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=2222">2222</a> - Inbound_Callbacks222 </td><td> &nbsp; <select size=1 name=RANK_2222 id=RANK_2222 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_2222 id=GRADE_2222 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_2222 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=600">600</a> - Database </td><td> &nbsp; <select size=1 name=RANK_600 id=RANK_600 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_600 id=GRADE_600 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_600 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=ACA005">ACA005</a> - ACA005 </td><td> &nbsp; <select size=1 name=RANK_ACA005 id=RANK_ACA005 DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_ACA005 id=GRADE_ACA005 DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_ACA005 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=MedSelf">MedSelf</a> - Med-Self </td><td> &nbsp; <select size=1 name=RANK_MedSelf id=RANK_MedSelf DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_MedSelf id=GRADE_MedSelf DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_MedSelf value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=Telcom">Telcom</a> - Telcom-Fronters </td><td> &nbsp; <select size=1 name=RANK_Telcom id=RANK_Telcom DISABLED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Telcom id=GRADE_Telcom DISABLED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Telcom value=""></td></tr>
+</table>
+</td></tr>
+<tr bgcolor=#C4CF8B><td align=center colspan=2>Inbound Groups: <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-closer_campaigns')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP><BR>
+<table border=0 width=850>
+<tr bgcolor=#738035><td><font color=white> &nbsp; INBOUND GROUP</td>
+<td nowrap><font color=white> &nbsp; RANK &nbsp; <br><select name="ingroup_js_rank_select" id="ingroup_js_rank_select" size=1 style="font-family: sans-serif; font-size: 10px; overflow: hidden;"><option value="">-></option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0">0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select><a href="#" onclick="ingroup_rank_val_change();return false;"><font size=1 color=white>change</font></a></td>
+<td nowrap><font color=white> &nbsp; GRADE &nbsp; <br><select name="ingroup_js_grade_select" id="ingroup_js_grade_select" size=1 style="font-family: sans-serif; font-size: 10px; overflow: hidden;"><option value="">-></option><option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option></select><a href="#" onclick="ingroup_grade_val_change();return false;"><font size=1 color=white>change</font></a></td>
+<td nowrap><font color=white> &nbsp; CALLS &nbsp; </td><td ALIGN=CENTER><font color=white>WEB VARS</td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="AGENTDIRECT"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=AGENTDIRECT">AGENTDIRECT</a> - Single Agent Direct Queue </td><td> &nbsp; <select size=1 name=RANK_AGENTDIRECT id=RANK_AGENTDIRECT>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_AGENTDIRECT id=GRADE_AGENTDIRECT>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_AGENTDIRECT value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="AGENTDIRECT_CHAT"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=AGENTDIRECT_CHAT">AGENTDIRECT_CHAT</a> - Agent Direct Queue for Chats </td><td> &nbsp; <select size=1 name=RANK_AGENTDIRECT_CHAT id=RANK_AGENTDIRECT_CHAT>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_AGENTDIRECT_CHAT id=GRADE_AGENTDIRECT_CHAT>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_AGENTDIRECT_CHAT value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="AI_BOTS"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=AI_BOTS">AI_BOTS</a> - AI_BOTS </td><td> &nbsp; <select size=1 name=RANK_AI_BOTS id=RANK_AI_BOTS>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_AI_BOTS id=GRADE_AI_BOTS>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_AI_BOTS value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="balimed1TObalitgpt7s"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=balimed1TObalitgpt7s">balimed1TObalitgpt7s</a> - AL </td><td> &nbsp; <select size=1 name=RANK_balimed1TObalitgpt7s id=RANK_balimed1TObalitgpt7s>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_balimed1TObalitgpt7s id=GRADE_balimed1TObalitgpt7s>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_balimed1TObalitgpt7s value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="balimed2_sip2sip"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=balimed2_sip2sip">balimed2_sip2sip</a> - AB </td><td> &nbsp; <select size=1 name=RANK_balimed2_sip2sip id=RANK_balimed2_sip2sip>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_balimed2_sip2sip id=GRADE_balimed2_sip2sip>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_balimed2_sip2sip value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="balimed3TOgpt7s"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=balimed3TOgpt7s">balimed3TOgpt7s</a> - balimed3TOgpt7s </td><td> &nbsp; <select size=1 name=RANK_balimed3TOgpt7s id=RANK_balimed3TOgpt7s>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_balimed3TOgpt7s id=GRADE_balimed3TOgpt7s>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_balimed3TOgpt7s value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="Balit5"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Balit5">Balit5</a> - Balit5 </td><td> &nbsp; <select size=1 name=RANK_Balit5 id=RANK_Balit5>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Balit5 id=GRADE_Balit5>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Balit5 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="Balitech_ST"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Balitech_ST">Balitech_ST</a> - Balitech-ST </td><td> &nbsp; <select size=1 name=RANK_Balitech_ST id=RANK_Balitech_ST>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Balitech_ST id=GRADE_Balitech_ST>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Balitech_ST value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="Balitech7"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Balitech7">Balitech7</a> - BR </td><td> &nbsp; <select size=1 name=RANK_Balitech7 id=RANK_Balitech7>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Balitech7 id=GRADE_Balitech7>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Balitech7 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="Balitech7_2"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Balitech7_2">Balitech7_2</a> - Balitech7_2 </td><td> &nbsp; <select size=1 name=RANK_Balitech7_2 id=RANK_Balitech7_2>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Balitech7_2 id=GRADE_Balitech7_2>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Balitech7_2 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="BalitechMED1"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BalitechMED1">BalitechMED1</a> - Balitech-MED1 </td><td> &nbsp; <select size=1 name=RANK_BalitechMED1 id=RANK_BalitechMED1>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BalitechMED1 id=GRADE_BalitechMED1>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BalitechMED1 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="balitechmed1TObalitg"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=balitechmed1TObalitg">balitechmed1TObalitg</a> - balitechmed1TObalitgpt7 </td><td> &nbsp; <select size=1 name=RANK_balitechmed1TObalitg id=RANK_balitechmed1TObalitg>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_balitechmed1TObalitg id=GRADE_balitechmed1TObalitg>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_balitechmed1TObalitg value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="BalitechMED2"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BalitechMED2">BalitechMED2</a> - Balitech-MED1 002 </td><td> &nbsp; <select size=1 name=RANK_BalitechMED2 id=RANK_BalitechMED2>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BalitechMED2 id=GRADE_BalitechMED2>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BalitechMED2 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="balitechvoice"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=balitechvoice">balitechvoice</a> - balitechvoice </td><td> &nbsp; <select size=1 name=RANK_balitechvoice id=RANK_balitechvoice>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_balitechvoice id=GRADE_balitechvoice>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_balitechvoice value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="Balitmed3_2"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Balitmed3_2">Balitmed3_2</a> - Balitmed3_2 </td><td> &nbsp; <select size=1 name=RANK_Balitmed3_2 id=RANK_Balitmed3_2>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Balitmed3_2 id=GRADE_Balitmed3_2>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Balitmed3_2 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="BT_1"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BT_1">BT_1</a> - NAQI </td><td> &nbsp; <select size=1 name=RANK_BT_1 id=RANK_BT_1>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BT_1 id=GRADE_BT_1>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BT_1 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="BT1"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BT1">BT1</a> - BT-1 </td><td> &nbsp; <select size=1 name=RANK_BT1 id=RANK_BT1>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BT1 id=GRADE_BT1>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BT1 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="Bt1001"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Bt1001">Bt1001</a> - Bt1001 </td><td> &nbsp; <select size=1 name=RANK_Bt1001 id=RANK_Bt1001>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Bt1001 id=GRADE_Bt1001>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Bt1001 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="Bt1002"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Bt1002">Bt1002</a> - Bt1002 </td><td> &nbsp; <select size=1 name=RANK_Bt1002 id=RANK_Bt1002>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Bt1002 id=GRADE_Bt1002>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Bt1002 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="BT1Queu"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BT1Queu">BT1Queu</a> - BT1Queu </td><td> &nbsp; <select size=1 name=RANK_BT1Queu id=RANK_BT1Queu>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BT1Queu id=GRADE_BT1Queu>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BT1Queu value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="BT4001"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BT4001">BT4001</a> - BT4001 </td><td> &nbsp; <select size=1 name=RANK_BT4001 id=RANK_BT4001>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BT4001 id=GRADE_BT4001>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BT4001 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="BT4002"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=BT4002">BT4002</a> - BT4002 </td><td> &nbsp; <select size=1 name=RANK_BT4002 id=RANK_BT4002>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_BT4002 id=GRADE_BT4002>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_BT4002 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="CallCO"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=CallCO">CallCO</a> - CallCO </td><td> &nbsp; <select size=1 name=RANK_CallCO id=RANK_CallCO>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_CallCO id=GRADE_CallCO>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_CallCO value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="CallCoMED"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=CallCoMED">CallCoMED</a> - CallCo-MED </td><td> &nbsp; <select size=1 name=RANK_CallCoMED id=RANK_CallCoMED>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_CallCoMED id=GRADE_CallCoMED>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_CallCoMED value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="ClientDiD"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=ClientDiD">ClientDiD</a> - ClientDiD </td><td> &nbsp; <select size=1 name=RANK_ClientDiD id=RANK_ClientDiD>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_ClientDiD id=GRADE_ClientDiD>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_ClientDiD value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="CloserTest"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=CloserTest">CloserTest</a> - CloserTest </td><td> &nbsp; <select size=1 name=RANK_CloserTest id=RANK_CloserTest>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_CloserTest id=GRADE_CloserTest>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_CloserTest value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="dropped002toMedSe"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=dropped002toMedSe">dropped002toMedSe</a> - dropped 002 to MedSe </td><td> &nbsp; <select size=1 name=RANK_dropped002toMedSe id=RANK_dropped002toMedSe>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_dropped002toMedSe id=GRADE_dropped002toMedSe>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_dropped002toMedSe value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="DropsOf002Inbound"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=DropsOf002Inbound">DropsOf002Inbound</a> - DropsOf002Inbound </td><td> &nbsp; <select size=1 name=RANK_DropsOf002Inbound id=RANK_DropsOf002Inbound>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_DropsOf002Inbound id=GRADE_DropsOf002Inbound>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_DropsOf002Inbound value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="DropsOfBT1"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=DropsOfBT1">DropsOfBT1</a> - DropsOfBT1 </td><td> &nbsp; <select size=1 name=RANK_DropsOfBT1 id=RANK_DropsOfBT1>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_DropsOfBT1 id=GRADE_DropsOfBT1>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_DropsOfBT1 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="Fronters"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Fronters">Fronters</a> - Fronters </td><td> &nbsp; <select size=1 name=RANK_Fronters id=RANK_Fronters>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Fronters id=GRADE_Fronters>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Fronters value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="inhouse"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=inhouse">inhouse</a> - NAQI </td><td> &nbsp; <select size=1 name=RANK_inhouse id=RANK_inhouse>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_inhouse id=GRADE_inhouse>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_inhouse value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="INTXFER"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=INTXFER">INTXFER</a> - INTXFER </td><td> &nbsp; <select size=1 name=RANK_INTXFER id=RANK_INTXFER>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_INTXFER id=GRADE_INTXFER>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_INTXFER value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="MED2001"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=MED2001">MED2001</a> - MED2001 </td><td> &nbsp; <select size=1 name=RANK_MED2001 id=RANK_MED2001>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_MED2001 id=GRADE_MED2001>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_MED2001 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="MED2002"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=MED2002">MED2002</a> - MED2002 </td><td> &nbsp; <select size=1 name=RANK_MED2002 id=RANK_MED2002>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_MED2002 id=GRADE_MED2002>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_MED2002 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="OverflowGPT7"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=OverflowGPT7">OverflowGPT7</a> - Over flow GPT7 </td><td> &nbsp; <select size=1 name=RANK_OverflowGPT7 id=RANK_OverflowGPT7>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_OverflowGPT7 id=GRADE_OverflowGPT7>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_OverflowGPT7 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="PremiumD1"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=PremiumD1">PremiumD1</a> - PremiumD1 </td><td> &nbsp; <select size=1 name=RANK_PremiumD1 id=RANK_PremiumD1>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_PremiumD1 id=GRADE_PremiumD1>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_PremiumD1 value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="PremiumD2"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=PremiumD2">PremiumD2</a> - PremiumD2 </td><td> &nbsp; <select size=1 name=RANK_PremiumD2 id=RANK_PremiumD2>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_PremiumD2 id=GRADE_PremiumD2>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_PremiumD2 value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="ST_NEW"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=ST_NEW">ST_NEW</a> - CRM </td><td> &nbsp; <select size=1 name=RANK_ST_NEW id=RANK_ST_NEW>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_ST_NEW id=GRADE_ST_NEW>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_ST_NEW value=""></td></tr>
+<tr bgcolor="#B6C572"><td><input type="checkbox" name="groups[]" value="TelcomFronters"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=TelcomFronters">TelcomFronters</a> - Telcom-Fronters </td><td> &nbsp; <select size=1 name=RANK_TelcomFronters id=RANK_TelcomFronters>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_TelcomFronters id=GRADE_TelcomFronters>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_TelcomFronters value=""></td></tr>
+<tr bgcolor="#C4CF8B"><td><input type="checkbox" name="groups[]" value="Test"> <a href="/z6IRf9c/admin.php?ADD=3111&group_id=Test">Test</a> - Test </td><td> &nbsp; <select size=1 name=RANK_Test id=RANK_Test>
+<option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1">1</option><option value="0" SELECTED>0</option><option value="-1">-1</option><option value="-2">-2</option><option value="-3">-3</option><option value="-4">-4</option><option value="-5">-5</option><option value="-6">-6</option><option value="-7">-7</option><option value="-8">-8</option><option value="-9">-9</option></select></td>
+<td> &nbsp; <select size=1 name=GRADE_Test id=GRADE_Test>
+<option value="10">10</option><option value="9">9</option><option value="8">8</option><option value="7">7</option><option value="6">6</option><option value="5">5</option><option value="4">4</option><option value="3">3</option><option value="2">2</option><option value="1" SELECTED>1</option></select></td>
+<td align=right> &nbsp; &nbsp; 0</td>
+<td> &nbsp; &nbsp; <input type=text size=25 maxlength=255 name=WEB_Test value=""></td></tr>
+</table>
+</td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Custom 1: </td><td align=left><input type=text name=custom_one size=50 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-custom_one')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Custom 2: </td><td align=left><input type=text name=custom_two size=50 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-custom_one')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Custom 3: </td><td align=left><input type=text name=custom_three size=50 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-custom_one')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Custom 4: </td><td align=left><input type=text name=custom_four size=50 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-custom_one')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#C4CF8B><td align=right>Custom 5: </td><td align=left><input type=text name=custom_five size=50 maxlength=100 value=""><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#users-custom_one')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
+<tr bgcolor=#B6C572><td align=right><input type=hidden name=qc_enabled value=""><input type=hidden name=qc_user_level value=""><input type=hidden name=qc_pass value=""><input type=hidden name=qc_finish value=""><input type=hidden name=qc_commit value=""></td></tr>
+<tr bgcolor=#B6C572><td align=center colspan=2><input style='background-color:#EFEFEF' type=submit name=SUBMIT value='SUBMIT'></td></tr>
+</TABLE></center>
+<br><br><a href="./AST_agent_time_sheet.php?agent=">Click here for user time sheet</a>
+<br><br><a href="./user_status.php?user=">Click here for user status</a>
+<br><br><a href="./user_stats.php?user=">Click here for user stats</a>
+<br><br><a href="./AST_agent_days_detail.php?user=&query_date=2026-08-11&end_date=2026-08-11&group[]=--ALL--&shift=ALL">Click here for user multiple day status detail report</a>
+<br><br><a href="/z6IRf9c/admin.php?ADD=8&user=">Click here for user CallBack Holds</a>
+</TD></TR></TABLE></center>
+</TD></TR></TABLE></center>
+</TD></TR>
+<TR><TD bgcolor=#738035 ALIGN=CENTER>
+<FONT STYLE="font-family:HELVETICA;font-size:9;color:white;"><br><br><!-- RUNTIME: 0 seconds<BR> -->VERSION: 2.14-838a<BR>BUILD: 211217-0732
+<BR><a href="/z6IRf9c/admin.php?ADD=999995"><font color=white>&copy; 2021 ViciDial Group</font></a><BR><img src="images/pixel.gif"></FONT>
+
+</TD><TD BGCOLOR=#E0E7C2>
+</TD></TR><TABLE>
+</body>
+<script language="Javascript">
+if (!window.A_TCALSIDX)
+	{
+	if (document.addEventListener)
+		window.removeEventListener('scroll', f_tcalHideAll);
+	if (window.attachEvent)
+		window.detachEvent('onscroll', f_tcalHideAll);
+	}
+</script>
+<head>
+<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
+<META HTTP-EQUIV="Expires" CONTENT="-1">
+<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
+</head>
+</html>

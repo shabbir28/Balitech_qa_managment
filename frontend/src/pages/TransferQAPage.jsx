@@ -17,8 +17,6 @@ import {
   Activity,
   User,
   ChevronRight,
-  Users,
-  Zap,
   Layers
 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -53,6 +51,7 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
   const [dialerLoading, setDialerLoading] = useState(false);
   const [dialerError, setDialerError] = useState(null);
   const [dialerLeads, setDialerLeads] = useState([]);
+  const [dialerType, setDialerType] = useState('pharmacy');
 
   useEffect(() => {
     const fetchDialerData = async () => {
@@ -64,7 +63,7 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
       
       setDialerLoading(true);
       try {
-        const searchRes = await api.get(`/dialer/search?phone=${encodeURIComponent(phone)}`);
+        const searchRes = await api.get(`/dialer/search?phone=${encodeURIComponent(phone)}&dialer=${encodeURIComponent(dialerType)}`);
         if (searchRes.data.success && searchRes.data.data.leads && searchRes.data.data.leads.length > 0) {
           setDialerLeads(searchRes.data.data.leads);
         } else {
@@ -78,7 +77,7 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
     };
     
     fetchDialerData();
-  }, [transfer]);
+  }, [transfer, dialerType]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -178,11 +177,21 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
                 <Hash className="w-4 h-4 text-emerald-400" />
                 Search Results
               </h4>
-              {dialerLeads.length > 0 && (
-                <span className="text-[10px] font-bold px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
-                  {dialerLeads.length} Found
-                </span>
-              )}
+              <div className="flex items-center gap-3">
+                <select
+                  className="bg-slate-950 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  value={dialerType}
+                  onChange={(e) => setDialerType(e.target.value)}
+                >
+                  <option value="pharmacy">Pharmacy Dialer</option>
+                  <option value="medicare">Medicare Dialer</option>
+                </select>
+                {dialerLeads.length > 0 && (
+                  <span className="text-[10px] font-bold px-2.5 py-0.5 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20">
+                    {dialerLeads.length} Found
+                  </span>
+                )}
+              </div>
             </div>
 
             {dialerLoading ? (
@@ -216,7 +225,7 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
                       <tr 
                         key={lead.lead_id} 
                         className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                        onClick={() => navigate(`/dialer/lead/${lead.lead_id}?agent_name=${encodeURIComponent(transfer.hrms_real_name || transfer.agentName || '')}&team=${encodeURIComponent(transfer.team || '')}`)}
+                        onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}&agent_name=${encodeURIComponent(transfer.hrms_real_name || transfer.agentName || '')}&team=${encodeURIComponent(transfer.team || '')}`)}
                       >
                         <td className="py-3 px-4">
                           <span className="inline-flex items-center px-2 py-1 rounded bg-indigo-500/10 text-indigo-400 font-mono text-xs border border-indigo-500/20">

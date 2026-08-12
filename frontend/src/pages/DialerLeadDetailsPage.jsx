@@ -11,6 +11,7 @@ export default function DialerLeadDetailsPage() {
   const assignmentId = searchParams.get('assignment_id');
   const agentNameParam = searchParams.get('agent_name');
   const teamParam = searchParams.get('team');
+  const dialerParam = searchParams.get('dialer') || 'pharmacy';
   
   const [loading, setLoading] = useState(true);
   const [lead, setLead] = useState(null);
@@ -21,8 +22,8 @@ export default function DialerLeadDetailsPage() {
     const fetchDetails = async () => {
       try {
         const [leadRes, recRes] = await Promise.allSettled([
-          api.get(`/dialer/lead/${leadId}`),
-          api.get(`/dialer/recordings/${leadId}`)
+          api.get(`/dialer/lead/${leadId}?dialer=${encodeURIComponent(dialerParam)}`),
+          api.get(`/dialer/recordings/${leadId}?dialer=${encodeURIComponent(dialerParam)}`)
         ]);
 
         if (leadRes.status === 'fulfilled' && leadRes.value.data.success) {
@@ -49,7 +50,7 @@ export default function DialerLeadDetailsPage() {
     };
 
     fetchDetails();
-  }, [leadId]);
+  }, [leadId, dialerParam]);
 
 
   const handleEvaluate = async (recording) => {
@@ -70,7 +71,8 @@ export default function DialerLeadDetailsPage() {
         const response = await api.post('/dialer/import-lead', {
           lead_id: leadId,
           recording_url: recording.location,
-          agent_name: agentNameParam
+          agent_name: agentNameParam,
+          dialer: dialerParam
         });
         toast.dismiss(toastId);
         

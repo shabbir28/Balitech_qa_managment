@@ -12,6 +12,7 @@ const { errorHandler, notFound } = require('./src/middleware/errorHandler');
 const authRoutes = require('./src/routes/authRoutes');
 const callRoutes = require('./src/routes/callRoutes');
 const evaluationRoutes = require('./src/routes/evaluationRoutes');
+const dialerSalesRoutes = require('./src/routes/dialerSalesRoutes');
 const criticalErrorRoutes = require('./src/routes/criticalErrorRoutes');
 const feedbackRoutes = require('./src/routes/feedbackRoutes');
 const dashboardRoutes = require('./src/routes/dashboardRoutes');
@@ -76,6 +77,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/calls', callRoutes);
 app.use('/api/evaluations', evaluationRoutes);
+app.use('/api/dialer-sales', dialerSalesRoutes);
 app.use('/api/critical-errors', criticalErrorRoutes);
 app.use('/api/feedback', feedbackRoutes);
 app.use('/api/dashboard', dashboardRoutes);
