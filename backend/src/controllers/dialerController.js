@@ -117,7 +117,7 @@ exports.searchLead = async (req, res, next) => {
 
 // Helper to extract lead details from dialer
 async function fetchLeadDetails(leadId, dialerType = 'pharmacy') {
-  const html = await fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`, dialerType);
+  const html = await exports.fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`, dialerType);
   
   const extractField = (name) => {
     const rx = new RegExp(`name=["']?${name}["']?\\s+[^>]*value=["']?([^"'>\\s]*)["']?`, 'i');
@@ -130,7 +130,26 @@ async function fetchLeadDetails(leadId, dialerType = 'pharmacy') {
     return m ? m[1].trim() : '';
   };
 
+  const extractTextElement = (label) => {
+    // Looks for "User: <A HREF...>6068</A>&nbsp;" or "Last Call: 2026-08-11 09:32:30</td>"
+    const rx = new RegExp(`${label}\\s*([\\s\\S]*?)(?:&nbsp;|<\/td>)`, 'i');
+    const m = html.match(rx);
+    if (m) {
+      // Clean tags if it's inside an anchor like <A>...
+      return m[1].replace(/<[^>]+>/g, '').trim();
+    }
+    return '';
+  };
+
   let status = extractField('status');
+  if (!status) {
+    // Check hidden input
+    const rxHidden = /name=["']?dispo["']?[^>]*value=["']?([^"'>]*)["']?/i;
+    const mHidden = html.match(rxHidden);
+    if (mHidden && mHidden[1]) {
+      status = mHidden[1].trim();
+    }
+  }
   if (!status) {
     const rxSelect = /<select[^>]*name=["']?status["']?[^>]*>([\s\S]*?)<\/select>/gi;
     const mSelect = rxSelect.exec(html);
@@ -143,10 +162,10 @@ async function fetchLeadDetails(leadId, dialerType = 'pharmacy') {
 
   return {
     lead_id:     leadId,
-    list_id:     extractField('list_id'),
-    user:        extractField('user'),
-    called_count: parseInt(extractField('called_count') || '0'),
-    last_call:   extractField('last_local_call_time'),
+    list_id:     extractField('list_id') || extractTextElement('List ID:'),
+    user:        extractTextElement('User:'),
+    called_count: parseInt(extractTextElement('Called Count:') || '0'),
+    last_call:   extractTextElement('Last Call:'),
     phone:       extractField('phone_number'),
     dialcode:    extractField('phone_code') || '1',
     status:      status,

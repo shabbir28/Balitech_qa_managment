@@ -7,19 +7,16 @@ import SidebarLayout from './layouts/SidebarLayout';
 // Pages
 import LoginPage from './pages/LoginPage';
 import DashboardPage from './pages/DashboardPage';
-import CallUploadPage from './pages/CallUploadPage';
-import CallListPage from './pages/CallListPage';
 import EvaluationFormPage from './pages/EvaluationFormPage';
 import EvaluationListPage from './pages/EvaluationListPage';
 import ManagerEvaluationViewPage from './pages/ManagerEvaluationViewPage';
-import CriticalErrorsPage from './pages/CriticalErrorsPage';
-import FeedbackListPage from './pages/FeedbackListPage';
-import MyFeedbackPage from './pages/MyFeedbackPage';
 import UserManagementPage from './pages/UserManagementPage';
 import ProfilePage from './pages/ProfilePage';
 import CampaignsPage from './pages/CampaignsPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import DialerSalesPage from './pages/DialerSalesPage';
+import SalesComparePage from './pages/SalesComparePage';
+import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
@@ -59,18 +56,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Calls */}
-          <Route path="/calls/upload" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
-              <SidebarLayout><CallUploadPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/calls" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
-              <SidebarLayout><CallListPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
-
           {/* Evaluations */}
           <Route path="/evaluations/new" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
@@ -88,24 +73,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Critical Errors */}
-          <Route path="/critical-errors" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
-              <SidebarLayout><CriticalErrorsPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
-
-          {/* Feedback */}
-          <Route path="/feedback" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin']}>
-              <SidebarLayout><FeedbackListPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
-          <Route path="/my-feedback" element={
-            <ProtectedRoute roles={['QA Agent']}>
-              <SidebarLayout><MyFeedbackPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
 
 
           {/* Campaigns */}
@@ -129,6 +96,16 @@ function App() {
           <Route path="/dialer/lead/:leadId" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><DialerLeadDetailsPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer-sales/compare" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><SalesComparePage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer-sales/history" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><DialerSalesHistoryPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 

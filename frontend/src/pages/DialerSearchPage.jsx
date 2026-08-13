@@ -3,14 +3,28 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Search, Phone, User, Activity, Hash, ChevronRight, AlertTriangle, Settings } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
 export default function DialerSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const initialPhone = searchParams.get('phone') || '';
   const assignmentId = searchParams.get('assignment_id');
+  const { user } = useAuth();
   
   const [phone, setPhone]       = useState(initialPhone);
   const [dialerType, setDialerType] = useState(searchParams.get('dialer') || 'pharmacy');
+
+  // Sync dialerType state with user's assigned campaign
+  useEffect(() => {
+    if (user && user.role === 'QA Agent') {
+      const camp = (user.campaign_name || '').toLowerCase();
+      if (camp.includes('medicare')) {
+        setDialerType('medicare');
+      } else if (camp.includes('pharmacy')) {
+        setDialerType('pharmacy');
+      }
+    }
+  }, [user]);
   const [leads, setLeads]       = useState([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
@@ -103,9 +117,10 @@ export default function DialerSearchPage() {
             <label className="text-xs font-bold text-slate-400 uppercase tracking-wider ml-1">Dialer</label>
             <div className="relative">
               <select
-                className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-medium appearance-none"
+                className="w-full bg-slate-950 border border-slate-800 text-white rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-emerald-500/50 focus:border-emerald-500 transition-all font-medium appearance-none disabled:opacity-75 disabled:cursor-not-allowed"
                 value={dialerType}
                 onChange={(e) => setDialerType(e.target.value)}
+                disabled={user && user.role === 'QA Agent'}
               >
                 <option value="pharmacy">Pharmacy Dialer</option>
                 <option value="medicare">Medicare Dialer</option>

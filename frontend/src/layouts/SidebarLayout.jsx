@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
-  LayoutDashboard, Phone, ClipboardCheck, AlertTriangle,
-  MessageSquare, LogOut, Menu, X, Target,
-  UsersRound, Send, ClipboardList, ListChecks, Database
+  LayoutDashboard, Phone, ClipboardCheck,
+  LogOut, Menu, X, Target,
+  UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
@@ -33,25 +33,20 @@ const SidebarLayout = ({ children }) => {
 
     // Dialer
     { name: 'Dialer Search',   path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Dialer Sales',    path: '/dialer-sales',     icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Dialer Sales',    path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin'] },
 
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },
     { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin'] },
     { name: 'Transfer QA',     path: '/transfer-qa',       icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Call Records',    path: '/calls',             icon: Phone,           roles: ['Super Admin', 'QA Admin'] },
-
-    // Admin only
-    { name: 'Critical Errors', path: '/critical-errors',  icon: AlertTriangle,   roles: ['Super Admin', 'QA Admin'] },
-    { name: 'Feedback',        path: '/feedback',          icon: MessageSquare,   roles: ['Super Admin', 'QA Admin'] },
-    { name: 'My Feedback',     path: '/my-feedback',       icon: MessageSquare,   roles: ['QA Agent'] },
   ];
 
   // Section headers for visual grouping
   const getSectionHeader = (path) => {
     if (path === '/users') return 'Super Admin';
     if (path === '/my-assignments') return 'Workspace';
-    if (path === '/critical-errors') return 'Quality Control';
     return null;
   };
 

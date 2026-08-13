@@ -52,6 +52,18 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
   const [dialerError, setDialerError] = useState(null);
   const [dialerLeads, setDialerLeads] = useState([]);
   const [dialerType, setDialerType] = useState('pharmacy');
+  const { user } = useAuth();
+
+  useEffect(() => {
+    if (user && user.role === 'QA Agent') {
+      const camp = (user.campaign_name || '').toLowerCase();
+      if (camp.includes('medicare')) {
+        setDialerType('medicare');
+      } else if (camp.includes('pharmacy')) {
+        setDialerType('pharmacy');
+      }
+    }
+  }, [user]);
 
   useEffect(() => {
     const fetchDialerData = async () => {
@@ -179,9 +191,10 @@ const EvaluateModal = ({ transfer, onClose, onRefresh }) => {
               </h4>
               <div className="flex items-center gap-3">
                 <select
-                  className="bg-slate-950 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all"
+                  className="bg-slate-950 border border-slate-800 text-white rounded-lg px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-emerald-500/50 transition-all disabled:opacity-75 disabled:cursor-not-allowed"
                   value={dialerType}
                   onChange={(e) => setDialerType(e.target.value)}
+                  disabled={user && user.role === 'QA Agent'}
                 >
                   <option value="pharmacy">Pharmacy Dialer</option>
                   <option value="medicare">Medicare Dialer</option>

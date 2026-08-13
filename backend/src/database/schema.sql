@@ -316,3 +316,5 @@ INSERT INTO agents (name, agent_id, email, department) VALUES
   ('Tom Johnson', 'AGT003', 'tom@bpoqa.com', 'Support');
 
 COMMIT;
+\ n - -   = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \ n - -   D I A L E R   S A L E S   H I S T O R Y   ( L i v e   S y n c   B a c k u p ) \ n - -   = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \ n C R E A T E   T A B L E   d i a l e r _ s a l e s _ h i s t o r y   ( \ n     i d   S E R I A L   P R I M A R Y   K E Y , \ n     l e a d _ i d   V A R C H A R ( 5 0 )   N O T   N U L L , \ n     p h o n e   V A R C H A R ( 2 0 ) , \ n     s t a t u s   V A R C H A R ( 5 0 ) , \ n     a g e n t   V A R C H A R ( 1 0 0 ) , \ n     s a l e _ d a t e   D A T E   N O T   N U L L , \ n     d i a l e r   V A R C H A R ( 2 0 )   N O T   N U L L , \ n     c r e a t e d _ a t   T I M E S T A M P   D E F A U L T   N O W ( ) , \ n     U N I Q U E   ( l e a d _ i d ,   d i a l e r ) \ n ) ;  
+ 

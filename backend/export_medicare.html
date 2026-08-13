@@ -1,0 +1,801 @@
+<HTML><HEAD>
+<script language="JavaScript" src="calendar_db.js"></script>
+<link rel="stylesheet" href="calendar.css">
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<TITLE>ADMINISTRATION: Export Calls Report</title>
+<script language="Javascript">
+var field_name = '';
+var user = 'CRM_API';
+var epoch = '1786559415';
+
+	
+	var weak = new Image();
+	weak.src = "images/weak.png";
+	var medium = new Image();
+	medium.src = "images/medium.png";
+	var strong = new Image();
+	strong.src = "images/strong.png";
+
+	function pwdChanged(pwd_field_str, pwd_img_str, pwd_len_field, pwd_len_min) 
+		{
+		var pwd_field = document.getElementById(pwd_field_str);
+		var pwd_field_value = pwd_field.value;
+		var pwd_img = document.getElementById(pwd_img_str);
+		var pwd_len = pwd_field_value.length
+
+	//	var strong_regex = new RegExp( "^(?=.{8,})(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])", "g" );
+	//	var medium_regex = new RegExp( "^(?=.{6,})(((?=.*[a-z])(?=.*[A-Z]))|((?=.*[a-z])(?=.*[0-9]))|((?=.*[A-Z])(?=.*[0-9]))).*$", "g" );
+		var strong_regex = new RegExp( "^(?=.{20,})(?=.*[a-zA-Z])(?=.*[0-9])", "g" );
+		var medium_regex = new RegExp( "^(?=.{10,})(?=.*[a-zA-Z])(?=.*[0-9])", "g" );
+
+		if (strong_regex.test(pwd_field.value) ) 
+			{
+			if (pwd_img.src != strong.src)
+				{pwd_img.src = strong.src;}
+			} 
+		else if (medium_regex.test( pwd_field.value) ) 
+			{
+			if (pwd_img.src != medium.src) 
+				{pwd_img.src = medium.src;}
+			}
+		else 
+			{
+			if (pwd_img.src != weak.src) 
+				{pwd_img.src = weak.src;}
+			}
+		if ( (pwd_len_min > 0) && (pwd_len_min > pwd_len) )
+			{document.getElementById(pwd_len_field).innerHTML = "<font color=red><b>" + pwd_len + "</b></font>";}
+		else
+			{document.getElementById(pwd_len_field).innerHTML = "<font color=black><b>" + pwd_len + "</b></font>";}
+		}
+
+	function openNewWindow(url) 
+		{
+		window.open (url,"",'width=620,height=300,scrollbars=yes,menubar=yes,address=yes');
+		}
+	function scriptInsertField() 
+		{
+		openField = '--A--';
+		closeField = '--B--';
+		var textBox = document.scriptForm.script_text;
+		var scriptIndex = document.getElementById("selectedField").selectedIndex;
+		var insValue =  document.getElementById('selectedField').options[scriptIndex].value;
+		if (document.selection) 
+			{
+			//IE
+			textBox = document.scriptForm.script_text;
+			insValue = document.scriptForm.selectedField.options[document.scriptForm.selectedField.selectedIndex].text;
+			textBox.focus();
+			sel = document.selection.createRange();
+			sel.text = openField + insValue + closeField;
+			} 
+		else if (textBox.selectionStart || textBox.selectionStart == 0) 
+			{
+			//Mozilla
+			var startPos = textBox.selectionStart;
+			var endPos = textBox.selectionEnd;
+			textBox.value = textBox.value.substring(0, startPos)
+			+ openField + insValue + closeField
+			+ textBox.value.substring(endPos, textBox.value.length);
+			}
+		else 
+			{
+			textBox.value += openField + insValue + closeField;
+			}
+		}
+
+		var pass = 'CRM_APIadsfad';
+
+	mouseY=0;
+	function getMousePos(event) {
+		mouseY=event.pageY;
+	}
+	document.addEventListener("click", getMousePos);
+
+	function launch_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=sounds_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function launch_moh_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=moh_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function launch_vm_chooser(fieldname,stage)
+		{
+
+		var h = window.innerHeight;		
+		var vposition=mouseY;
+
+		var audiolistURL = "./non_agent_api.php";
+		var audiolistQuery = "source=admin&function=vm_list&user=" + user + "&pass=" + pass + "&format=selectframe&stage=" + stage + "&comments=" + fieldname;
+		var Iframe_content = '<IFRAME SRC="' + audiolistURL + '?' + audiolistQuery + '"  style="width:740;height:440;background-color:white;" scrolling="NO" frameborder="0" allowtransparency="true" id="audio_chooser_frame' + epoch + '" name="audio_chooser_frame" width="740" height="460" STYLE="z-index:2"> </IFRAME>';
+
+		document.getElementById("audio_chooser_span").style.position = "absolute";
+		document.getElementById("audio_chooser_span").style.left = "220px";
+		document.getElementById("audio_chooser_span").style.top = vposition + "px";
+		document.getElementById("audio_chooser_span").style.visibility = 'visible';
+		document.getElementById("audio_chooser_span").innerHTML = Iframe_content;
+		}
+
+	function close_chooser()
+		{
+		document.getElementById("audio_chooser_span").style.visibility = 'hidden';
+		document.getElementById("audio_chooser_span").innerHTML = '';
+		}
+
+	function user_submit()
+		{
+		var user_field = document.getElementById("user");
+		user_field.disabled = false;
+		document.userform.submit();
+		}
+
+	function play_browser_sound(temp_element,temp_volume)
+		{
+		var taskIndex = document.getElementById(temp_element).selectedIndex;
+		var taskValue = document.getElementById(temp_element).options[taskIndex].value;
+		var temp_selected_element = 'BAS_' + taskValue;
+		if ( (taskValue != '---NONE---') && (taskValue != '---DISABLED---') && (taskValue != '') )
+			{
+			var temp_audio = document.getElementById(temp_selected_element);
+			var taskVolIndex = document.getElementById(temp_volume).selectedIndex;
+			var taskVolValue = document.getElementById(temp_volume).options[taskVolIndex].value;
+			var temp_js_volume = (taskVolValue * .01);
+			temp_audio.volume = temp_js_volume;
+		//	alert(temp_selected_element + ' ' + temp_js_volume);
+			temp_audio.play();
+			}
+		}
+	</script>
+
+<style type="text/css">
+<!--
+
+
+
+.auraltext
+	{
+	position: absolute;
+	font-size: 0;
+	left: -1000px;
+	}
+.chart_td
+	{background-image: url(images/gridline58.gif); background-repeat: repeat-x; background-position: left top; border-left: 1px solid #e5e5e5; border-right: 1px solid #e5e5e5; padding:0; border-bottom: 1px solid #e5e5e5; background-color:transparent;}
+
+.head_style
+	{
+	background-color: 738035;
+	}
+.head_style:hover{background-color: #262626;}
+
+.head_style_selected
+	{
+	background-color: C4CF8B;
+	}
+.head_style_selected:hover{background-color: C4CF8B;}
+
+.subhead_style
+	{
+	background-color: #E6E6E6;
+	}
+.subhead_style:hover{background-color: white;}
+
+.subhead_style_selected
+	{
+	background-color: #C6C6C6;
+	}
+.subhead_style_selected:hover{background-color: #C6C6C6;}
+
+.adminmenu_style_selected
+	{
+	background-color: white;
+	}
+.adminmenu_style_selected:hover{background-color: #E6E6E6;}
+
+.records_list_x
+	{
+	background-color: #C4CF8B;
+	}
+.records_list_x:hover{background-color: #E6E6E6;}
+
+.records_list_y
+	{
+	background-color: #B6C572;
+	}
+.records_list_y:hover{background-color: #E6E6E6;}
+
+
+.horiz_line
+	{
+	height: 0px;
+	margin: 0px;
+	border-bottom: 1px solid #E6E6E6;
+	font-size: 1px;
+	}
+.horiz_line_grey
+	{
+	height: 0px;
+	margin: 0px;
+	border-bottom: 1px solid #9E9E9E;
+	font-size: 1px;
+	}
+
+.sub_sub_head_links
+	{
+	font-family:HELVETICA;
+	font-size:11;
+	color:BLACK;
+	}
+
+-->
+
+</style>
+
+</head>
+<BODY BGCOLOR=white marginheight=0 marginwidth=0 leftmargin=0 topmargin=0>
+<!-- INTERNATIONALIZATION-LINKS-PLACEHOLDER-VICIDIAL -->
+<CENTER>
+
+<TABLE BGCOLOR=white cellpadding=0 cellspacing=0>
+<!-- BEGIN SIDEBAR NAVIGATION -->
+<TR><TD VALIGN=TOP WIDTH=170 BGCOLOR=#738035 ALIGN=CENTER VALIGN=MIDDLE>
+<A HREF="./admin.php"><IMG SRC="./images/vicidial_admin_web_logo.png" WIDTH=170 HEIGHT=45 BORDER=0 ALT="System logo"></A>
+<B><FONT FACE="ARIAL,HELVETICA" COLOR=white>ADMINISTRATION</FONT></B><BR>
+
+	<TABLE CELLPADDING=2 CELLSPACING=0 BGCOLOR=#738035 WIDTH=160>
+		<!-- REPORTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=999999';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=999999" STYLE="text-decoration:none;"><img src="images/icon_reports.png" border=0 alt="Reports" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Reports </a>
+	</TD></TR>
+
+	<!-- USERS NAVIGATION -->
+	<TR WIDTH=100%><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR WIDTH=160 BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=0A';"><TD ALIGN=LEFT CLASS="head_style" WIDTH=160>
+	<a href="admin.php?ADD=0A" STYLE="text-decoration:none;"><img src="images/icon_users.png" border=0 alt="Users" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Users</a>
+	</TD></TR>
+		<!-- CAMPAIGNS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=10';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=10" STYLE="text-decoration:none;"><img src="images/icon_campaigns.png" border=0 alt="Campaigns" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Campaigns</a>
+	</TD></TR>
+		<!-- LISTS NAVIGATION -->
+			<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+		<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=100';"><TD ALIGN=LEFT CLASS="head_style_selected"><a href="admin.php?ADD=100" STYLE="text-decoration:none;"><img src="images/icon_black_lists.png" border=0 alt="Lists" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:BLACK"><b>Lists</a></TD></TR>
+					<TR CLASS="subhead_style" onclick="window.document.location='admin.php?ADD=100';"><TD ALIGN=LEFT> &nbsp; 
+			<a href="admin.php?ADD=100" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Show Lists </a>
+			</TR><TR CLASS="subhead_style" onclick="window.document.location='admin.php?ADD=111';"><TD ALIGN=LEFT> &nbsp; 
+						<a href="admin.php?ADD=111" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New List </a>
+			</TR><TR CLASS="subhead_style" onclick="window.document.location='admin_search_lead.php';"><TD ALIGN=LEFT> &nbsp; 
+						<a href="admin_search_lead.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Search For A Lead </a>
+			</TR><TR CLASS="subhead_style" onclick="window.document.location='admin_modify_lead.php';"><TD ALIGN=LEFT> &nbsp; 
+			<a href="admin_modify_lead.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New Lead </a>
+			</TR><TR CLASS="subhead_style" onclick="window.document.location='admin.php?ADD=121';"><TD ALIGN=LEFT> &nbsp; 
+			<a href="admin.php?ADD=121" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add DNC Number </a>
+			</TR><TR CLASS="subhead_style" onclick="window.document.location='admin_listloader_fourth_gen.php';"><TD ALIGN=LEFT> &nbsp; 
+			<a href="./admin_listloader_fourth_gen.php" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Load New Leads </a>
+						</TD></TR>
+				<!-- SCRIPTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=1000000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=1000000" STYLE="text-decoration:none;"><img src="images/icon_scripts.png" border=0 alt="Scripts" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Scripts </a>
+	</TD></TR>
+		<!-- FILTERS NAVIGATION -->
+			<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+		<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=10000000';"><TD ALIGN=LEFT CLASS="head_style"><a href="admin.php?ADD=10000000" STYLE="text-decoration:none;"><img src="images/icon_filters.png" border=0 alt="Filters" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Filters </a></TD></TR>
+			<!-- INGROUPS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=1001';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=1001" STYLE="text-decoration:none;"><img src="images/icon_inbound.png" border=0 alt="Inbound" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Inbound </a>
+	</TD></TR>
+		<!-- USERGROUPS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=100000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=100000" STYLE="text-decoration:none;"><img src="images/icon_usergroups.png" border=0 alt="User Groups" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> User Groups </a>
+	</TD></TR>
+		<!-- REMOTEAGENTS NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=10000';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=10000" STYLE="text-decoration:none;"><img src="images/icon_remoteagents.png" border=0 alt="Remote Agents" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Remote Agents </a>
+	</TD></TR>
+		<!-- ADMIN NAVIGATION -->
+	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	<TR BGCOLOR=#738035  onclick="window.document.location='admin.php?ADD=999998';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="admin.php?ADD=999998" STYLE="text-decoration:none;"><img src="images/icon_admin.png" border=0 alt="Admin" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Admin </a>
+	</TD></TR>
+		<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
+	</TABLE>
+	<BR>&nbsp;
+</TD><TD VALIGN=TOP WIDTH=770 BGCOLOR=#E0E7C2>
+<!-- END SIDEBAR NAVIGATION -->
+
+<span style="position:absolute;left:300px;top:30px;z-index:1;visibility:hidden;" id="audio_chooser_span">
+
+</span>
+
+<TABLE BGCOLOR=#E0E7C2 cellpadding=2 cellspacing=0 WIDTH=770 HEIGHT=15>
+<TR BGCOLOR=#738035><TD ALIGN=LEFT BGCOLOR=#738035><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B><a href="../z6IRf9c/welcome.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>HOME</a> | <A HREF="../agc/timeclock.php?referrer=admin" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Timeclock</A> | <a href="manager_chat_interface.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Chat</a> | <a href="admin.php?force_logout=1" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>Logout</a> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>(CRM_API)</FONT>
+
+
+</TD><TD ALIGN=RIGHT><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Wednesday August 12, 2026 14:30:15 PM &nbsp; </B></TD></TR>
+
+<TR BGCOLOR=#738035>
+
+
+
+
+
+
+
+</TR>
+	<TR><TD ALIGN=LEFT COLSPAN=2 HEIGHT=2 BGCOLOR=#738035></TD></TR>
+<TR><TD ALIGN=LEFT COLSPAN=2>
+<CENTER><BR>
+<FONT SIZE=3 FACE="Arial,Helvetica"><B>Export Calls Report</B></FONT><BR><BR>
+<FORM ACTION="/z6IRf9c/call_report_export.php" METHOD=GET name=vicidial_report id=vicidial_report>
+<INPUT TYPE=HIDDEN NAME=DB VALUE=""><INPUT TYPE=HIDDEN NAME=run_export VALUE="1"><INPUT TYPE=HIDDEN NAME=ivr_export VALUE=""><TABLE BORDER=0 CELLSPACING=8><TR><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=3>
+<font class="select_bold"><B>Date Range:</B></font><BR><CENTER>
+<INPUT TYPE=TEXT NAME=query_date SIZE=10 MAXLENGTH=10 VALUE="2026-08-12">	<script language="JavaScript">
+	var o_cal = new tcal ({
+		// form name
+		'formname': 'vicidial_report',
+		// input name
+		'controlname': 'query_date'
+	});
+	o_cal.a_tpl.yearscroll = false;
+	// o_cal.a_tpl.weekstart = 1; // Monday week start
+	</script>
+	<BR>to<BR>
+<INPUT TYPE=TEXT NAME=end_date SIZE=10 MAXLENGTH=10 VALUE="2026-08-12">	<script language="JavaScript">
+	var o_cal = new tcal ({
+		// form name
+		'formname': 'vicidial_report',
+		// input name
+		'controlname': 'end_date'
+	});
+	o_cal.a_tpl.yearscroll = false;
+	// o_cal.a_tpl.weekstart = 1; // Monday week start
+	</script>
+	<BR><BR>
+<B>Date Field:</B><BR>
+<select size=1 name=date_field><option selected value="call_date">Call date</option><option value="entry_date">Entry date</option></select>
+<BR><BR>
+<B>Header Row:</B><BR>
+<select size=1 name=header_row><option selected value="YES">YES</option><option value="NO">NO</option></select>
+<BR><BR>
+<B>Recording Fields:</B><BR>
+<select size=1 name=rec_fields><option value="ID">ID</option><option value="FILENAME">FILENAME</option><option value="LOCATION">LOCATION</option><option value="ALL">ALL</option><option selected value="NONE">NONE</option></select>
+<BR><BR>
+<B>Per Call Notes:</B><BR>
+<select size=1 name=call_notes><option value="YES">YES</option><option selected value="NO">NO</option></select>
+<BR><BR>
+<B>Export Fields:</B><BR>
+<select size=1 name=export_fields><option selected value="STANDARD">STANDARD</option><option value="EXTENDED">EXTENDED</option><option value="EXTENDED_2">EXTENDED_2</option><option value="EXTENDED_3">EXTENDED_3</option><option value="ALTERNATE_1">ALTERNATE_1</option><option value="ALTERNATE_2">ALTERNATE_2</option></select>
+<BR><BR><input type='checkbox' name='search_archived_data' value='checked' ><B>Search archived data</B><BR>
+</TD><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=2>
+<font class="select_bold"><B>Campaigns:</B></font><BR><CENTER>
+<SELECT SIZE=20 NAME=campaign[] multiple>
+<option value="---NONE---">---NONE---</option>
+<option value="---ALL---">---ALL---</option>
+<option value="001">001</option>
+<option value="002">002</option>
+<option value="003">003</option>
+<option value="004">004</option>
+<option value="11111">11111</option>
+<option value="2222">2222</option>
+<option value="600">600</option>
+<option value="ACA005">ACA005</option>
+<option value="MedSelf">MedSelf</option>
+<option value="Telcom">Telcom</option>
+</SELECT>
+</TD><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=3>
+<font class="select_bold"><B>Inbound Groups:</B></font><BR><CENTER>
+<SELECT SIZE=20 NAME=group[] multiple>
+<option value="---NONE---">---NONE---</option>
+<option value="---ALL---">---ALL---</option>
+<option value="AGENTDIRECT">AGENTDIRECT</option>
+<option value="AGENTDIRECT_CHAT">AGENTDIRECT_CHAT</option>
+<option value="AI_BOTS">AI_BOTS</option>
+<option value="balimed1TObalitgpt7s">balimed1TObalitgpt7s</option>
+<option value="balimed2_sip2sip">balimed2_sip2sip</option>
+<option value="balimed3TOgpt7s">balimed3TOgpt7s</option>
+<option value="Balit5">Balit5</option>
+<option value="Balitech_ST">Balitech_ST</option>
+<option value="Balitech7">Balitech7</option>
+<option value="Balitech7_2">Balitech7_2</option>
+<option value="BalitechMED1">BalitechMED1</option>
+<option value="balitechmed1TObalitg">balitechmed1TObalitg</option>
+<option value="BalitechMED2">BalitechMED2</option>
+<option value="balitechvoice">balitechvoice</option>
+<option value="Balitmed3_2">Balitmed3_2</option>
+<option value="BT_1">BT_1</option>
+<option value="BT1">BT1</option>
+<option value="Bt1001">Bt1001</option>
+<option value="Bt1002">Bt1002</option>
+<option value="BT1Queu">BT1Queu</option>
+<option value="BT4001">BT4001</option>
+<option value="BT4002">BT4002</option>
+<option value="CallCO">CallCO</option>
+<option value="CallCoMED">CallCoMED</option>
+<option value="ClientDiD">ClientDiD</option>
+<option value="CloserTest">CloserTest</option>
+<option value="dropped002toMedSe">dropped002toMedSe</option>
+<option value="DropsOf002Inbound">DropsOf002Inbound</option>
+<option value="DropsOfBT1">DropsOfBT1</option>
+<option value="Fronters">Fronters</option>
+<option value="inhouse">inhouse</option>
+<option value="INTXFER">INTXFER</option>
+<option value="MED2001">MED2001</option>
+<option value="MED2002">MED2002</option>
+<option value="OverflowGPT7">OverflowGPT7</option>
+<option value="PremiumD1">PremiumD1</option>
+<option value="PremiumD2">PremiumD2</option>
+<option value="ST_NEW">ST_NEW</option>
+<option value="TelcomFronters">TelcomFronters</option>
+<option value="Test">Test</option>
+</SELECT>
+</TD><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=3>
+<font class="select_bold"><B>Lists:</B></font><BR><CENTER>
+<SELECT SIZE=20 NAME=list_id[] multiple>
+<option value="---ALL---">---ALL---</option>
+<option value="201">201</option>
+<option value="203">203</option>
+<option value="204">204</option>
+<option value="205">205</option>
+<option value="206">206</option>
+<option value="207">207</option>
+<option value="208">208</option>
+<option value="209">209</option>
+<option value="210">210</option>
+<option value="211">211</option>
+<option value="212">212</option>
+<option value="213">213</option>
+<option value="214">214</option>
+<option value="215">215</option>
+<option value="216">216</option>
+<option value="217">217</option>
+<option value="218">218</option>
+<option value="219">219</option>
+<option value="220">220</option>
+<option value="221">221</option>
+<option value="222">222</option>
+<option value="223">223</option>
+<option value="224">224</option>
+<option value="225">225</option>
+<option value="226">226</option>
+<option value="227">227</option>
+<option value="228">228</option>
+<option value="229">229</option>
+<option value="230">230</option>
+<option value="231">231</option>
+<option value="232">232</option>
+<option value="233">233</option>
+<option value="234">234</option>
+<option value="235">235</option>
+<option value="998">998</option>
+<option value="999">999</option>
+<option value="1085">1085</option>
+<option value="1086">1086</option>
+<option value="1087">1087</option>
+<option value="1088">1088</option>
+<option value="1089">1089</option>
+<option value="1091">1091</option>
+<option value="1092">1092</option>
+<option value="1093">1093</option>
+<option value="1094">1094</option>
+<option value="1095">1095</option>
+<option value="1096">1096</option>
+<option value="1097">1097</option>
+<option value="1098">1098</option>
+<option value="1099">1099</option>
+<option value="2004">2004</option>
+<option value="2005">2005</option>
+<option value="2006">2006</option>
+<option value="2007">2007</option>
+<option value="2008">2008</option>
+<option value="2009">2009</option>
+<option value="2035">2035</option>
+<option value="3059">3059</option>
+<option value="3064">3064</option>
+<option value="3073">3073</option>
+<option value="3151">3151</option>
+<option value="3156">3156</option>
+<option value="3184">3184</option>
+<option value="4001">4001</option>
+<option value="4002">4002</option>
+<option value="4003">4003</option>
+<option value="4004">4004</option>
+<option value="4005">4005</option>
+<option value="4006">4006</option>
+<option value="4007">4007</option>
+<option value="4008">4008</option>
+<option value="4009">4009</option>
+<option value="4010">4010</option>
+<option value="4011">4011</option>
+<option value="4012">4012</option>
+<option value="4013">4013</option>
+<option value="4014">4014</option>
+<option value="4015">4015</option>
+<option value="4016">4016</option>
+<option value="4017">4017</option>
+<option value="4018">4018</option>
+<option value="4019">4019</option>
+<option value="4020">4020</option>
+<option value="4021">4021</option>
+<option value="4022">4022</option>
+<option value="4023">4023</option>
+<option value="4024">4024</option>
+<option value="4025">4025</option>
+<option value="4026">4026</option>
+<option value="4027">4027</option>
+<option value="5003">5003</option>
+<option value="5004">5004</option>
+<option value="6001">6001</option>
+<option value="6002">6002</option>
+<option value="6003">6003</option>
+<option value="30500">30500</option>
+<option value="50600">50600</option>
+<option value="50601">50601</option>
+<option value="50602">50602</option>
+<option value="50603">50603</option>
+<option value="50604">50604</option>
+<option value="50605">50605</option>
+<option value="50606">50606</option>
+<option value="50607">50607</option>
+<option value="50608">50608</option>
+<option value="50609">50609</option>
+<option value="50610">50610</option>
+<option value="50611">50611</option>
+<option value="50612">50612</option>
+<option value="50613">50613</option>
+<option value="50614">50614</option>
+<option value="50615">50615</option>
+<option value="50616">50616</option>
+<option value="50617">50617</option>
+<option value="50618">50618</option>
+<option value="50619">50619</option>
+<option value="50620">50620</option>
+<option value="50621">50621</option>
+<option value="50622">50622</option>
+<option value="50623">50623</option>
+<option value="50624">50624</option>
+<option value="50625">50625</option>
+<option value="50626">50626</option>
+<option value="50627">50627</option>
+<option value="50628">50628</option>
+<option value="50629">50629</option>
+<option value="50630">50630</option>
+<option value="50631">50631</option>
+<option value="50632">50632</option>
+<option value="50633">50633</option>
+<option value="50634">50634</option>
+<option value="50635">50635</option>
+<option value="50636">50636</option>
+<option value="50637">50637</option>
+<option value="50638">50638</option>
+<option value="50639">50639</option>
+<option value="50640">50640</option>
+<option value="50641">50641</option>
+<option value="50642">50642</option>
+<option value="50643">50643</option>
+<option value="50644">50644</option>
+<option value="50645">50645</option>
+<option value="50646">50646</option>
+<option value="50647">50647</option>
+<option value="50648">50648</option>
+<option value="50649">50649</option>
+<option value="50650">50650</option>
+<option value="50651">50651</option>
+<option value="50652">50652</option>
+<option value="50653">50653</option>
+<option value="50654">50654</option>
+<option value="50655">50655</option>
+<option value="50656">50656</option>
+<option value="50657">50657</option>
+<option value="50658">50658</option>
+<option value="50659">50659</option>
+<option value="50660">50660</option>
+<option value="50661">50661</option>
+<option value="50662">50662</option>
+<option value="50663">50663</option>
+<option value="50664">50664</option>
+<option value="50665">50665</option>
+<option value="50666">50666</option>
+<option value="50667">50667</option>
+<option value="50668">50668</option>
+<option value="50669">50669</option>
+<option value="50670">50670</option>
+<option value="50671">50671</option>
+<option value="50672">50672</option>
+<option value="50673">50673</option>
+<option value="50674">50674</option>
+<option value="50675">50675</option>
+<option value="50676">50676</option>
+<option value="50677">50677</option>
+<option value="50678">50678</option>
+<option value="50679">50679</option>
+<option value="50680">50680</option>
+<option value="50681">50681</option>
+<option value="50682">50682</option>
+<option value="50683">50683</option>
+<option value="50684">50684</option>
+<option value="50685">50685</option>
+<option value="50686">50686</option>
+<option value="50687">50687</option>
+<option value="50688">50688</option>
+</SELECT>
+</TD><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=3>
+<font class="select_bold"><B>Statuses:</B></font><BR><CENTER>
+<SELECT SIZE=20 NAME=status[] multiple>
+<option value="---ALL---">---ALL---</option>
+<option value="A">A</option>
+<option value="AA">AA</option>
+<option value="AB">AB</option>
+<option value="ADC">ADC</option>
+<option value="ADCT">ADCT</option>
+<option value="AFAX">AFAX</option>
+<option value="AFTHRS">AFTHRS</option>
+<option value="AL">AL</option>
+<option value="AM">AM</option>
+<option value="B">B</option>
+<option value="CALLBK">CALLBK</option>
+<option value="CBHOLD">CBHOLD</option>
+<option value="D1">D1</option>
+<option value="D4">D4</option>
+<option value="D5">D5</option>
+<option value="D5B">D5B</option>
+<option value="D6">D6</option>
+<option value="D6CPL">D6CPL</option>
+<option value="D7">D7</option>
+<option value="DAIR">DAIR</option>
+<option value="DC">DC</option>
+<option value="DEC">DEC</option>
+<option value="DNC">DNC</option>
+<option value="DNCC">DNCC</option>
+<option value="DNCL">DNCL</option>
+<option value="DROP">DROP</option>
+<option value="ERI">ERI</option>
+<option value="HI">HI</option>
+<option value="HI2">HI2</option>
+<option value="HIB">HIB</option>
+<option value="HIC">HIC</option>
+<option value="HIMAIN">HIMAIN</option>
+<option value="INCALL">INCALL</option>
+<option value="IQNANQ">IQNANQ</option>
+<option value="IVRXFR">IVRXFR</option>
+<option value="LRERR">LRERR</option>
+<option value="LSMERG">LSMERG</option>
+<option value="MAXCAL">MAXCAL</option>
+<option value="MLINAT">MLINAT</option>
+<option value="N">N</option>
+<option value="NA">NA</option>
+<option value="NAB">NAB</option>
+<option value="NANQUE">NANQUE</option>
+<option value="NEW">NEW</option>
+<option value="NI">NI</option>
+<option value="OverCX">OverCX</option>
+<option value="PDROP">PDROP</option>
+<option value="PM">PM</option>
+<option value="PU">PU</option>
+<option value="QCFAIL">QCFAIL</option>
+<option value="QUEUE">QUEUE</option>
+<option value="QVMAIL">QVMAIL</option>
+<option value="RAXFER">RAXFER</option>
+<option value="RQXFER">RQXFER</option>
+<option value="SALE">SALE</option>
+<option value="SVYCLM">SVYCLM</option>
+<option value="SVYEXT">SVYEXT</option>
+<option value="SVYHU">SVYHU</option>
+<option value="SVYREC">SVYREC</option>
+<option value="SVYVM">SVYVM</option>
+<option value="TIMEOT">TIMEOT</option>
+<option value="XDROP">XDROP</option>
+<option value="XFER">XFER</option>
+<option value="AE">AE</option>
+<option value="CD">CD</option>
+<option value="D10ACA">D10ACA</option>
+<option value="D1ACA">D1ACA</option>
+<option value="D2">D2</option>
+<option value="D3">D3</option>
+<option value="D4ACA">D4ACA</option>
+<option value="D7ACA">D7ACA</option>
+<option value="EC">EC</option>
+<option value="FAS">FAS</option>
+<option value="FUA">FUA</option>
+<option value="GI">GI</option>
+<option value="HA">HA</option>
+<option value="HUAP">HUAP</option>
+<option value="HUBP">HUBP</option>
+<option value="IL">IL</option>
+<option value="INL">INL</option>
+<option value="INM">INM</option>
+<option value="LB">LB</option>
+<option value="MED">MED</option>
+<option value="MEDC">MEDC</option>
+<option value="NB">NB</option>
+<option value="ND">ND</option>
+<option value="NQ">NQ</option>
+<option value="NS">NS</option>
+<option value="OA">OA</option>
+<option value="QHU">QHU</option>
+<option value="RTBD3">RTBD3</option>
+<option value="TAAACA">TAAACA</option>
+<option value="U65">U65</option>
+<option value="UA">UA</option>
+</SELECT>
+</TD><TD ALIGN=LEFT VALIGN=TOP ROWSPAN=3>
+<font class="select_bold"><B>User Groups:</B></font><BR><CENTER>
+<SELECT SIZE=20 NAME=user_group[] multiple>
+<option value="---ALL---">---ALL---</option>
+<option value="7777">7777</option>
+<option value="Agents">Agents</option>
+<option value="Ahsan_Bhai">Ahsan_Bhai</option>
+<option value="Balitech2">Balitech2</option>
+<option value="Balitech2Closer">Balitech2Closer</option>
+<option value="Balitech3">Balitech3</option>
+<option value="Balitech3Closer">Balitech3Closer</option>
+<option value="BootCampers">BootCampers</option>
+<option value="BradTL">BradTL</option>
+<option value="Champions">Champions</option>
+<option value="ChampionsCloser">ChampionsCloser</option>
+<option value="Client">Client</option>
+<option value="Conf">Conf</option>
+<option value="Connectivo">Connectivo</option>
+<option value="David">David</option>
+<option value="HashimTL">HashimTL</option>
+<option value="ISB_OFFICE">ISB_OFFICE</option>
+<option value="ISB_OFFICECloser">ISB_OFFICECloser</option>
+<option value="ITUSER">ITUSER</option>
+<option value="JohnMurphy">JohnMurphy</option>
+<option value="MED_IN">MED_IN</option>
+<option value="primo">primo</option>
+<option value="TeamA">TeamA</option>
+<option value="TeamAB">TeamAB</option>
+<option value="TeamACloser">TeamACloser</option>
+<option value="TeamAdam">TeamAdam</option>
+<option value="TeamAsad">TeamAsad</option>
+<option value="TEAMB">TEAMB</option>
+<option value="TeamBB">TeamBB</option>
+<option value="TeamBCloser">TeamBCloser</option>
+<option value="TeamBrad">TeamBrad</option>
+<option value="TeamC">TeamC</option>
+<option value="TeamCCloser">TeamCCloser</option>
+<option value="TeamD">TeamD</option>
+<option value="TeamDCloser">TeamDCloser</option>
+<option value="TeamJohn">TeamJohn</option>
+<option value="Teamlead">Teamlead</option>
+<option value="TelcastClient">TelcastClient</option>
+<option value="Telcom">Telcom</option>
+</SELECT>
+</TD></TR><TR></TD><TD ALIGN=LEFT VALIGN=TOP COLSPAN=2> &nbsp; 
+</TD></TR><TR></TD><TD ALIGN=CENTER VALIGN=TOP COLSPAN=5>
+<INPUT TYPE=SUBMIT NAME=SUBMIT VALUE='SUBMIT'>
+</TD></TR></TABLE>
+</FORM>
+

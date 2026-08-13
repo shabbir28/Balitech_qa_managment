@@ -1,0 +1,236 @@
+<html>
+<head>
+<META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
+<TITLE>Modify Lead</TITLE>
+<STYLE type="text/css">
+<!--
+body 
+	{
+    font-family: HELVETICA;
+	}
+
+.form_field 
+	{
+	font-family: Helvetica;
+	font-size: 10px;
+	margin-bottom: 3px;
+	padding: 2px;
+	border: solid 1px;
+	}
+
+-->
+</STYLE>
+<script language="JavaScript">
+function UpdateCallback(callback_id) {
+	var apt_date_field="appointment_date_"+callback_id;
+	var apt_hour_field="appointment_hour_"+callback_id;
+	var apt_min_field="appointment_min_"+callback_id;
+	var cbstatus_field="CBstatus_"+callback_id;
+	var cbuser_field="CBuser_"+callback_id;
+	var comments_field="comments_"+callback_id;
+	var recipient_field="CBchangeRecipient_"+callback_id;
+
+	var appointment_date=document.getElementById(apt_date_field).value;
+	var e = document.getElementById(apt_hour_field);
+	var appointment_hour = e.options[e.selectedIndex].text;
+	var e = document.getElementById(apt_min_field);
+	var appointment_min = e.options[e.selectedIndex].text;
+	var CBstatus=document.getElementById(cbstatus_field).value;
+	var CBuser=document.getElementById(cbuser_field).value;
+	var recipientField=document.getElementsByName(recipient_field);
+
+
+    for (var i = 0; i < recipientField.length; i++) {
+        var button = recipientField[i];
+        if (button.checked) {
+            var recipient=button.value;
+        }
+    }
+	
+	if(recipient=="A") {
+		var CBchangeUSERtoANY="YES";
+		var CBchangeANYtoUSER="";
+	} else if(recipient=="U") {
+		var CBchangeUSERtoANY="";
+		var CBchangeANYtoUSER="YES";
+	}
+
+	var appointment_time = appointment_hour + ":" + appointment_min + ":00";
+
+	var comments=encodeURIComponent(document.getElementById(comments_field).value);
+
+	document.getElementById('vsn').action="/BkLuyT/admin_modify_lead.php?appointment_date="+appointment_date+"&appointment_time="+appointment_time+"&CBstatus="+CBstatus+"&CBchangeUSERtoANY="+CBchangeUSERtoANY+"&CBchangeANYtoUSER="+CBchangeANYtoUSER+"&CBuser="+CBuser+"&comments="+comments+"&callback_id="+callback_id;
+	document.vsn.submit();
+}
+
+var mouseY=0;
+function getMousePos(event) {mouseY=event.pageY;}
+document.addEventListener("click", getMousePos);
+// Detect if the browser is IE or not.
+// If it is not IE, we assume that the browser is NS.
+var IE = document.all?true:false
+// If NS -- that is, !IE -- then set up for mouse capture
+if (!IE) document.captureEvents(Event.MOUSEMOVE);
+
+lead lookup FAILED for lead_id 92401493 &nbsp; &nbsp; &nbsp; 2026-08-12 17:53:39
+<BR><BR>
+</script>
+<link rel="stylesheet" href="calendar.css">
+</head><BODY BGCOLOR=white marginheight=0 marginwidth=0 leftmargin=0 topmargin=0>
+<script language="JavaScript" src="calendar_db.js"></script>
+<span style="position:absolute;left:0px;top:0px;z-index:20;" id=admin_header><div id='LogModDisplayDiv' style='position:absolute; top:0; left:0; z-index:21; background-color:white display:none;'></div>
+<div id='DetailDisplayDiv' style='position:absolute; top:0; left:0; z-index:20; background-color:white display:none;'></div>
+			<TABLE CELLPADDING=0 CELLSPACING=0 BGCOLOR=#015B91><TR>
+			<TD><A HREF="./admin.php"><IMG SRC="./vicidial_admin_web_logo_small.gif" WIDTH=71 HEIGHT=22 BORDER=0 ALT="System logo"></A> &nbsp; </TD>
+						<TD> &nbsp; <A HREF="admin.php?ADD=999999" ALT="Reports" STYLE="text-decoration:none;"><img src="images/icon_reports.png" border=0 alt="Reports" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Reports</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=0A" ALT="Users" STYLE="text-decoration:none;"><img src="images/icon_users.png" border=0 alt="Users" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Users</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=10" ALT="Campaigns" STYLE="text-decoration:none;"><img src="images/icon_campaigns.png" border=0 alt="Campaigns" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Campaigns</B></FONT></A> &nbsp; </TD>
+						<TD> &nbsp; <A HREF="admin.php?ADD=100" ALT="Lists" STYLE="text-decoration:none;"><img src="images/icon_lists.png" border=0 alt="Lists" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Lists</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=1000000" ALT="Scripts" STYLE="text-decoration:none;"><img src="images/icon_scripts.png" border=0 alt="Scripts" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Scripts</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=10000000" ALT="Filters" STYLE="text-decoration:none;"><img src="images/icon_filters.png" border=0 alt="Filters" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Filters</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=1001" ALT="Inbound" STYLE="text-decoration:none;"><img src="images/icon_inbound.png" border=0 alt="Inbound" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Inbound</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=100000" ALT="User Groups" STYLE="text-decoration:none;"><img src="images/icon_usergroups.png" border=0 alt="User Groups" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>User Groups</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=10000" ALT="Remote Agents" STYLE="text-decoration:none;"><img src="images/icon_remoteagents.png" border=0 alt="Remote Agents" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Remote Agents</B></FONT></A> &nbsp; </TD>
+			<TD> &nbsp; <A HREF="admin.php?ADD=999998" ALT="Admin" STYLE="text-decoration:none;"><img src="images/icon_admin.png" border=0 alt="Admin" width=14 height=14 valign=middle> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Admin</B></FONT></A> &nbsp; </TD>
+					</TR>
+		</TABLE>
+		</span>
+<span style="position:absolute;left:3px;top:30px;z-index:19;" id=agent_status_stats>
+
+<br>Lead information:   - 
+<br><br><form action=/BkLuyT/admin_modify_lead.php method=POST>
+<input type=hidden name=end_call value=1>
+<input type=hidden name=DB value="">
+<input type=hidden name=lead_id value="92401493">
+<input type=hidden name=dispo value="">
+<input type=hidden name=list_id value="">
+<input type=hidden name=campaign_id value="">
+<input type=hidden name=old_phone value="">
+<input type=hidden name=server_ip value="">
+<input type=hidden name=extension value="">
+<input type=hidden name=channel value="">
+<input type=hidden name=call_began value="">
+<input type=hidden name=parked_time value="">
+<input type=hidden name=FORM_LOADED id=FORM_LOADED value="0" />
+<table cellpadding=1 cellspacing=0>
+<tr><td colspan=2>Lead ID: 92401493 &nbsp; &nbsp; List ID:   &nbsp; &nbsp; <font size=2>Timezone:  &nbsp; &nbsp; Reset Code: </td></tr>
+<tr><td colspan=2>User: <A HREF="user_stats.php?user="></A> &nbsp; &nbsp; Called Count:  <font size=2>(today: 0)</font> &nbsp; &nbsp; Last Call: </td></tr>
+<tr><td colspan=2 align='center'><a href="/BkLuyT/admin_modify_lead.php?lead_id=92401493&archive_search=No&archive_log=Yes&CIDdisplay=">Turn on archived logs display</a></td></tr>
+<tr><td align=right>Title: </td><td align=left><input type=text name=title id=title size=4 maxlength=4 value=""> &nbsp; 
+First: <input type=text name=first_name id=first_name size=15 maxlength=30 value=""> </td></tr>
+<tr><td align=right>MI:  </td><td align=left><input type=text name=middle_initial id=middle_initial size=4 maxlength=1 value=""> &nbsp; 
+ Last: <input type=text name=last_name id=last_name size=15 maxlength=30 value=""> </td></tr>
+<tr><td align=right>Address1 : </td><td align=left><input type=text name=address1 id=address1 size=40 maxlength=100 value=""></td></tr>
+<tr><td align=right>Address2 : </td><td align=left><input type=text name=address2 id=address2 size=40 maxlength=100 value=""></td></tr>
+<tr><td align=right>Address3 : </td><td align=left><input type=text name=address3 id=address3 size=40 maxlength=100 value=""></td></tr>
+<tr><td align=right>City : </td><td align=left><input type=text name=city id=city size=40 maxlength=50 value=""></td></tr>
+<tr><td align=right>State: </td><td align=left><input type=text name=state id=state size=2 maxlength=2 value=""> &nbsp; 
+ Postal Code: <input type=text name=postal_code id=postal_code size=10 maxlength=10 value=""> </td></tr>
+<tr><td align=right>Province : </td><td align=left><input type=text name=province id=province size=40 maxlength=50 value=""></td></tr>
+<tr><td align=right>Country : </td><td align=left><input type=text name=country_code id=country_code size=3 maxlength=3 value=""> &nbsp; 
+ Date of Birth: <input type=text name=date_of_birth id=date_of_birth size=12 maxlength=10 value=""></td></tr>
+<tr><td align=right>Phone : </td><td align=left><input type=text name=phone_number id=phone_number size=18 maxlength=18 value=""></td></tr>
+<tr><td align=right>DialCode : </td><td align=left><input type=text name=phone_code id=phone_code size=10 maxlength=10 value=""></td></tr>
+<tr><td align=right>Alt. Phone : </td><td align=left><input type=text name=alt_phone id=alt_phone size=12 maxlength=12 value=""></td></tr>
+<tr><td align=right>Email : </td><td align=left><input type=text name=email size=40 maxlength=70 value=""></td></tr>
+<tr><td align=right>Show : </td><td align=left><input type=text name=security id=security_phrase size=30 maxlength=100 value=""></td></tr>
+<tr><td align=right>Vendor ID : </td><td align=left><input type=text name=vendor_id id=vendor_lead_code size=30 maxlength=20 value=""></td></tr>
+<tr><td align=right>Rank : </td><td align=left><input type=text name=rank id=rank size=7 maxlength=5 value=""></td></tr>
+<tr><td align=right>Owner : </td><td align=left><input type=text name=owner id=owner size=22 maxlength=20 value=""></td></tr>
+<tr><td align=right>Comments : </td><td align=left><TEXTAREA name=comments id=comments ROWS=3 COLS=65></TEXTAREA></td></tr>
+<tr bgcolor=#B6D3FC><td align=right>Disposition: </td><td align=left><select size=1 name=status>
+<option value="A">A - Answering Machine</option>
+<option value="AE">AE - Already Enrolled</option>
+<option value="B">B - Busy</option>
+<option value="CALLBK">CALLBK - Call Back</option>
+<option value="D1">D1 - D1</option>
+<option value="D2">D2 - D2</option>
+<option value="D4">D4 - D4</option>
+<option value="D5">D5 - D5</option>
+<option value="D6CPL">D6CPL - D6_CPL</option>
+<option value="DAIR">DAIR - Dead Air</option>
+<option value="DC">DC - Disconnected Number</option>
+<option value="DEC">DEC - Declined Sale</option>
+<option value="DNC">DNC - DO NOT CALL</option>
+<option value="HI">HI - HI</option>
+<option value="HIMAIN">HIMAIN - HI_MAIN</option>
+<option value="HUAP">HUAP - Hung Up After Pitch</option>
+<option value="HUBP">HUBP - Hung Up Before Pitch</option>
+<option value="LT8M">LT8M - Less_Than_8_Meds</option>
+<option value="N">N - No Answer</option>
+<option value="NB">NB - NOT BILLABLE</option>
+<option value="ND">ND - No Disclaimer</option>
+<option value="NI">NI - Not Interested</option>
+<option value="NP">NP - NoPitch</option>
+<option value="NQ">NQ - Not Qualified</option>
+<option value="OA">OA - Over Age</option>
+<option value="PH1">PH1 - PH1</option>
+<option value="PH2">PH2 - PH2</option>
+<option value="RAXFER">RAXFER - RAXFER</option>
+<option value="SALE">SALE - Sale Made</option>
+<option value="UA">UA - Under Age No Medicare</option>
+<option value="XFER">XFER - Call Transferred</option>
+<option SELECTED value=""></option>
+<option value="CBHOLD">CBHOLD - Scheduled Callback</option>
+</select> <i>(with  statuses)</i></td></tr>
+<tr bgcolor=#B6D3FC><td align=left>Modify vicidial log </td><td align=left><input type=checkbox name=modify_logs value="1" CHECKED></td></tr>
+<tr bgcolor=#B6D3FC><td align=left>Modify agent log </td><td align=left><input type=checkbox name=modify_agent_logs value="1" CHECKED></td></tr>
+<tr bgcolor=#B6D3FC><td align=left>Modify closer log </td><td align=left><input type=checkbox name=modify_closer_logs value="1"></td></tr>
+<tr bgcolor=#B6D3FC><td align=left>Add closer log record </td><td align=left><input type=checkbox name=add_closer_record value="1"></td></tr>
+<tr><td colspan=2 align=center><input style='background-color:#EFEFEF' type=submit name=submit value="SUBMIT"></td></tr>
+</table></form>
+<BR><BR><BR>
+<TABLE BGCOLOR=#B6D3FC WIDTH=750><TR><TD>
+Callback Details:<BR>
+<BR>If you want to change this lead to a scheduled callback, first change the Disposition to CBHOLD, then submit and you will be able to set the callback date and time.<BR>
+</TD></TR></table>
+<br><br>
+<BR><BR>
+<B>CALLS TO THIS LEAD:</B>
+<TABLE width=850 cellspacing=0 cellpadding=1>
+<tr><td><font size=1># </td><td><font size=2>DATE/TIME </td><td align=left><font size=2>LENGTH</td><td align=left><font size=2> STATUS</td><td align=left><font size=2> TSR</td><td align=right><font size=2> CAMPAIGN</td><td align=right><font size=2> LIST</td><td align=right><font size=2> LEAD</td><td align=right><font size=2> HANGUP REASON</td><td align=right><font size=2> PHONE</td><td align=right><font size=2> <a href="/BkLuyT/admin_modify_lead.php?lead_id=92401493&archive_search=No&archive_log=&CIDdisplay=Yes">CALLER ID</a></td></tr>
+
+</TABLE>
+<BR><BR>
+<B>CLOSER RECORDS FOR THIS LEAD:</B>
+<TABLE width=850 cellspacing=0 cellpadding=1>
+<tr><td><font size=1># </td><td><font size=2>DATE/TIME </td><td align=left><font size=2>LENGTH</td><td align=left><font size=2> STATUS</td><td align=left><font size=2> TSR</td><td align=right><font size=2> CAMPAIGN</td><td align=right><font size=2> LIST</td><td align=right><font size=2> LEAD</td><td align=right><font size=2> WAIT</td><td align=right><font size=2> HANGUP REASON</td><td align=right><font size=2> <a href="/BkLuyT/admin_modify_lead.php?lead_id=92401493&archive_search=No&archive_log=&CIDdisplay=Yes">CALL ID</a></td></tr>
+
+</TABLE>
+<BR><BR>
+<B>AGENT LOG RECORDS FOR THIS LEAD:</B>
+<TABLE width=750 cellspacing=0 cellpadding=1>
+<tr><td><font size=1># </td><td><font size=2>DATE/TIME </td><td align=left><font size=2>CAMPAIGN</td><td align=left><font size=2> TSR</td><td align=left><font size=2> PAUSE</td><td align=right><font size=2> WAIT</td><td align=right><font size=2> TALK</td><td align=right><font size=2> DISPO</td><td align=right><font size=2> STATUS</td><td align=right><font size=2> GROUP</td><td align=right><font size=2> SUB</td></tr>
+
+</TABLE>
+<BR><BR>
+<B>PARK LOGS FOR THIS LEAD:</B>
+<TABLE width=750 cellspacing=1 cellpadding=1>
+<tr><td><font size=1># </td><td align=left><font size=2> PARK TIME</td><td><font size=2>CHANNEL GROUP </td><td align=left><font size=2>TSR </td><td align=left><font size=2> &nbsp; STATUS</td><td align=left><font size=2> GRAB TIME</td><td align=left><font size=2> HANGUP TIME</td><td align=left><font size=2> PARK SEC</td><td align=left><font size=2> TALK SEC</td><td align=left><font size=2> EXTENSION</td></tr>
+</TABLE><BR><BR>
+<B>IVR LOGS FOR THIS LEAD:</B>
+<TABLE width=750 cellspacing=1 cellpadding=1>
+<tr><td><font size=1># </td><td align=left><font size=2> CAMPAIGN</td><td><font size=2>DATE/TIME </td><td align=left><font size=2>CALL MENU </td><td align=left><font size=2> &nbsp; ACTION</td></tr>
+</TABLE><BR><BR>
+<B>RECORDINGS FOR THIS LEAD:</B>
+<TABLE width=800 cellspacing=1 cellpadding=1>
+<tr><td><font size=1># </td><td align=left><font size=2> LEAD</td><td><font size=2>DATE/TIME </td><td align=left><font size=2>SECONDS </td><td align=left><font size=2> &nbsp; RECID</td><td align=center><font size=2>FILENAME</td><td align=left><font size=2>LOCATION</td><td align=left><font size=2>TSR</td><td align=left><font size=2> </td></tr>
+</TABLE><BR><BR>
+
+
+
+
+
+<br><br><br>
+
+<font size=0>
+
+
+<br><br><br>
+script runtime: 0 seconds</font></span>
+<br><span id=debugbottomspan></span>
+
+
+</body>
+</html>
+

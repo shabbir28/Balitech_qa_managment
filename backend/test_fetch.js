@@ -1,48 +1,57 @@
-const AUTH_HEADER = 'Basic ' + Buffer.from('CRM_API:test123dssddscc').toString('base64');
-const DIALER_BASE = 'https://bt1.dialerhosting.com/BkLuyT';
-async function fetchAdminPage(path, method = 'GET', body = null) {
-  const url = path.startsWith('http') ? path : `${DIALER_BASE}/${path}`;
-  const options = {
-    method,
-    headers: { Authorization: AUTH_HEADER },
-  };
-  if (body && method === 'POST') {
-    options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
-    options.body = body;
-  }
-  const res = await fetch(url, options);
-  return await res.text();
-}
-function extractLeadsFromHtml(html) {
-  const leads = [];
-  const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
-  if (!rows) return leads;
-  for (const rowHtml of rows) {
-    if (rowHtml.includes('admin_modify_lead.php?lead_id=')) {
-      const tdMatches = rowHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
-      if (tdMatches && tdMatches.length >= 10) {
-        const clean = (td) => td.replace(/<[^>]*>/g, ' ').replace(/\s+/g, ' ').trim();
-        leads.push({
-          lead_id:    clean(tdMatches[1]),
-          status:     clean(tdMatches[2]),
-          vendor_id:  clean(tdMatches[3]),
-          last_agent: clean(tdMatches[4]),
-          list_id:    clean(tdMatches[5]),
-          phone:      clean(tdMatches[6]),
-          name:       clean(tdMatches[7]),
-          city:       clean(tdMatches[8]),
-          security:   clean(tdMatches[9]),
-          last_call:  clean(tdMatches[10] || ''),
-        });
-      } else {
-        console.log('TDS LENGTH WAS:', tdMatches ? tdMatches.length : 0);
-      }
+const { fetchAdminPage } = require('./src/controllers/dialerController');
+const fs = require('fs');
+
+async function test() {
+  try {
+    const html = await fetchAdminPage('admin.php?ADD=32', 'pharmacy');
+    fs.writeFileSync('test_add32.html', html);
+    console.log('Saved to test_add32.html. Length:', html.length);
+    
+    // Let's just manually search for row elements and log what we find
+    const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    if (!rows) {
+      console.log('No rows found');
+      return;
     }
+    
+    let saleYCount = 0;
+    
+    rows.forEach((row, i) => {
+      // Check if this row is a status row
+      if (row.includes('admin.php?ADD=4&status=') || row.includes('ADD=4')) {
+        const cols = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+        if (cols && cols.length >= 5) {
+          const clean = (str) => str.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().replace(/\s+/g, ' ');
+          const status = clean(cols[0]);
+          const saleCol = clean(cols[4]);
+          console.log(`[ADD=32 Row ${i}] Status: ${status} | SaleCol: ${saleCol}`);
+          if (saleCol === 'Y') saleYCount++;
+        } else {
+          console.log(`[ADD=32 Row ${i}] Found ADD=4 but columns not parsed correctly. Cols length: ${cols ? cols.length : 0}`);
+        }
+      }
+    });
+    console.log(`Total System statuses with Sale=Y: ${saleYCount}`);
+
+    // Now test ADD=34 campaign 001
+    const cHtml = await fetchAdminPage('admin.php?ADD=34&campaign_id=001&custom_report_1=1', 'pharmacy');
+    fs.writeFileSync('test_add34.html', cHtml);
+    const cRows = cHtml.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
+    if(cRows) {
+      cRows.forEach((row, i) => {
+        if(row.includes('admin.php?ADD=35&campaign_id=')) {
+          const cols = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+          if (cols && cols.length >= 5) {
+            const clean = (str) => str.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().replace(/\s+/g, ' ');
+            console.log(`[ADD=34 Row ${i}] Status: ${clean(cols[0])} | SaleCol: ${clean(cols[4])}`);
+          }
+        }
+      });
+    }
+
+  } catch (err) {
+    console.error(err);
   }
-  return leads;
 }
-const body = new URLSearchParams({ phone: '9899007269', SUBMIT: 'SUBMIT' }).toString();
-fetchAdminPage('admin_search_lead.php', 'POST', body).then(html => {
-  const leads = extractLeadsFromHtml(html);
-  console.log('LEADS:', JSON.stringify(leads, null, 2));
-});
+
+test();

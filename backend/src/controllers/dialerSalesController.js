@@ -1,5 +1,5 @@
 const { fetchAdminPage, extractLeadsFromHtml } = require('./dialerController');
-
+const { query } = require('../config/database');
 // Memory cache for statuses
 const saleStatusesCache = {
   pharmacy: { statuses: null, lastFetched: 0 },
@@ -16,11 +16,10 @@ async function getSaleStatuses(dialerType) {
   }
 
   const statuses = new Set();
-  statuses.add('SALE'); // Always include default SALE status
 
   try {
     // 1. Fetch system statuses
-    const sysHtml = await fetchAdminPage('admin.php?ADD=3', dialerType);
+    const sysHtml = await fetchAdminPage('admin.php?ADD=321111111111111', dialerType);
     parseStatusesHtml(sysHtml, statuses);
 
     // 2. Fetch campaigns list
@@ -40,7 +39,7 @@ async function getSaleStatuses(dialerType) {
     // 3. Fetch each campaign's statuses
     for (const campaignId of campaigns) {
       try {
-        const cStatHtml = await fetchAdminPage(`admin.php?ADD=34&campaign_id=${campaignId}`, dialerType);
+        const cStatHtml = await fetchAdminPage(`admin.php?ADD=34&campaign_id=${campaignId}&custom_report_1=1`, dialerType);
         parseStatusesHtml(cStatHtml, statuses);
       } catch (err) {
         console.error(`Failed to fetch statuses for campaign ${campaignId} on ${dialerType}`);
@@ -60,8 +59,8 @@ async function getSaleStatuses(dialerType) {
     if (saleStatusesCache[dialerType].statuses) {
       return saleStatusesCache[dialerType].statuses;
     }
-    // minimal default
-    return ['SALE']; 
+    // minimal default if error and no cache
+    return []; 
   }
 }
 
@@ -69,23 +68,47 @@ function parseStatusesHtml(html, statusSet) {
   const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi);
   if (!rows) return;
   for (const row of rows) {
-    // Look for status row modify link (ADD=4 for system, ADD=35 for campaign)
-    if (row.includes('admin.php?ADD=4&status=') || row.includes('admin.php?ADD=35&campaign_id=')) {
+    // Look for a status row. Status rows in Vicidial often contain a hidden input for status or ADD=42 / ADD=4.
+    const statusMatch = row.match(/name=status\s+value=["']([^"']+)["']/i) || row.match(/status=([^"'>&\s]+)/i);
+    
+    if (statusMatch) {
+      const status = statusMatch[1];
       const cols = row.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+      
+      // Usually Sale is at column 5 for campaign custom statuses
       if (cols && cols.length >= 6) {
-        const clean = (str) => str.replace(/<[^>]*>/g, '').replace(/&nbsp;/gi, ' ').trim().replace(/\s+/g, ' ');
-        // For campaign statuses, columns are often 
-        // 0: status, 1: desc, 2: selectable, 3: human answer, 4: sale ...
-        // We will just check if any column exactly equals 'Y' and is in index 4, OR if we just check if index 4 is 'Y'
-        // Let's check index 4 for 'Y' (usually Sale is column 4 or 5)
-        // A safer way is to check if the row explicitly marks Sale as Y in vicidial HTML format, but checking column 4 is standard.
-        const status = clean(cols[0]);
         let isSale = false;
         
-        // System statuses: Sale is usually index 4
-        // Campaign statuses: Sale is usually index 4
-        if (clean(cols[4]) === 'Y' || status.toUpperCase().includes('SALE')) {
-          isSale = true;
+        // System statuses vs Campaign statuses:
+        // Let's check both cols[4] and cols[5] just to be safe, since System statuses might not have Human Answer.
+        // Also, the value is inside a <select> with <option value='Y' selected>
+        const getSelectedVal = (tdHtml) => {
+          const match = tdHtml.match(/<option[^>]*value=['"]([^'"]+)['"][^>]*selected/i);
+          if (match) return match[1].toUpperCase();
+          // Fallback if no selected explicit attribute:
+          if (tdHtml.includes(">Y<")) return 'Y'; 
+          const cleanStr = tdHtml.replace(/<[^>]*>/g, '').trim();
+          return cleanStr;
+        };
+
+        const val4 = getSelectedVal(cols[4]);
+        const val5 = getSelectedVal(cols[5]);
+        
+        if (val4 === 'Y' || val5 === 'Y') {
+          // Verify it's actually the SALE column by checking if one of them is the sale dropdown.
+          // In campaign statuses, cols[5] is Sale. In System statuses, cols[4] is Sale.
+          // Wait, if BOTH can be Y (e.g. Human Answer = Y, Sale = Y), we must ensure we are checking the actual Sale column.
+          // We can just rely on the name='sale' attribute in the select!
+          const saleSelectMatch = row.match(/name=["']?sale["']?[\s\S]*?<\/select>/i);
+          if (saleSelectMatch) {
+            const saleVal = getSelectedVal(saleSelectMatch[0]);
+            if (saleVal === 'Y') {
+              isSale = true;
+            }
+          } else {
+             // Fallback for simple text tables without <select>
+             if (val4 === 'Y' || val5 === 'Y') isSale = true;
+          }
         }
 
         if (isSale && status) {
@@ -98,53 +121,178 @@ function parseStatusesHtml(html, statusSet) {
 
 exports.getSales = async (req, res) => {
   try {
-    const { dialer = 'pharmacy' } = req.query;
-    
-    // Get sale statuses
-    const statuses = await getSaleStatuses(dialer);
-    console.log(`Sale statuses for ${dialer}:`, statuses);
-    
-    if (!statuses || statuses.length === 0) {
-      return res.json({ success: true, data: [] });
+    const dialerType = req.query.dialer;
+    const timeFilter = req.query.timeFilter || 'TODAY'; // 'TODAY' or 'MONTH'
+
+    if (!['pharmacy', 'medicare'].includes(dialerType)) {
+      return res.status(400).json({ success: false, message: 'Invalid dialer type' });
     }
+
+    // Format date in US Eastern Time (Vicidial timezone)
+    const formatter = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'America/New_York',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit'
+    });
+    
+    const now = new Date();
+    const todayStr = formatter.format(now);
+    
+    let queryDateStr = todayStr;
+    const endDateStr = todayStr;
+
+    if (timeFilter === 'MONTH') {
+      // Get the 1st of the current month in the Vicidial timezone
+      // We can create a new Date for the 1st of the current month
+      const parts = formatter.formatToParts(now);
+      const year = parts.find(p => p.type === 'year').value;
+      const month = parts.find(p => p.type === 'month').value;
+      queryDateStr = `${year}-${month}-01`;
+    }
+
+    // 1. Determine active statuses
+    let statuses = await getSaleStatuses(dialerType);
+
+    // Force include specific statuses for Medicare even if not marked as Sale=Y in Vicidial
+    if (dialerType === 'medicare') {
+      const forceStatuses = ['D2', 'D3'];
+      forceStatuses.forEach(s => {
+        if (!statuses.includes(s)) statuses.push(s);
+      });
+    }
+
+    // Ensure array unique
+    statuses = [...new Set(statuses)];
 
     let allLeads = [];
-    
-    // Fetch leads for each status
-    // To avoid timeouts, we can run them in chunks or sequentially
-    for (const status of statuses) {
+
+    // -- PHARMACY FALLBACK: Use admin_search_lead.php --
+    if (dialerType === 'pharmacy') {
+      for (const status of statuses) {
+        const body = new URLSearchParams({
+          status: status,
+          SUBMIT: 'SUBMIT'
+        }).toString();
+
+        try {
+          const html = await fetchAdminPage('admin_search_lead.php', dialerType, 'POST', body);
+          const leads = extractLeadsFromHtml(html);
+          allLeads = [...allLeads, ...leads];
+        } catch (err) {
+          console.error(`Error fetching status ${status} on ${dialerType}:`, err.message);
+        }
+      }
+    } 
+    // -- MEDICARE PREFERRED: Use call_report_export.php for accurate daily data --
+    else {
+      // Export report takes multiple status[] parameters
+      const params = new URLSearchParams();
+      params.append('run_export', '1');
+      params.append('query_date', queryDateStr);
+      params.append('end_date', endDateStr);
+      params.append('campaign[]', '--ALL--');
+      params.append('group[]', '--ALL--');
+      params.append('header_row', 'Y');
+      params.append('rec_fields', 'N');
+      params.append('export_fields', 'STANDARD');
+      params.append('SUBMIT', 'SUBMIT');
+
+      statuses.forEach(s => params.append('status[]', s));
+
       try {
-        const body = new URLSearchParams({ status: status, SUBMIT: 'SUBMIT' }).toString();
-        const html = await fetchAdminPage('admin_search_lead.php', dialer, 'POST', body);
-        const leads = extractLeadsFromHtml(html);
-        allLeads = allLeads.concat(leads);
+        const tsvData = await fetchAdminPage('call_report_export.php', dialerType, 'POST', params.toString());
+        
+        // Check if permissions denied
+        if (tsvData.includes('You do not have permissions for export reports')) {
+          console.error('Export permissions missing for', dialerType);
+        } else {
+          const lines = tsvData.split('\n'); // Standard newline split works best for TSV
+          for (const line of lines) {
+            const cols = line.split('\t');
+            // If row has at least 35 columns (standard export size) and looks like valid data
+            if (cols.length >= 35 && cols[0] && cols[0].startsWith('20')) {
+              allLeads.push({
+                last_call: cols[0].trim(),
+                phone: cols[1] ? cols[1].trim() : '',
+                status: cols[2] ? cols[2].trim() : '',
+                last_agent: cols[4] ? cols[4].trim() : '', // Agent Name is typically col 4
+                team: cols[31] ? cols[31].trim() : '', // User Group / Team is typically col 31
+                name: cols[13] ? cols[13].trim() : '', // First Name might be empty, we handle below
+                lead_id: cols[35] ? cols[35].trim() : '' // Lead ID is typically col 35 in STANDARD export
+              });
+            }
+          }
+        }
       } catch (err) {
-        console.error(`Error fetching leads for status ${status}:`, err);
+        console.error(`Error exporting data for ${dialerType}:`, err.message);
       }
     }
 
-    // Deduplicate leads by lead_id just in case
-    const uniqueLeadsMap = new Map();
-    allLeads.forEach(lead => {
-      if (!uniqueLeadsMap.has(lead.lead_id)) {
-        uniqueLeadsMap.set(lead.lead_id, lead);
+    // Deduplicate leads just in case
+    const uniqueMap = new Map();
+    allLeads.forEach(l => uniqueMap.set(l.lead_id, l));
+    const uniqueLeads = Array.from(uniqueMap.values());
+
+    // Sort by last call time desc
+    uniqueLeads.sort((a, b) => new Date(b.last_call) - new Date(a.last_call));
+
+    // BACKGROUND SYNC: Save all fetched sales into dialer_sales_history
+    if (uniqueLeads.length > 0) {
+      try {
+        const CHUNK_SIZE = 1000;
+        for (let i = 0; i < uniqueLeads.length; i += CHUNK_SIZE) {
+          const chunk = uniqueLeads.slice(i, i + CHUNK_SIZE);
+          const values = [];
+          const placeholders = [];
+          
+          chunk.forEach((l, index) => {
+            const p = index * 7;
+            placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7})`);
+            
+            let saleDate = queryDateStr;
+            if (l.last_call && l.last_call.length >= 10) {
+              saleDate = l.last_call.substring(0, 10);
+            }
+            
+            values.push(
+              l.lead_id,
+              l.phone || null,
+              l.status || null,
+              l.last_agent || null,
+              saleDate,
+              dialerType,
+              l.team || null
+            );
+          });
+
+          const sql = `
+            INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team)
+            VALUES ${placeholders.join(', ')}
+            ON CONFLICT (lead_id, dialer) DO UPDATE SET 
+              status = EXCLUDED.status,
+              agent = EXCLUDED.agent,
+              sale_date = EXCLUDED.sale_date,
+              team = EXCLUDED.team
+          `;
+          
+          // Fire and forget chunks
+          query(sql, values).catch(e => console.error('Bulk insert chunk error:', e.message));
+        }
+      } catch (syncErr) {
+        console.error('Error preparing bulk insert for dialer_sales_history:', syncErr);
       }
-    });
+    }
 
-    const finalLeads = Array.from(uniqueLeadsMap.values());
-    
-    // Sort by last_call descending (basic string sort)
-    finalLeads.sort((a, b) => b.last_call.localeCompare(a.last_call));
-
-    return res.json({
+    res.json({
       success: true,
-      data: finalLeads,
+      data: uniqueLeads,
       statuses: statuses
     });
 
   } catch (error) {
-    console.error('Error fetching sales:', error);
-    res.status(500).json({ success: false, message: 'Failed to fetch sales leads' });
+    console.error('Dialer Sales Error:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
 
@@ -160,3 +308,485 @@ exports.syncStatuses = async (req, res) => {
     res.status(500).json({ success: false, message: 'Failed to sync statuses' });
   }
 };
+
+exports.compareSales = async (req, res) => {
+  try {
+    const { dialer, startDate, endDate, date, phones } = req.body;
+    if (!dialer || (!date && (!startDate || !endDate)) || !Array.isArray(phones)) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters' });
+    }
+
+    const start = startDate || date;
+    const end   = endDate   || date;
+
+    // Normalize phones (keep only digits, usually last 10)
+    const cleanPhones = phones.map(p => {
+      const digits = String(p).replace(/\D/g, '');
+      return digits.length > 10 ? digits.slice(-10) : digits;
+    }).filter(p => p.length >= 10);
+
+    if (cleanPhones.length === 0) {
+       return res.json({ success: true, data: [] });
+    }
+
+    const { query } = require('../config/database');
+    const result = await query(
+      `SELECT lead_id, phone, status, agent, team, sale_date 
+       FROM dialer_sales_history 
+       WHERE dialer = $1 AND sale_date >= $2 AND sale_date <= $3 AND phone = ANY($4::varchar[])`,
+      [dialer, start, end, cleanPhones]
+    );
+
+    return res.json({
+      success: true,
+      data: result.rows,
+      summary: {
+        total_uploaded: cleanPhones.length,
+        total_found: result.rows.length
+      }
+    });
+  } catch (error) {
+    console.error('Error in compareSales:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/backfill  { dialer, startDate, endDate }
+// Fetches historical data from the dialer for a given date range and saves to DB
+exports.backfillSales = async (req, res) => {
+  try {
+    const { dialer, startDate, endDate } = req.body;
+
+    if (!['pharmacy', 'medicare'].includes(dialer)) {
+      return res.status(400).json({ success: false, message: 'Invalid dialer type' });
+    }
+
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (!startDate || !dateRe.test(startDate) || !endDate || !dateRe.test(endDate)) {
+      return res.status(400).json({ success: false, message: 'Invalid dates. Use YYYY-MM-DD format.' });
+    }
+
+    if (startDate > endDate) {
+      return res.status(400).json({ success: false, message: 'startDate cannot be after endDate' });
+    }
+
+    console.log(`[Backfill] Starting: ${dialer} | ${startDate} → ${endDate}`);
+
+    // 1. Get sale statuses
+    let statuses = await getSaleStatuses(dialer);
+    if (dialer === 'medicare') {
+      ['D2', 'D3'].forEach(s => { if (!statuses.includes(s)) statuses.push(s); });
+    }
+    statuses = [...new Set(statuses)];
+    console.log(`[Backfill] Statuses (${statuses.length}):`, statuses);
+
+    // If still empty, use hardcoded fallback for medicare
+    if (statuses.length === 0 && dialer === 'medicare') {
+      statuses = ['D2', 'D3', 'D4', 'D5', 'DSB', 'D1', 'HIB'];
+      console.log('[Backfill] Using hardcoded fallback statuses for medicare');
+    }
+
+    let allLeads = [];
+
+    // 2. Fetch from dialer
+    if (dialer === 'pharmacy') {
+      // Pharmacy: admin_search_lead.php doesn't support date range — fetch all then filter by date
+      for (const status of statuses) {
+        const body = new URLSearchParams({ status, SUBMIT: 'SUBMIT' }).toString();
+        try {
+          const html = await fetchAdminPage('admin_search_lead.php', dialer, 'POST', body);
+          const leads = extractLeadsFromHtml(html);
+          // Filter by date range
+          const filtered = leads.filter(l => {
+            if (!l.last_call || l.last_call.length < 10) return false;
+            const d = l.last_call.substring(0, 10);
+            return d >= startDate && d <= endDate;
+          });
+          allLeads = [...allLeads, ...filtered];
+        } catch (err) {
+          console.error(`[Backfill] Error fetching status ${status}:`, err.message);
+        }
+      }
+    } else {
+      // Medicare: call_report_export.php REQUIRES end_date = today to return data.
+      // We fetch from startDate → today, then filter records by sale_date <= endDate.
+      const formatter = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'America/New_York',
+        year: 'numeric', month: '2-digit', day: '2-digit'
+      });
+      const todayStr = formatter.format(new Date());
+
+      const params = new URLSearchParams();
+      params.append('run_export', '1');
+      params.append('query_date', startDate);   // user's start date
+      params.append('end_date',   todayStr);    // MUST be today — Vicidial limitation
+      params.append('campaign[]', '--ALL--');
+      params.append('group[]', '--ALL--');
+      params.append('header_row', 'Y');
+      params.append('rec_fields', 'N');
+      params.append('export_fields', 'STANDARD');
+      params.append('SUBMIT', 'SUBMIT');
+      statuses.forEach(s => params.append('status[]', s));
+      console.log(`[Backfill] Fetching Medicare: query_date=${startDate} end_date=${todayStr} (today, required by Vicidial)`);
+
+      try {
+        const tsvData = await fetchAdminPage('call_report_export.php', dialer, 'POST', params.toString());
+        console.log(`[Backfill] TSV response length: ${tsvData.length} chars`);
+        console.log(`[Backfill] TSV first 300 chars: ${tsvData.substring(0, 300)}`);
+        
+        if (tsvData.includes('You do not have permissions for export reports')) {
+          return res.status(403).json({ success: false, message: 'Dialer: insufficient export permissions' });
+        }
+        const lines = tsvData.split('\n');
+        console.log(`[Backfill] Total TSV lines: ${lines.length}`);
+        let skippedLines = 0;
+        for (const line of lines) {
+          const cols = line.split('\t');
+          if (cols.length >= 10 && cols[0] && cols[0].trim().startsWith('20')) {
+            const saleDate = cols[0].trim().substring(0, 10);
+            // Filter: only keep records within the user's requested date range
+            if (saleDate < startDate || saleDate > endDate) {
+              skippedLines++;
+              continue;
+            }
+            const lead = {
+              last_call:  cols[0].trim(),
+              phone:      cols[1] ? cols[1].trim() : '',
+              status:     cols[2] ? cols[2].trim() : '',
+              last_agent: cols[4] ? cols[4].trim() : '',
+              team:       cols.length > 31 ? (cols[31] ? cols[31].trim() : '') : '',
+              lead_id:    cols.length > 35 ? (cols[35] ? cols[35].trim() : '') : (cols[cols.length - 1] ? cols[cols.length - 1].trim() : '')
+            };
+            if (lead.lead_id) {
+              allLeads.push(lead);
+            } else {
+              skippedLines++;
+            }
+          } else if (line.trim()) {
+            skippedLines++;
+          }
+        }
+        console.log(`[Backfill] Parsed: ${allLeads.length} leads in range, skipped: ${skippedLines} lines`);
+      } catch (err) {
+        console.error('[Backfill] Export error:', err.message);
+        return res.status(500).json({ success: false, message: 'Failed to fetch data from dialer' });
+      }
+    }
+
+    // 3. Deduplicate
+    const uniqueMap = new Map();
+    allLeads.forEach(l => { if (l.lead_id) uniqueMap.set(l.lead_id, l); });
+    const uniqueLeads = Array.from(uniqueMap.values());
+
+    console.log(`[Backfill] Fetched ${uniqueLeads.length} unique leads from dialer`);
+
+    if (uniqueLeads.length === 0) {
+      return res.json({ success: true, message: 'No data found in dialer for this date range', saved: 0 });
+    }
+
+    // 4. Bulk upsert into DB
+    const CHUNK_SIZE = 500;
+    let totalSaved = 0;
+
+    for (let i = 0; i < uniqueLeads.length; i += CHUNK_SIZE) {
+      const chunk = uniqueLeads.slice(i, i + CHUNK_SIZE);
+      const values = [];
+      const placeholders = [];
+
+      chunk.forEach((l, index) => {
+        const p = index * 7;
+        placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7})`);
+        let saleDate = startDate;
+        if (l.last_call && l.last_call.length >= 10) {
+          saleDate = l.last_call.substring(0, 10);
+        }
+        values.push(l.lead_id, l.phone || null, l.status || null, l.last_agent || null, saleDate, dialer, l.team || null);
+      });
+
+      const sql = `
+        INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team)
+        VALUES ${placeholders.join(', ')}
+        ON CONFLICT (lead_id, dialer) DO UPDATE SET
+          status    = EXCLUDED.status,
+          agent     = EXCLUDED.agent,
+          sale_date = EXCLUDED.sale_date,
+          team      = EXCLUDED.team
+      `;
+
+      try {
+        const result = await query(sql, values);
+        totalSaved += result.rowCount;
+      } catch (e) {
+        console.error('[Backfill] Chunk insert error:', e.message);
+      }
+    }
+
+    console.log(`[Backfill] Done. Saved/updated ${totalSaved} rows.`);
+    return res.json({
+      success: true,
+      message: `Backfill complete`,
+      fetched: uniqueLeads.length,
+      saved: totalSaved,
+      dialer,
+      startDate,
+      endDate
+    });
+
+  } catch (error) {
+    console.error('[Backfill] Unexpected error:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// GET /dialer-sales/history?dialer=medicare&startDate=2026-08-01&endDate=2026-08-13
+exports.getHistorySales = async (req, res) => {
+  try {
+    const { dialer, startDate, endDate, date } = req.query;
+
+    if (!['pharmacy', 'medicare'].includes(dialer)) {
+      return res.status(400).json({ success: false, message: 'Invalid dialer type' });
+    }
+
+    // Support both legacy ?date= and new ?startDate=&endDate=
+    const start = startDate || date;
+    const end   = endDate   || date;
+
+    const dateRe = /^\d{4}-\d{2}-\d{2}$/;
+    if (!start || !dateRe.test(start) || !end || !dateRe.test(end)) {
+      return res.status(400).json({ success: false, message: 'Invalid date format. Use YYYY-MM-DD' });
+    }
+
+    const result = await query(
+      `SELECT lead_id, phone, status, agent, team, sale_date, qa_override, qa_status
+       FROM dialer_sales_history
+       WHERE dialer = $1 AND sale_date >= $2 AND sale_date <= $3
+       ORDER BY sale_date DESC, lead_id DESC`,
+      [dialer, start, end]
+    );
+
+    // Group by status / team for summary
+    const statusSummary = {};
+    const teamSummary   = {};
+    let notASaleCount   = 0;
+
+    result.rows.forEach(row => {
+      statusSummary[row.status] = (statusSummary[row.status] || 0) + 1;
+      const team = row.team || 'Unknown';
+      teamSummary[team] = (teamSummary[team] || 0) + 1;
+      if (row.qa_override === 'NOT_A_SALE') notASaleCount++;
+    });
+
+    return res.json({
+      success: true,
+      data: result.rows,
+      total: result.rows.length,
+      statusSummary,
+      teamSummary,
+      notASaleCount,
+      startDate: start,
+      endDate: end,
+      dialer
+    });
+  } catch (error) {
+    console.error('Error in getHistorySales:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/override  { lead_id, dialer, qa_override }
+exports.setQaOverride = async (req, res) => {
+  try {
+    const { lead_id, dialer, qa_override } = req.body;
+
+    if (!lead_id || !dialer) {
+      return res.status(400).json({ success: false, message: 'lead_id and dialer are required' });
+    }
+
+    if (!['pharmacy', 'medicare'].includes(dialer)) {
+      return res.status(400).json({ success: false, message: 'Invalid dialer type' });
+    }
+
+    // qa_override can be null (reset) or 'NOT_A_SALE'
+    const validOverrides = [null, 'NOT_A_SALE'];
+    if (!validOverrides.includes(qa_override)) {
+      return res.status(400).json({ success: false, message: 'Invalid qa_override value' });
+    }
+
+    const result = await query(
+      `UPDATE dialer_sales_history
+       SET qa_override = $3
+       WHERE lead_id = $1 AND dialer = $2
+       RETURNING lead_id, dialer, qa_override, qa_status`,
+      [lead_id, dialer, qa_override]
+    );
+
+    if (result.rowCount === 0) {
+      // If it doesn't exist yet, we will insert a skeletal record so they can override it.
+      // This is a safety fallback for live sales not yet saved.
+      const insResult = await query(
+        `INSERT INTO dialer_sales_history (lead_id, dialer, qa_override, qa_status, sale_date)
+         VALUES ($1, $2, $3, 'Pending', CURRENT_DATE)
+         RETURNING lead_id, dialer, qa_override, qa_status`,
+        [lead_id, dialer, qa_override]
+      );
+      return res.json({ success: true, data: insResult.rows[0] });
+    }
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error in setQaOverride:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/qa-status { lead_id, dialer, qa_status }
+exports.setQaStatus = async (req, res) => {
+  try {
+    const { lead_id, dialer, qa_status } = req.body;
+
+    if (!lead_id || !dialer) {
+      return res.status(400).json({ success: false, message: 'lead_id and dialer are required' });
+    }
+
+    if (!['pharmacy', 'medicare'].includes(dialer)) {
+      return res.status(400).json({ success: false, message: 'Invalid dialer type' });
+    }
+
+    const validStatuses = ['Pending', 'Accepted', 'Rejected', 'Flagged'];
+    if (!validStatuses.includes(qa_status)) {
+      return res.status(400).json({ success: false, message: 'Invalid qa_status value' });
+    }
+
+    const result = await query(
+      `UPDATE dialer_sales_history
+       SET qa_status = $3
+       WHERE lead_id = $1 AND dialer = $2
+       RETURNING lead_id, dialer, qa_override, qa_status`,
+      [lead_id, dialer, qa_status]
+    );
+
+    if (result.rowCount === 0) {
+      // Create skeleton record
+      const insResult = await query(
+        `INSERT INTO dialer_sales_history (lead_id, dialer, qa_status, sale_date)
+         VALUES ($1, $2, $3, CURRENT_DATE)
+         RETURNING lead_id, dialer, qa_override, qa_status`,
+        [lead_id, dialer, qa_status]
+      );
+      return res.json({ success: true, data: insResult.rows[0] });
+    }
+
+    return res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    console.error('Error in setQaStatus:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/overrides-by-leads  { dialer, lead_ids: [] }
+exports.getOverridesForLeads = async (req, res) => {
+  try {
+    const { dialer, lead_ids } = req.body;
+
+    if (!dialer || !Array.isArray(lead_ids) || lead_ids.length === 0) {
+      return res.json({ success: true, data: {} });
+    }
+
+    const result = await query(
+      `SELECT lead_id, qa_override, qa_status
+       FROM dialer_sales_history
+       WHERE dialer = $1 AND lead_id = ANY($2::varchar[])`,
+      [dialer, lead_ids]
+    );
+
+    // Return as a map: { lead_id -> { qa_override, qa_status } }
+    const map = {};
+    result.rows.forEach(r => {
+      map[r.lead_id] = {
+        qa_override: r.qa_override,
+        qa_status: r.qa_status || 'Pending'
+      };
+    });
+
+    return res.json({ success: true, data: map });
+  } catch (error) {
+    console.error('Error in getOverridesForLeads:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/assign { dialer, assigned_to, leads: [], notes }
+exports.assignSales = async (req, res) => {
+  try {
+    const { dialer, assigned_to, leads, notes } = req.body;
+
+    if (!dialer || !assigned_to || !Array.isArray(leads) || leads.length === 0) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters (dialer, assigned_to, leads)' });
+    }
+
+    // Verify campaign
+    const campaignName = dialer === 'medicare' ? 'Medicare Dialer' : 'Pharmacy Dialer';
+    let campRes = await query('SELECT id FROM campaigns WHERE name = $1 LIMIT 1', [campaignName]);
+    let campaignId = null;
+    if (campRes.rows[0]) {
+      campaignId = campRes.rows[0].id;
+    } else {
+      const insCamp = await query('INSERT INTO campaigns (name, description) VALUES ($1, $2) RETURNING id', [campaignName, `${campaignName} auto-generated campaign`]);
+      campaignId = insCamp.rows[0].id;
+    }
+
+    const assignedCount = [];
+
+    for (const lead of leads) {
+      // Check if call_leads already exists for this phone and campaign
+      let leadCheck = await query('SELECT id FROM call_leads WHERE customer_phone = $1 AND campaign_id = $2 LIMIT 1', [lead.phone, campaignId]);
+      let callLeadId = null;
+
+      if (leadCheck.rows[0]) {
+        callLeadId = leadCheck.rows[0].id;
+      } else {
+        const insLead = await query(
+          `INSERT INTO call_leads (agent_name, agent_id, campaign_name, campaign_id, customer_name, customer_phone, call_date, disposition, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [
+            lead.agent || lead.last_agent || 'Dialer Agent',
+            lead.agent || lead.last_agent || 'DIALER',
+            campaignName,
+            campaignId,
+            lead.name || '',
+            lead.phone,
+            lead.sale_date || new Date(),
+            lead.status || 'Sale',
+            `Assigned from Dialer Sales page. Lead ID: ${lead.lead_id}`
+          ]
+        );
+        callLeadId = insLead.rows[0].id;
+      }
+
+      // Assign to user
+      let assignCheck = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 AND assigned_to = $2 LIMIT 1', [callLeadId, assigned_to]);
+      if (!assignCheck.rows[0]) {
+        const r = await query(
+          `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING id`,
+          [callLeadId, assigned_to, req.user.id, campaignName, notes || '']
+        );
+        if (r.rows[0]) {
+          assignedCount.push(r.rows[0].id);
+        }
+      }
+    }
+
+    return res.json({
+      success: true,
+      message: `${assignedCount.length} lead(s) successfully assigned to QA Agent.`,
+      assigned_count: assignedCount.length
+    });
+  } catch (error) {
+    console.error('Error in assignSales:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
