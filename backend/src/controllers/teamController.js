@@ -466,7 +466,6 @@ const uploadAssignments = async (req, res, next) => {
 
         if (leadValues.length === 0) {
           await client.query('ROLLBACK');
-          client.release();
           return;
         }
 

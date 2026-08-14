@@ -44,7 +44,7 @@ const ManagerEvaluationViewPage = () => {
         const data = res.data.data;
         setEvaluation(data);
         setMetadata(data.metadata || {});
-        setQaStatus(data.status === 'Pass' ? 'Accepted' : 'Rejected');
+        setQaStatus(data.status === 'Pass' ? 'Accepted' : data.status === 'Flagged' ? 'Flagged' : 'Rejected');
       }).catch(() => toast.error('Failed to load evaluation details.'));
     }
   }, [id]);
@@ -72,7 +72,7 @@ const ManagerEvaluationViewPage = () => {
     setSaving(true);
     try {
       await api.put(`/evaluations/${id}`, {
-        status: qaStatus === 'Accepted' ? 'Pass' : 'Fail',
+        status: qaStatus === 'Accepted' ? 'Pass' : qaStatus === 'Flagged' ? 'Flagged' : 'Fail',
         qa_remarks: metadata.laSideFeedback || 'Updated via manager sheet',
         metadata: metadata,
         // Send zeroes for legacy scores since we are using spreadsheet layout
@@ -267,15 +267,18 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <select
                       className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 appearance-none cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
-                        qaStatus === 'Accepted' 
-                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500' 
-                          : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
+                        qaStatus === 'Accepted'
+                          ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500'
+                          : qaStatus === 'Flagged'
+                            ? 'text-amber-400 border-amber-500/30 bg-amber-500/10 focus:ring-amber-500'
+                            : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
                       }`}
                       value={qaStatus}
                       onChange={e => setQaStatus(e.target.value)}
                       disabled={user?.role === 'QA Agent'}
                     >
                       <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
+                      <option className="bg-slate-900 text-amber-400" value="Flagged">Flagged</option>
                       <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
                     </select>
                   </td>

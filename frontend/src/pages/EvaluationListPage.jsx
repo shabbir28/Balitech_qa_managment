@@ -154,9 +154,6 @@ const EvaluationListPage = () => {
           <h1 className="page-title">QA Performance</h1>
           <p className="page-subtitle">Track your QA evaluators' performance and listen to their accepted/rejected calls</p>
         </div>
-        <button onClick={() => navigate('/evaluations/new')} className="btn-primary">
-          + New Evaluation
-        </button>
       </div>
 
       {/* Main Filters */}

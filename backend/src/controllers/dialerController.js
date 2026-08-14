@@ -4,23 +4,26 @@
 const { query } = require('../config/database');
 
 function getDialerConfig(type) {
+  const stripFile = (url) => (url.includes('.php') ? url.replace(/\/[^/]+$/, '') : url);
+
   if (type === 'medicare') {
-    const rawUrl = process.env.MEDICARE_DIALER_URL || 'https://balitgpt7s.dialerhosting.com/z6IRf9c/admin.php';
-    return {
-      baseUrl: rawUrl.includes('.php') ? rawUrl.replace(/\/[^\/]+$/, '') : rawUrl,
-      user: process.env.MEDICARE_DIALER_USER || 'CRM_API',
-      pass: process.env.MEDICARE_DIALER_PASS || 'CRM_APIadsfad',
-      name: 'Medicare Dialer'
-    };
+    const rawUrl = process.env.MEDICARE_DIALER_URL;
+    const user = process.env.MEDICARE_DIALER_USER;
+    const pass = process.env.MEDICARE_DIALER_PASS;
+    if (!rawUrl || !user || !pass) {
+      throw new Error('Medicare dialer is not configured. Set MEDICARE_DIALER_URL, MEDICARE_DIALER_USER and MEDICARE_DIALER_PASS.');
+    }
+    return { baseUrl: stripFile(rawUrl), user, pass, name: 'Medicare Dialer' };
   }
+
   // Default to Pharmacy
-  const rawUrl = process.env.PHARMACY_DIALER_URL || process.env.DIALER_API_URL || 'https://bt1.dialerhosting.com/BkLuyT/admin.php';
-  return {
-    baseUrl: rawUrl.includes('.php') ? rawUrl.replace(/\/[^\/]+$/, '') : rawUrl,
-    user: process.env.PHARMACY_DIALER_USER || process.env.DIALER_API_USER || 'CRM_API2',
-    pass: process.env.PHARMACY_DIALER_PASS || process.env.DIALER_API_PASS || 'test123dssddscc',
-    name: 'Pharmacy Dialer'
-  };
+  const rawUrl = process.env.PHARMACY_DIALER_URL || process.env.DIALER_API_URL;
+  const user = process.env.PHARMACY_DIALER_USER || process.env.DIALER_API_USER;
+  const pass = process.env.PHARMACY_DIALER_PASS || process.env.DIALER_API_PASS;
+  if (!rawUrl || !user || !pass) {
+    throw new Error('Pharmacy dialer is not configured. Set PHARMACY_DIALER_URL, PHARMACY_DIALER_USER and PHARMACY_DIALER_PASS.');
+  }
+  return { baseUrl: stripFile(rawUrl), user, pass, name: 'Pharmacy Dialer' };
 }
 
 const RECORDINGS_BASE = process.env.DIALER_RECORDINGS_URL || 'http://167.235.117.217/RECORDINGS/MP3';

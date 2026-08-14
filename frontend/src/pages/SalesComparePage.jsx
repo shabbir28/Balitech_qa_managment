@@ -359,7 +359,7 @@ export default function SalesComparePage() {
         
         <div className="flex items-center gap-4 z-10">
           <button 
-            onClick={() => navigate('/dialer/sales')}
+            onClick={() => navigate('/dialer-sales')}
             className="p-2.5 bg-slate-800/80 border border-slate-700 rounded-xl hover:bg-slate-700 hover:text-emerald-400 text-slate-300 transition-all duration-300 shadow-sm"
           >
             <ArrowLeft className="w-5 h-5" />

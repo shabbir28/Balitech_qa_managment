@@ -210,16 +210,17 @@ exports.getSales = async (req, res) => {
           const lines = tsvData.split('\n'); // Standard newline split works best for TSV
           for (const line of lines) {
             const cols = line.split('\t');
-            // If row has at least 35 columns (standard export size) and looks like valid data
-            if (cols.length >= 35 && cols[0] && cols[0].startsWith('20')) {
+            // If row has at least 10 columns and starts with a date
+            if (cols.length >= 10 && cols[0] && cols[0].trim().startsWith('20')) {
+              const parsedLeadId = cols.length > 35 ? (cols[35] ? cols[35].trim() : '') : (cols[cols.length - 1] ? cols[cols.length - 1].trim() : '');
               allLeads.push({
                 last_call: cols[0].trim(),
                 phone: cols[1] ? cols[1].trim() : '',
                 status: cols[2] ? cols[2].trim() : '',
                 last_agent: cols[4] ? cols[4].trim() : '', // Agent Name is typically col 4
-                team: cols[31] ? cols[31].trim() : '', // User Group / Team is typically col 31
-                name: cols[13] ? cols[13].trim() : '', // First Name might be empty, we handle below
-                lead_id: cols[35] ? cols[35].trim() : '' // Lead ID is typically col 35 in STANDARD export
+                team: cols.length > 31 ? (cols[31] ? cols[31].trim() : '') : '', // User Group / Team
+                name: cols.length > 13 ? (cols[13] ? cols[13].trim() : '') : '', // First Name
+                lead_id: parsedLeadId
               });
             }
           }
@@ -231,7 +232,14 @@ exports.getSales = async (req, res) => {
 
     // Deduplicate leads just in case
     const uniqueMap = new Map();
-    allLeads.forEach(l => uniqueMap.set(l.lead_id, l));
+    allLeads.forEach(l => {
+      if (l.lead_id) {
+        uniqueMap.set(l.lead_id, l);
+      } else {
+        // Fallback for leads without lead_id so they don't overwrite each other
+        uniqueMap.set(`${l.phone}_${l.last_call}`, l);
+      }
+    });
     const uniqueLeads = Array.from(uniqueMap.values());
 
     // Sort by last call time desc
@@ -299,6 +307,9 @@ exports.getSales = async (req, res) => {
 exports.syncStatuses = async (req, res) => {
   try {
     const { dialer = 'pharmacy' } = req.body;
+    if (!saleStatusesCache[dialer]) {
+      return res.status(400).json({ success: false, message: "Invalid dialer. Must be 'pharmacy' or 'medicare'." });
+    }
     // Force cache expiry
     saleStatusesCache[dialer].lastFetched = 0;
     const statuses = await getSaleStatuses(dialer);
@@ -375,14 +386,14 @@ exports.backfillSales = async (req, res) => {
     // 1. Get sale statuses
     let statuses = await getSaleStatuses(dialer);
     if (dialer === 'medicare') {
-      ['D2', 'D3'].forEach(s => { if (!statuses.includes(s)) statuses.push(s); });
+      ['D2', 'D3', 'HIMAIN'].forEach(s => { if (!statuses.includes(s)) statuses.push(s); });
     }
     statuses = [...new Set(statuses)];
     console.log(`[Backfill] Statuses (${statuses.length}):`, statuses);
 
     // If still empty, use hardcoded fallback for medicare
     if (statuses.length === 0 && dialer === 'medicare') {
-      statuses = ['D2', 'D3', 'D4', 'D5', 'DSB', 'D1', 'HIB'];
+      statuses = ['D2', 'D3', 'D4', 'D5', 'DSB', 'D1', 'HIB', 'HIMAIN'];
       console.log('[Backfill] Using hardcoded fallback statuses for medicare');
     }
 
@@ -606,9 +617,8 @@ exports.setQaOverride = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid dialer type' });
     }
 
-    // qa_override can be null (reset) or 'NOT_A_SALE'
-    const validOverrides = [null, 'NOT_A_SALE'];
-    if (!validOverrides.includes(qa_override)) {
+    // qa_override can be null (reset), 'NOT_A_SALE', or any valid status string
+    if (qa_override !== null && typeof qa_override !== 'string') {
       return res.status(400).json({ success: false, message: 'Invalid qa_override value' });
     }
 

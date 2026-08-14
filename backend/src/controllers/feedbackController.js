@@ -127,6 +127,11 @@ const getFeedbackById = async (req, res, next) => {
 
     const feedback = result.rows[0];
 
+    // QA Agents may only read their own feedback; admins may read any.
+    if (req.user.role === 'QA Agent' && feedback.agent_user_id !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this feedback.' });
+    }
+
     // Get critical errors for this evaluation
     const errors = await query(
       'SELECT * FROM evaluation_critical_errors WHERE evaluation_id = $1',

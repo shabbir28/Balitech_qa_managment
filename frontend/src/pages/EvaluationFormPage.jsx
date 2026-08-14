@@ -51,6 +51,9 @@ const EvaluationFormPage = () => {
   const [evaluationDate, setEvaluationDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
 
+  // /my-assignments is QA Agent only, so admins must land somewhere they can access.
+  const exitPath = user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations';
+
 
   // Audio Player State
   const [isPlaying, setIsPlaying] = useState(false);
@@ -109,7 +112,7 @@ const EvaluationFormPage = () => {
         critical_errors: []
       });
       toast.success('Evaluation submitted successfully!');
-      navigate('/my-assignments');
+      navigate(exitPath);
     } catch (err) {
       toast.error(err.response?.data?.message || 'Submission failed.');
     } finally {
@@ -127,7 +130,7 @@ const EvaluationFormPage = () => {
           <p className="text-sm text-slate-400 mt-1 font-medium">Listen to the recording and fill out the QA sheet below</p>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/my-assignments')} className="btn-secondary px-5 py-2.5">
+          <button onClick={() => navigate(exitPath)} className="btn-secondary px-5 py-2.5">
             <ArrowLeft size={16} className="mr-2" /> Back
           </button>
           <button onClick={handleSubmit} disabled={loading} className="btn-primary px-6 py-2.5 shadow-indigo-500/20 shadow-lg">
@@ -376,7 +379,7 @@ const EvaluationFormPage = () => {
                           value={metadata.laSideErrorCategory} 
                           onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} 
                           placeholder="Select or type LA category..."
-                          className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-600"
+                          className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-650"
                         />
                         <datalist id="la-side-error-category-options">
                           <option value="Already in a good plan" />

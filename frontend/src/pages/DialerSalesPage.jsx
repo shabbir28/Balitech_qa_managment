@@ -5,14 +5,15 @@ import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 
-// Status dropdown cell — allows QA to mark as Not a Sale
-function StatusCell({ lead, dialerType, qaOverride, onOverrideChange }) {
+// Status dropdown cell — allows QA to mark as Not a Sale or any other status
+function StatusCell({ lead, dialerType, qaOverride, onOverrideChange, statuses = [] }) {
   const [updating, setUpdating] = useState(false);
-  const isNotASale = qaOverride === 'NOT_A_SALE';
+  const currentValue = qaOverride || lead.status;
+  const isNotASale = currentValue === 'NOT_A_SALE';
 
   const handleChange = async (e) => {
     const newVal = e.target.value;
-    const qa_override = newVal === 'NOT_A_SALE' ? 'NOT_A_SALE' : null;
+    const qa_override = newVal === lead.status ? null : newVal;
     setUpdating(true);
     try {
       const res = await api.post('/dialer-sales/override', {
@@ -24,6 +25,8 @@ function StatusCell({ lead, dialerType, qaOverride, onOverrideChange }) {
         onOverrideChange(lead.lead_id, qa_override);
         if (qa_override === 'NOT_A_SALE') {
           toast.success('Marked as Not a Sale');
+        } else if (qa_override) {
+          toast.success(`Status changed to ${qa_override}`);
         } else {
           toast('Reverted to original status', { icon: '↩️' });
         }
@@ -38,6 +41,8 @@ function StatusCell({ lead, dialerType, qaOverride, onOverrideChange }) {
     }
   };
 
+  const allOptions = Array.from(new Set([lead.status, ...statuses]));
+
   return (
     <div className="flex items-center gap-1.5" onClick={e => e.stopPropagation()}>
       {updating ? (
@@ -45,16 +50,22 @@ function StatusCell({ lead, dialerType, qaOverride, onOverrideChange }) {
       ) : (
         <div className="relative">
           <select
-            value={isNotASale ? 'NOT_A_SALE' : lead.status}
+            value={currentValue}
             onChange={handleChange}
             className={`appearance-none text-[10px] font-bold uppercase tracking-wider rounded px-1.5 py-0.5 pr-5 border cursor-pointer focus:outline-none focus:ring-1 focus:ring-violet-500 transition-colors ${
               isNotASale
                 ? 'bg-red-900/40 text-red-400 border-red-500/30'
+                : currentValue !== lead.status
+                ? 'bg-amber-900/40 text-amber-400 border-amber-500/30'
                 : 'bg-slate-800 text-slate-300 border-slate-700'
             }`}
           >
-            <option value={lead.status}>{lead.status}</option>
-            <option value="NOT_A_SALE">Not a Sale</option>
+            {allOptions.map(st => (
+              <option key={st} value={st}>{st}</option>
+            ))}
+            {!allOptions.includes('NOT_A_SALE') && (
+              <option value="NOT_A_SALE">Not a Sale</option>
+            )}
           </select>
           <ChevronDown className="w-2.5 h-2.5 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
         </div>
@@ -673,6 +684,7 @@ export default function DialerSalesPage() {
                         dialerType={dialerType}
                         qaOverride={qaMetadata[lead.lead_id]?.qa_override}
                         onOverrideChange={handleOverrideChange}
+                        statuses={statuses}
                       />
                     </td>
                     <td className="px-4 py-2.5">

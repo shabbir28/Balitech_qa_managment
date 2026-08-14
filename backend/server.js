@@ -24,6 +24,11 @@ const assignmentRoutes = require('./src/routes/assignmentRoutes');
 const dialerRoutes = require('./src/routes/dialerRoutes');
 const transferQaRoutes = require('./src/routes/transferQaRoutes');
 
+if (!process.env.JWT_SECRET) {
+  console.error('❌ JWT_SECRET is not set. Configure it in your .env file before starting the server.');
+  process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

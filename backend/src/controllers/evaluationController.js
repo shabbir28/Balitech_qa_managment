@@ -1,5 +1,8 @@
 const { query, getClient } = require('../config/database');
 
+// Must stay in sync with the qa_evaluations_status_check constraint.
+const VALID_STATUSES = ['Pass', 'Fail', 'Flagged'];
+
 /**
  * Calculate total score from individual scores
  */
@@ -59,7 +62,14 @@ const createEvaluation = async (req, res, next) => {
     });
 
     const passing_score = call.passing_score || 75;
-    const has_critical_error = critical_errors.length > 0;
+    const has_critical_error = Array.isArray(critical_errors) && critical_errors.length > 0;
+
+    if (req.body.status && !VALID_STATUSES.includes(req.body.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}.`,
+      });
+    }
     const finalStatus = req.body.status || ((has_critical_error || total_score < passing_score) ? 'Fail' : 'Pass');
 
     if (has_critical_error && (!qa_remarks || qa_remarks.trim() === '')) {
@@ -97,7 +107,7 @@ const createEvaluation = async (req, res, next) => {
     const evaluation = evalResult.rows[0];
 
     // Insert critical errors
-    for (const ce of critical_errors) {
+    for (const ce of (Array.isArray(critical_errors) ? critical_errors : [])) {
       await client.query(
         `INSERT INTO evaluation_critical_errors (evaluation_id, critical_error_id, error_type, error_description, timestamp_in_recording, severity)
          VALUES ($1, $2, $3, $4, $5, $6)`,
@@ -228,6 +238,11 @@ const getEvaluationById = async (req, res, next) => {
 
     const evaluation = result.rows[0];
 
+    // QA Agents may only read evaluations they performed themselves.
+    if (req.user.role === 'QA Agent' && evaluation.evaluated_by !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this evaluation.' });
+    }
+
     // Get critical errors
     const errors = await query(
       'SELECT * FROM evaluation_critical_errors WHERE evaluation_id = $1',
@@ -259,9 +274,21 @@ const updateEvaluation = async (req, res, next) => {
     });
 
     // Get passing score
-    const existing = await query('SELECT passing_score FROM qa_evaluations WHERE id = $1', [req.params.id]);
+    const existing = await query('SELECT passing_score, evaluated_by FROM qa_evaluations WHERE id = $1', [req.params.id]);
     if (existing.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Evaluation not found.' });
+    }
+
+    // QA Agents may only modify evaluations they performed themselves.
+    if (req.user.role === 'QA Agent' && existing.rows[0].evaluated_by !== req.user.id) {
+      return res.status(403).json({ success: false, message: 'You do not have access to this evaluation.' });
+    }
+
+    if (req.body.status && !VALID_STATUSES.includes(req.body.status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}.`,
+      });
     }
 
     const passing_score = existing.rows[0].passing_score;

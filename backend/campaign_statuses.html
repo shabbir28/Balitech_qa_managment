@@ -1,6 +1,6 @@
 <html>
 <head>
-<!-- VERSION: 2.14-838a   BUILD: 211217-0732   ADD: 34   PHP_SELF: /z6IRf9c/admin.php-->
+<!-- VERSION: 2.14-838a   BUILD: 211217-0732   ADD: 3111   PHP_SELF: /z6IRf9c/admin.php-->
 <META NAME="ROBOTS" CONTENT="NONE">
 <META NAME="COPYRIGHT" CONTENT="&copy; 2021 ViciDial Group">
 <META NAME="AUTHOR" CONTENT="ViciDial Group">
@@ -12,60 +12,12 @@
 <META HTTP-EQUIV="Expires" CONTENT="-1">
 <META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
 <META HTTP-EQUIV="Content-Type" CONTENT="text/html; charset=utf-8">
-<title>ADMINISTRATION: Modify Campaign - Basic View - 001</title>
+<title>ADMINISTRATION: Modify In-Group</title>
 <script language="Javascript">
 var field_name = '';
 var user = 'CRM_API';
-var epoch = '1786482119';
+var epoch = '1786660272';
 
-		// List status change confirmation
-	function ConfirmListStatusChange(system_setting, listForm) {
-		if (!system_setting) {
-			// if the list change confirmation system setting is off, just submit the form
-			listForm.submit();
-			return false;
-		}
-
-		var previous_list_statuses=document.getElementById('last_list_statuses').value;
-
-		var new_list_statuses="";
-
-		var lists = document.getElementsByName('list_active_change[]');
-		var no_selected=0;
-		for (var i=0; i<lists.length; i++) {
-			new_list_statuses+=lists[i].value+"|";
-			if (lists[i].checked) {
-				new_list_statuses+="Y|";
-			} else {
-				new_list_statuses+="N|";
-			}
-		}
-
-		if (previous_list_statuses==new_list_statuses) {
-			// if none of the lists active status has been changed, just submit the form
-			listForm.submit();
-			return false;
-		} else {
-			var prev_array=previous_list_statuses.split("|");
-			var new_array=new_list_statuses.split("|");
-			if (prev_array.length!=new_array.length) {alert("List error. Reload the page and try again."); return false;}
-
-			var altered_lists="";
-			for(i=0; i<prev_array.length; i+=2) {
-				prev_status=prev_array[(i+1)];
-				new_status=new_array[(i+1)];
-				if (prev_status!=new_status) {
-					altered_lists+=" - List "+new_array[i]+": "+prev_status+" => "+new_status+"\n";
-				}
-			}
-
-			var proceed=confirm("You have changed the active status of the following lists:\n\n"+altered_lists+"\nWould you like to proceed with committing the changes?");
-			if (proceed) {
-				listForm.submit();
-			}
-		}
-
-	}
 	
 	var weak = new Image();
 	weak.src = "images/weak.png";
@@ -255,6 +207,151 @@ var epoch = '1786482119';
 			}
 		}
 
+		function dynamic_call_action(option,route,value,chooser_height)
+		{
+		var call_menu_list = '<option value="2FA_say_auth_code">2FA_say_auth_code - 2FA_say_auth_code</option><option value="default---agent">default---agent - agent phones restricted to only internal extensions</option><option value="defaultlog">defaultlog - logging of all outbound calls from agent phones</option>';
+		var ingroup_list = '<option value="AI_BOTS">AI_BOTS - AI_BOTS</option><option value="balimed1TObalitgpt7s">balimed1TObalitgpt7s - AL</option><option value="balimed2_sip2sip">balimed2_sip2sip - AB</option><option value="balimed3TOgpt7s">balimed3TOgpt7s - balimed3TOgpt7s</option><option value="Balit5">Balit5 - Balit5</option><option value="Balitech_ST">Balitech_ST - Balitech-ST</option><option value="Balitech7">Balitech7 - BR</option><option value="Balitech7_2">Balitech7_2 - Balitech7_2</option><option value="BalitechMED1">BalitechMED1 - Balitech-MED1</option><option value="balitechmed1TObalitg">balitechmed1TObalitg - balitechmed1TObalitgpt7</option><option value="BalitechMED2">BalitechMED2 - Balitech-MED1 002</option><option value="balitechvoice">balitechvoice - balitechvoice</option><option value="Balitmed3_2">Balitmed3_2 - Balitmed3_2</option><option value="BT_1">BT_1 - NAQI</option><option value="BT1">BT1 - BT-1</option><option value="Bt1001">Bt1001 - Bt1001</option><option value="Bt1002">Bt1002 - Bt1002</option><option value="BT1Queu">BT1Queu - BT1Queu</option><option value="BT4001">BT4001 - BT4001</option><option value="BT4002">BT4002 - BT4002</option><option value="CallCO">CallCO - CallCO</option><option value="CallCoMED">CallCoMED - CallCo-MED</option><option value="ClientDiD">ClientDiD - ClientDiD</option><option value="CloserTest">CloserTest - CloserTest</option><option value="DropsOf002Inbound">DropsOf002Inbound - DropsOf002Inbound</option><option value="DropsOfBT1">DropsOfBT1 - DropsOfBT1</option><option value="Fronters">Fronters - Fronters</option><option value="inhouse">inhouse - NAQI</option><option value="INTXFER">INTXFER - INTXFER</option><option value="MED2001">MED2001 - MED2001</option><option value="MED2002">MED2002 - MED2002</option><option value="OverflowGPT7">OverflowGPT7 - Over flow GPT7</option><option value="PremiumD1">PremiumD1 - PremiumD1</option><option value="PremiumD2">PremiumD2 - PremiumD2</option><option value="ST_NEW">ST_NEW - CRM</option><option value="TelcomFronters">TelcomFronters - Telcom-Fronters</option><option value="Test">Test - Test</option>';
+		var IGcampaign_id_list = '<option value="001">001 - Outbound</option><option value="002">002 - Medicare closer</option><option value="003">003 - TEAM-B</option><option value="004">004 - Client</option><option value="ACA005">ACA005 - ACA005</option><option value="MedSelf">MedSelf - Med-Self</option>';
+		var IGhandle_method_list = '<option>CID</option><option>CIDLOOKUP</option><option>CIDLOOKUPRL</option><option>CIDLOOKUPRC</option><option>CIDLOOKUPALT</option><option>CIDLOOKUPRLALT</option><option>CIDLOOKUPRCALT</option><option>CIDLOOKUPADDR3</option><option>CIDLOOKUPRLADDR3</option><option>CIDLOOKUPRCADDR3</option><option>CIDLOOKUPALTADDR3</option><option>CIDLOOKUPRLALTADDR3</option><option>CIDLOOKUPRCALTADDR3</option><option>ANI</option><option>ANILOOKUP</option><option>ANILOOKUPRL</option><option>VIDPROMPT</option><option>VIDPROMPTLOOKUP</option><option>VIDPROMPTLOOKUPRL</option><option>VIDPROMPTLOOKUPRC</option><option>CLOSER</option><option>3DIGITID</option><option>4DIGITID</option><option>5DIGITID</option><option>10DIGITID</option><option>CIDLOOKUPOWNERCUSTOMX</option><option>CIDLOOKUPRLOWNERCUSTOMX</option><option>CIDLOOKUPRCOWNERCUSTOMX</option><option>CIDLOOKUPALTOWNERCUSTOMX</option><option>CIDLOOKUPRLALTOWNERCUSTOMX</option><option>CIDLOOKUPRCALTOWNERCUSTOMX</option><option>CIDLOOKUPADDR3OWNERCUSTOMX</option><option>CIDLOOKUPRLADDR3OWNERCUSTOMX</option><option>CIDLOOKUPRCADDR3OWNERCUSTOMX</option><option>CIDLOOKUPALTADDR3OWNERCUSTOMX</option><option>CIDLOOKUPRLALTADDR3OWNERCUSTOMX</option><option>CIDLOOKUPRCALTADDR3OWNERCUSTOMX</option>';
+		var IGsearch_method_list = "<option value=\"LB\">LB - Load Balanced</option><option value=\"LO\">LO - Load Balanced Overflow</option><option value=\"SO\">SO - Server Only</option>";
+		var did_list = '<option value="1042015001">1042015001 - Conf - IN_GROUP</option><option value="1042015002">1042015002 - conf 2 - IN_GROUP</option><option value="1042015003">1042015003 - Conf 3 - IN_GROUP</option><option value="12098107734">12098107734 - balimed1TObalitgpt7s - IN_GROUP</option><option value="12138105468">12138105468 - balitechmed1TObalitgpt7 - IN_GROUP</option><option value="13328088606">13328088606 - INTXFER local sip2sip DID 1st - IN_GROUP</option><option value="14484441127">14484441127 - balimed2_sip2sip - 7776 - IN_GROUP</option><option value="14484441128">14484441128 - balimed3TOgpt7s - IN_GROUP</option><option value="14484441129">14484441129 - 14484441129_Balimed3_2 - IN_GROUP</option><option value="15185547850">15185547850 - CallCo - IN_GROUP</option><option value="15185547852">15185547852 - DropsOfBT1 - IN_GROUP</option><option value="17175551000">17175551000 - 17175551000 - IN_GROUP</option><option value="17175556159">17175556159 - VALID Client Ringba DID - IN_GROUP</option><option value="17175556600">17175556600 - Conf T1 - IN_GROUP</option><option value="17175556611">17175556611 - 17175556611 - IN_GROUP</option><option value="17175556666">17175556666 - 17175556666 - IN_GROUP</option><option value="17175556667">17175556667 - 17175556667 - IN_GROUP</option><option value="17175556668">17175556668 - Conf - IN_GROUP</option><option value="17175556669">17175556669 - 17175556669 - IN_GROUP</option><option value="17175556688">17175556688 - 17175556688 - IN_GROUP</option><option value="17175556711">17175556711 - 17175556711 - IN_GROUP</option><option value="17175556722">17175556722 - 17175556722 - IN_GROUP</option><option value="17175556777">17175556777 - 17175556777 - IN_GROUP</option><option value="17175556799">17175556799 - 17175556799 - IN_GROUP</option><option value="17175556811">17175556811 - 17175556811 - IN_GROUP</option><option value="17175556822">17175556822 - 17175556822 - IN_GROUP</option><option value="17175556880">17175556880 - 17175556880 - IN_GROUP</option><option value="17175556882">17175556882 - 17175556882  - IN_GROUP</option><option value="17175556888">17175556888 - 17175556888 - IN_GROUP</option><option value="17175556889">17175556889 - 17175556889 - IN_GROUP</option><option value="17175556999">17175556999 - 17175556999 - IN_GROUP</option><option value="17175557000">17175557000 - 17175557000 - IN_GROUP</option><option value="17175557700">17175557700 - Conf T2 - IN_GROUP</option><option value="default">default - Default DID - EXTEN</option>';
+		var selected_value = '';
+		var selected_context = '';
+		var new_content = '';
+
+		var select_list = document.getElementById(option + "");
+		var selected_route = select_list.value;
+		var span_to_update = document.getElementById(option + "_value_span");
+
+		if (selected_route=='CALLMENU')
+			{
+			if (route == selected_route)
+				{
+				selected_value = '<option SELECTED value="' + value + '">' + value + "</option>\n";
+				}
+			else
+				{value = '';}
+			new_content = '<span name=' + option + '_value_link id=' + option + '_value_link><a href="./admin.php?ADD=3511&menu_id=' + value + "\">Call Menu: </a></span><select size=1 name=" + option + '_value id=' + option + "_value onChange=\"dynamic_call_action_link('" + option + "','CALLMENU');\">" + call_menu_list + "\n" + selected_value + '</select>';
+			}
+		if (selected_route=='INGROUP')
+			{
+			if ( (route != selected_route) || (value.length < 10) )
+				{value = 'SALESLINE,CID,LB,998,TESTCAMP,1,,,,';}
+			var value_split = value.split(",");
+			var IGgroup_id =				value_split[0];
+			var IGhandle_method =			value_split[1];
+			var IGsearch_method =			value_split[2];
+			var IGlist_id =					value_split[3];
+			var IGcampaign_id =				value_split[4];
+			var IGphone_code =				value_split[5];
+			var IGvid_enter_filename =		value_split[6];
+			var IGvid_id_number_filename =	value_split[7];
+			var IGvid_confirm_filename =	value_split[8];
+			var IGvid_validate_digits =		value_split[9];
+
+			if (route == selected_route)
+				{
+				selected_value = '<option SELECTED>' + IGgroup_id + '</option>';
+				}
+
+			new_content = new_content + '<span name=' + option + '_value_link id=' + option + '_value_link><a href="admin.php?ADD=3111&group_id=' + IGgroup_id + "\">In-Group:</a> </span> ";
+			new_content = new_content + '<select size=1 name=IGgroup_id_' + option + ' id=IGgroup_id_' + option + " onChange=\"dynamic_call_action_link('IGgroup_id_" + option + "','INGROUP');\">";
+			new_content = new_content + '' + ingroup_list + "\n" + selected_value + '</select>';
+			new_content = new_content + " &nbsp; Handle Method: <select size=1 name=IGhandle_method_" + option + ' id=IGhandle_method_' + option + '>';
+			new_content = new_content + '' + '<option SELECTED>' + IGhandle_method + '</option>' + IGhandle_method_list + '</select>' + "\n";
+			new_content = new_content + "<BR>Search Method: <select size=1 name=IGsearch_method_" + option + ' id=IGsearch_method_' + option + '>';
+			new_content = new_content + '' + IGsearch_method_list + "\n" + '<option SELECTED>' + IGsearch_method + '</select>';
+			new_content = new_content + " &nbsp; List ID: <input type=text size=5 maxlength=14 name=IGlist_id_" + option + ' id=IGlist_id_' + option + ' value="' + IGlist_id + '">';
+			new_content = new_content + "<BR>Campaign ID: <select size=1 name=IGcampaign_id_" + option + ' id=IGcampaign_id_' + option + '>';
+			new_content = new_content + '' + IGcampaign_id_list + "\n" + '<option SELECTED>' + IGcampaign_id + '</select>';
+			new_content = new_content + " &nbsp; Phone Code: <input type=text size=5 maxlength=14 name=IGphone_code_" + option + ' id=IGphone_code_' + option + ' value="' + IGphone_code + '">';
+		//	new_content = new_content + "<BR> &nbsp; VID Enter Filename: <input type=text name=IGvid_enter_filename_" + option + " id=IGvid_enter_filename_" + option + " size=40 maxlength=255 value=\"" + IGvid_enter_filename + "\"> <a href=\"javascript:launch_chooser('IGvid_enter_filename_" + option + "','date');\">audio chooser</a>";
+		//	new_content = new_content + "<BR> &nbsp; VID ID Number Filename: <input type=text name=IGvid_id_number_filename_" + option + " id=IGvid_id_number_filename_" + option + " size=40 maxlength=255 value=\"" + IGvid_id_number_filename + "\"> <a href=\"javascript:launch_chooser('IGvid_id_number_filename_" + option + "','date');\">audio chooser</a>";
+		//	new_content = new_content + "<BR> &nbsp; VID Confirm Filename: <input type=text name=IGvid_confirm_filename_" + option + " id=IGvid_confirm_filename_" + option + " size=40 maxlength=255 value=\"" + IGvid_confirm_filename + "\"> <a href=\"javascript:launch_chooser('IGvid_confirm_filename_" + option + "','date');\">audio chooser</a>";
+		//	new_content = new_content + ' &nbsp; VID Digits: <input type=text size=3 maxlength=3 name=IGvid_validate_digits_' + option + ' id=IGvid_validate_digits_' + option + ' value="' + IGvid_validate_digits + '">';
+
+			}
+		if (selected_route=='DID')
+			{
+			if (route == selected_route)
+				{
+				selected_value = '<option SELECTED value="' + value + '">' + value + "</option>\n";
+				}
+			else
+				{value = '';}
+			new_content = '<span name=' + option + '_value_link id=' + option + '_value_link><a href="admin.php?ADD=3311&did_pattern=' + value + "\">DID:</a> </span><select size=1 name=" + option + '_value id=' + option + "_value onChange=\"dynamic_call_action_link('" + option + "','DID');\">" + did_list + "\n" + selected_value + '</select>';
+			}
+		if (selected_route=='MESSAGE')
+			{
+			if (route == selected_route)
+				{
+				selected_value = value;
+				}
+			else
+				{value = 'nbdy-avail-to-take-call|vm-goodbye';}
+			new_content = "Audio File: <input type=text name=" + option + "_value id=" + option + "_value size=40 maxlength=255 value=\"" + value + "\"> <a href=\"javascript:launch_chooser('" + option + "_value','date');\">audio chooser</a>";
+			}
+		if (selected_route=='EXTENSION')
+			{
+			if ( (route != selected_route) || (value.length < 3) )
+				{value = '8304,default';}
+			var value_split = value.split(",");
+			var EXextension =	value_split[0];
+			var EXcontext =		value_split[1];
+
+			new_content = "Extension: <input type=text name=EXextension_" + option + " id=EXextension_" + option + " size=20 maxlength=255 value=\"" + EXextension + "\"> &nbsp; Context: <input type=text name=EXcontext_" + option + " id=EXcontext_" + option + " size=20 maxlength=255 value=\"" + EXcontext + "\"> ";
+			}
+		if ( (selected_route=='VOICEMAIL') || (selected_route=='VMAIL_NO_INST') )
+			{
+			if (route == selected_route)
+				{
+				selected_value = value;
+				}
+			else
+				{value = '101';}
+			new_content = "Voicemail Box: <input type=text name=" + option + "_value id=" + option + "_value size=12 maxlength=10 value=\"" + value + "\"> <a href=\"javascript:launch_vm_chooser('" + option + "_value','date');\">voicemail chooser</a>";
+			}
+
+		if (new_content.length < 1)
+			{new_content = selected_route}
+
+		span_to_update.innerHTML = new_content;
+		}
+
+	function dynamic_call_action_link(field,route)
+		{
+		var selected_value = '';
+		var new_content = '';
+
+		if ( (route=='CALLMENU') || (route=='DID') )
+			{var select_list = document.getElementById(field + "_value");}
+		if (route=='INGROUP')
+			{
+			var select_list = document.getElementById(field + "");
+			field = field.replace(/IGgroup_id_/, "");
+			}
+		var selected_value = select_list.value;
+		var span_to_update = document.getElementById(field + "_value_link");
+
+		if (route=='CALLMENU')
+			{
+			new_content = '<a href="admin.php?ADD=3511&menu_id=' + selected_value + "\">Call Menu:</a>";
+			}
+		if (route=='INGROUP')
+			{
+			new_content = '<a href="admin.php?ADD=3111&group_id=' + selected_value + "\">In-Group:</a>";
+			}
+		if (route=='DID')
+			{
+			new_content = '<a href="admin.php?ADD=3311&did_pattern=' + selected_value + "\">DID:</a>";
+			}
+
+		if (new_content.length < 1)
+			{new_content = selected_route}
+
+		span_to_update.innerHTML = new_content;
+		}
+
 	</script>
 
 <style type="text/css">
@@ -365,28 +462,10 @@ var epoch = '1786482119';
 	</TD></TR>
 		<!-- CAMPAIGNS NAVIGATION -->
 	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
-	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10';"><TD ALIGN=LEFT CLASS="head_style_selected">
-	<a href="/z6IRf9c/admin.php?ADD=10" STYLE="text-decoration:none;"><img src="images/icon_black_campaigns.png" border=0 alt="Campaigns" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:BLACK"><b>Campaigns</a>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10';"><TD ALIGN=LEFT CLASS="head_style">
+	<a href="/z6IRf9c/admin.php?ADD=10" STYLE="text-decoration:none;"><img src="images/icon_campaigns.png" border=0 alt="Campaigns" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Campaigns</a>
 	</TD></TR>
-			<TR CLASS="subhead_style_selected" onclick="window.document.location='/z6IRf9c/admin.php?ADD=10';">
-		<TD ALIGN=LEFT CLASS="subhead_style_selected"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=10" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Campaigns Main</a></TD>
-		</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=32';">
-		<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=32" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Statuses</a></TD>
-		</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=33';">
-		<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=33" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">HotKeys</a></TD>
-					</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=35';">
-			<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=35" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Lead Recycle</a></TD>
-			</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=36';">
-			<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=36" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Auto-Alt Dial</a></TD>
-			</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=39';">
-			<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=39" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">List Mix</a></TD>
-					</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=37';">
-		<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=37" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Pause Codes</a></TD>
-		</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=301';">
-		<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=301" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">Presets</a></TD>
-					</TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=302';">
-			<TD ALIGN=LEFT CLASS="subhead_style"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=302" STYLE="text-decoration:none;"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK">AC-CID</a></TD>
-				<!-- LISTS NAVIGATION -->
+		<!-- LISTS NAVIGATION -->
 			<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
 		<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=100';"><TD ALIGN=LEFT CLASS="head_style"><a href="/z6IRf9c/admin.php?ADD=100" STYLE="text-decoration:none;"><img src="images/icon_lists.png" border=0 alt="Lists" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE">Lists</a></TD></TR>
 			<!-- SCRIPTS NAVIGATION -->
@@ -399,10 +478,39 @@ var epoch = '1786482119';
 		<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=10000000';"><TD ALIGN=LEFT CLASS="head_style"><a href="/z6IRf9c/admin.php?ADD=10000000" STYLE="text-decoration:none;"><img src="images/icon_filters.png" border=0 alt="Filters" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Filters </a></TD></TR>
 			<!-- INGROUPS NAVIGATION -->
 	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
-	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=1001';"><TD ALIGN=LEFT CLASS="head_style">
-	<a href="/z6IRf9c/admin.php?ADD=1001" STYLE="text-decoration:none;"><img src="images/icon_inbound.png" border=0 alt="Inbound" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> Inbound </a>
+	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=1001';"><TD ALIGN=LEFT CLASS="head_style_selected">
+	<a href="/z6IRf9c/admin.php?ADD=1001" STYLE="text-decoration:none;"><img src="images/icon_black_inbound.png" border=0 alt="Inbound" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:BLACK"><b> Inbound </a>
 	</TD></TR>
-		<!-- USERGROUPS NAVIGATION -->
+			<TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1000';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1000" STYLE="text-decoration:none;"><img src="images/icon_black_inbound.png" border=0 alt=\"In-Groups\" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Show In-Groups </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1111';"><TD ALIGN=LEFT> &nbsp; 
+				<a href="/z6IRf9c/admin.php?ADD=1111" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New In-Group </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1211';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1211" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Copy In-Group </a>
+				<TR WIDTH=160 CLASS="subhead_style"><TD><DIV CLASS="horiz_line_grey"></DIV></TD></TR>
+						</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1300';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1300" STYLE="text-decoration:none;"><img src="images/icon_cidgroups.png" border=0 alt=\"DIDs\" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Show DIDs </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1311';"><TD ALIGN=LEFT> &nbsp; 
+				<a href="/z6IRf9c/admin.php?ADD=1311" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New DID </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1411';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1411" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Copy DID </a>
+				<TR WIDTH=160 CLASS="subhead_style"><TD><DIV CLASS="horiz_line_grey"></DIV></TD></TR>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1500';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1500" STYLE="text-decoration:none;"><img src="images/icon_callmenu.png" border=0 alt=\"Call Menus\" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Show Call Menus </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1511';"><TD ALIGN=LEFT> &nbsp; 
+				<a href="/z6IRf9c/admin.php?ADD=1511" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New Call Menu </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1611';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1611" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Copy Call Menu </a>
+		
+		<TR WIDTH=160 CLASS="subhead_style"><TD><DIV CLASS="horiz_line_grey"></DIV></TD></TR>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1700';"><TD ALIGN=LEFT> &nbsp; 
+		<a href="/z6IRf9c/admin.php?ADD=1700" STYLE="text-decoration:none;"><img src="images/icon_filterphonegroup.png" border=0 alt=\"Filter Phone Groups\" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Filter Phone Groups </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=1711';"><TD ALIGN=LEFT> &nbsp; 
+				<a href="/z6IRf9c/admin.php?ADD=1711" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add Filter Phone Group </a>
+		</TD></TR><TR CLASS="subhead_style" onclick="window.document.location='/z6IRf9c/admin.php?ADD=171';"><TD ALIGN=LEFT> &nbsp; 
+				<a href="/z6IRf9c/admin.php?ADD=171" STYLE="text-decoration:none;"><img src="images/blank.gif" border=0 alt=\" \" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add FPG Number </a>
+		</TD></TR>
+			<!-- USERGROUPS NAVIGATION -->
 	<TR WIDTH=160><TD><DIV CLASS="horiz_line"></DIV></TD></TR>
 	<TR BGCOLOR=#738035  onclick="window.document.location='/z6IRf9c/admin.php?ADD=100000';"><TD ALIGN=LEFT CLASS="head_style">
 	<a href="/z6IRf9c/admin.php?ADD=100000" STYLE="text-decoration:none;"><img src="images/icon_usergroups.png" border=0 alt="User Groups" width=14 height=14 valign=middle> <FONT STYLE="font-family:HELVETICA;font-size:12;color:WHITE"> User Groups </a>
@@ -431,7 +539,7 @@ var epoch = '1786482119';
 <TR BGCOLOR=#738035><TD ALIGN=LEFT BGCOLOR=#738035><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B><a href="../z6IRf9c/welcome.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>HOME</a> | <A HREF="../agc/timeclock.php?referrer=admin" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Timeclock</A> | <a href="manager_chat_interface.php" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1> Chat</a> | <a href="/z6IRf9c/admin.php?force_logout=1" STYLE="text-decoration:none;"><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>Logout</a> <FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=1>(CRM_API)</FONT>
 
 
-</TD><TD ALIGN=RIGHT><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Tuesday August 11, 2026 17:01:59 PM &nbsp; </B></TD></TR>
+</TD><TD ALIGN=RIGHT><FONT FACE="ARIAL,HELVETICA" COLOR=WHITE SIZE=2><B>Thursday August 13, 2026 18:31:12 PM &nbsp; </B></TD></TR>
 
 <TR BGCOLOR=#738035>
 
@@ -442,551 +550,6 @@ var epoch = '1786482119';
 
 
 </TR>
-		<TR BGCOLOR=#C6C6C6><TD ALIGN=LEFT COLSPAN=2><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=10"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Show Campaigns </a> &nbsp; &nbsp; |&nbsp; &nbsp; <a href="/z6IRf9c/admin.php?ADD=11"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Add A New Campaign </a> &nbsp; &nbsp; | &nbsp; &nbsp; <a href="/z6IRf9c/admin.php?ADD=12"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Copy Campaign </a> &nbsp; &nbsp; | &nbsp; &nbsp; <a href="./AST_timeonVDADallSUMMARY.php"><FONT STYLE="font-family:HELVETICA;font-size:11;color:BLACK;"> Real-Time Campaigns Summary </a></TD></TR>
-		<TR><TD ALIGN=LEFT COLSPAN=2 HEIGHT=2 BGCOLOR=#738035></TD></TR>
+	<TR><TD ALIGN=LEFT COLSPAN=2 HEIGHT=2 BGCOLOR=#738035></TD></TR>
 <TR><TD ALIGN=LEFT COLSPAN=2>
-<TABLE WIDTH=770 CELLPADDING=2 CELLSPACING=0><TR BGCOLOR="#E6E6E6">
-<TD><font size=2 color=BLACK face="ARIAL,HELVETICA"> <B>001</B>: </font></TD><TD ALIGN=CENTER BGCOLOR="#C6C6C6"> &nbsp; <a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001" STYLE="text-decoration:none;"><font class="sub_sub_head_links">Basic View</font></a></TD><TD ALIGN=CENTER> <a href="/z6IRf9c/admin.php?ADD=31&campaign_id=001" STYLE="text-decoration:none;"><font class="sub_sub_head_links">Detail View </font></a> </TD><TD ALIGN=CENTER BGCOLOR="#E6E6E6"> <a href="/z6IRf9c/admin.php?ADD=34&SUB=29&campaign_id=001" STYLE="text-decoration:none;"><font class="sub_sub_head_links">List Mix</font></a> </TD><TD ALIGN=CENTER> <a href="./realtime_report.php?RR=4&DB=0&group=001" STYLE="text-decoration:none;"><font class="sub_sub_head_links">Real-Time Screen</font></a></TD>
-<TD WIDTH=300><font class="sub_sub_head_links"> &nbsp; </font></TD>
-</TR></TABLE>
-<TABLE><TR><TD>
-<FONT FACE="ARIAL,HELVETICA" COLOR=BLACK SIZE=2><form action=/z6IRf9c/admin.php method=POST>
-<input type=hidden name=ADD value=44>
-<input type=hidden name=campaign_id value="001">
-<input type=hidden name=old_campaign_allow_inbound value="N">
-<center><TABLE width=750 cellspacing=3>
-<tr bgcolor=#C4CF8B><td align=right>Campaign ID: </td><td align=left><b>001</b><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_id')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Campaign Name: </td><td align=left><input type=text name=campaign_name size=40 maxlength=40 value="Outbound"><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_name')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Campaign Description: </td><td align=left>Outbound<IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_description')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Campaign Change Date: </td><td align=left>2026-08-11 16:58:02 &nbsp; <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_changedate')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Campaign Login Date: </td><td align=left>2026-08-11 17:01:57 &nbsp; <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_logindate')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#B6C572><td align=right>Active: </td><td align=left><select size=1 name=active><option value='Y'>Y</option><option value='N'>N</option><option value='Y' SELECTED>Y</option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-active')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#B6C572><td align=right>Admin User Group: </td><td align=left>---ALL--- <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-user_group')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Park Music-on-Hold: </td><td align=left> <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-park_ext')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Web Form: </td><td align=left><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-web_form_address')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Allow Closers: </td><td align=left>Y <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-allow_closers')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Default Transfer Group: </td><td align=left>---NONE--- <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-default_xfer_group')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Allow Inbound and Blended: </td><td align=left>N <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-campaign_allow_inbound')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 1: </td><td align=left> 
-<b>NA</b> - No Answer AutoDial &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=NA">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 2: </td><td align=left> 
-<b>DEC</b> - Declined Sale &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=DEC">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 3: </td><td align=left> 
-<b>QUEUE</b> - Lead To Be Called &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=QUEUE">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 4: </td><td align=left> 
-<b>PU</b> - Call Picked Up &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=PU">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 5: </td><td align=left> 
-<b>AA</b> - Answering Machine Auto &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=AA">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 6: </td><td align=left> 
-<b>B</b> - Busy &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=B">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 7: </td><td align=left> 
-<b>DAIR</b> - Dead Air &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=DAIR">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 8: </td><td align=left> 
-<b>NI</b> - Not Interested &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=NI">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 9: </td><td align=left> 
-<b>XDROP</b> - Agent Not Available IN &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=XDROP">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 10: </td><td align=left> 
-<b>ERI</b> - Agent Error &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=ERI">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 11: </td><td align=left> 
-<b>PDROP</b> - Outbound Pre-Routing Drop &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=PDROP">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 12: </td><td align=left> 
-<b>NP</b> -  &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=NP">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 13: </td><td align=left> 
-<b>N</b> - No Answer &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=N">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 14: </td><td align=left> 
-<b>CALLBK</b> - Call Back &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=CALLBK">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 15: </td><td align=left> 
-<b>AB</b> - Busy Auto &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=AB">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 16: </td><td align=left> 
-<b>A</b> - Answering Machine &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=A">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Dial Status 17: </td><td align=left> 
-<b>NEW</b> - New Lead &nbsp; &nbsp; &nbsp; &nbsp; <font size=2>
-<a href="/z6IRf9c/admin.php?ADD=68&campaign_id=001&status=NEW">REMOVE</a></td></tr>
-<tr bgcolor=#B6C572><td align=right>Add A Dial Status to Call: </td><td align=left><select size=1 name=dial_status >
-<option value=""> - NONE - </option>
-<option value="A">A - Answering Machine</option>
-<option value="AA">AA - Answering Machine Auto</option>
-<option value="AB">AB - Busy Auto</option>
-<option value="ADC">ADC - Disconnected Number Auto</option>
-<option value="ADCT">ADCT - Disconnected Number Temporary</option>
-<option value="AFAX">AFAX - Fax Machine Auto</option>
-<option value="AFTHRS">AFTHRS - Inbound After Hours Drop</option>
-<option value="AL">AL - Answering Machine Msg Played</option>
-<option value="AM">AM - Answering Machine SentToMesg</option>
-<option value="B">B - Busy</option>
-<option value="CALLBK">CALLBK - Call Back</option>
-<option value="D1">D1 - D1</option>
-<option value="D4">D4 - D4</option>
-<option value="D5">D5 - D5</option>
-<option value="D6">D6 - D6-DID1</option>
-<option value="D6CPL">D6CPL - D6_CPL</option>
-<option value="D7">D7 - D7-DID2</option>
-<option value="DAIR">DAIR - Dead Air</option>
-<option value="DC">DC - Disconnected Number</option>
-<option value="DEC">DEC - Declined Sale</option>
-<option value="DNC">DNC - DO NOT CALL</option>
-<option value="DNCC">DNCC - DO NOT CALL Hopper Camp Match</option>
-<option value="DNCL">DNCL - DO NOT CALL Hopper Sys Match</option>
-<option value="DROP">DROP - Agent Not Available</option>
-<option value="ERI">ERI - Agent Error</option>
-<option value="HI">HI - HI</option>
-<option value="HI2">HI2 - HI_2</option>
-<option value="HIB">HIB - HI_B</option>
-<option value="HIC">HIC - HI_C</option>
-<option value="HIMAIN">HIMAIN - HI_MAIN</option>
-<option value="INCALL">INCALL - Lead Being Called</option>
-<option value="IQNANQ">IQNANQ - InQueue No-Agent-No-Queue drop</option>
-<option value="IVRXFR">IVRXFR - Outbound drop to Call Menu</option>
-<option value="LRERR">LRERR - Outbound Local Channel Res Err</option>
-<option value="LSMERG">LSMERG - Agent lead search old lead mrg</option>
-<option value="MAXCAL">MAXCAL - Inbound Max Calls Drop</option>
-<option value="MLINAT">MLINAT - Multi-Lead auto-alt set inactv</option>
-<option value="N">N - No Answer</option>
-<option value="NA">NA - No Answer AutoDial</option>
-<option value="NAB">NAB - No Part_AB</option>
-<option value="NANQUE">NANQUE - Inbound No Agent No Queue Drop</option>
-<option value="NEW">NEW - New Lead</option>
-<option value="NI">NI - Not Interested</option>
-<option value="OverCX">OverCX - OverAgeCX  </option>
-<option value="PDROP">PDROP - Outbound Pre-Routing Drop</option>
-<option value="PM">PM - Played Message</option>
-<option value="PU">PU - Call Picked Up</option>
-<option value="QCFAIL">QCFAIL - QC_FAIL_CALLBK</option>
-<option value="QUEUE">QUEUE - Lead To Be Called</option>
-<option value="QVMAIL">QVMAIL - Queue Abandon Voicemail Left</option>
-<option value="RAXFER">RAXFER - RAXFER</option>
-<option value="RQXFER">RQXFER - Re-Queue</option>
-<option value="SALE">SALE - Sale Made</option>
-<option value="SVYCLM">SVYCLM - Survey sent to Call Menu</option>
-<option value="SVYEXT">SVYEXT - Survey sent to Extension</option>
-<option value="SVYHU">SVYHU - Survey Hungup</option>
-<option value="SVYREC">SVYREC - Survey sent to Record</option>
-<option value="SVYVM">SVYVM - Survey sent to Voicemail</option>
-<option value="TIMEOT">TIMEOT - Inbound Queue Timeout Drop</option>
-<option value="XDROP">XDROP - Agent Not Available IN</option>
-<option value="XFER">XFER - Call Transferred</option>
-</select> &nbsp; 
-<input style='background-color:#EFEFEF' type=submit name=submit value='ADD'> &nbsp; &nbsp; <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-dial_status')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>List Order: </td><td align=left><select size=1 name=lead_order>
-				<option value='RANDOM' SELECTED>RANDOM</option>
-				<option value='DOWN'>DOWN</option>
-				<option value='UP'>UP</option>
-				<option value='DOWN PHONE'>DOWN PHONE</option>
-				<option value='UP PHONE'>UP PHONE</option>
-				<option value='DOWN LAST NAME'>DOWN LAST NAME</option>
-				<option value='UP LAST NAME'>UP LAST NAME</option>
-				<option value='DOWN COUNT'>DOWN COUNT</option>
-				<option value='UP COUNT'>UP COUNT</option>
-				<option value='RANDOM'>RANDOM</option>
-				<option value='DOWN LAST CALL TIME'>DOWN LAST CALL TIME</option>
-				<option value='UP LAST CALL TIME'>UP LAST CALL TIME</option>
-				<option value='DOWN RANK'>DOWN RANK</option>
-				<option value='UP RANK'>UP RANK</option>
-				<option value='DOWN OWNER'>DOWN OWNER</option>
-				<option value='UP OWNER'>UP OWNER</option>
-				<option value='DOWN TIMEZONE'>DOWN TIMEZONE</option>
-				<option value='UP TIMEZONE'>UP TIMEZONE</option>
-				<option value='DOWN 2nd NEW'>DOWN 2nd NEW</option>
-				<option value='DOWN 3rd NEW'>DOWN 3rd NEW</option>
-				<option value='DOWN 4th NEW'>DOWN 4th NEW</option>
-				<option value='DOWN 5th NEW'>DOWN 5th NEW</option>
-				<option value='DOWN 6th NEW'>DOWN 6th NEW</option>
-				<option value='UP 2nd NEW'>UP 2nd NEW</option>
-				<option value='UP 3rd NEW'>UP 3rd NEW</option>
-				<option value='UP 4th NEW'>UP 4th NEW</option>
-				<option value='UP 5th NEW'>UP 5th NEW</option>
-				<option value='UP 6th NEW'>UP 6th NEW</option>
-				<option value='DOWN PHONE 2nd NEW'>DOWN PHONE 2nd NEW</option>
-				<option value='DOWN PHONE 3rd NEW'>DOWN PHONE 3rd NEW</option>
-				<option value='DOWN PHONE 4th NEW'>DOWN PHONE 4th NEW</option>
-				<option value='DOWN PHONE 5th NEW'>DOWN PHONE 5th NEW</option>
-				<option value='DOWN PHONE 6th NEW'>DOWN PHONE 6th NEW</option>
-				<option value='UP PHONE 2nd NEW'>UP PHONE 2nd NEW</option>
-				<option value='UP PHONE 3rd NEW'>UP PHONE 3rd NEW</option>
-				<option value='UP PHONE 4th NEW'>UP PHONE 4th NEW</option>
-				<option value='UP PHONE 5th NEW'>UP PHONE 5th NEW</option>
-				<option value='UP PHONE 6th NEW'>UP PHONE 6th NEW</option>
-				<option value='DOWN LAST NAME 2nd NEW'>DOWN LAST NAME 2nd NEW</option>
-				<option value='DOWN LAST NAME 3rd NEW'>DOWN LAST NAME 3rd NEW</option>
-				<option value='DOWN LAST NAME 4th NEW'>DOWN LAST NAME 4th NEW</option>
-				<option value='DOWN LAST NAME 5th NEW'>DOWN LAST NAME 5th NEW</option>
-				<option value='DOWN LAST NAME 6th NEW'>DOWN LAST NAME 6th NEW</option>
-				<option value='UP LAST NAME 2nd NEW'>UP LAST NAME 2nd NEW</option>
-				<option value='UP LAST NAME 3rd NEW'>UP LAST NAME 3rd NEW</option>
-				<option value='UP LAST NAME 4th NEW'>UP LAST NAME 4th NEW</option>
-				<option value='UP LAST NAME 5th NEW'>UP LAST NAME 5th NEW</option>
-				<option value='UP LAST NAME 6th NEW'>UP LAST NAME 6th NEW</option>
-				<option value='DOWN COUNT 2nd NEW'>DOWN COUNT 2nd NEW</option>
-				<option value='DOWN COUNT 3rd NEW'>DOWN COUNT 3rd NEW</option>
-				<option value='DOWN COUNT 4th NEW'>DOWN COUNT 4th NEW</option>
-				<option value='DOWN COUNT 5th NEW'>DOWN COUNT 5th NEW</option>
-				<option value='DOWN COUNT 6th NEW'>DOWN COUNT 6th NEW</option>
-				<option value='UP COUNT 2nd NEW'>UP COUNT 2nd NEW</option>
-				<option value='UP COUNT 3rd NEW'>UP COUNT 3rd NEW</option>
-				<option value='UP COUNT 4th NEW'>UP COUNT 4th NEW</option>
-				<option value='UP COUNT 5th NEW'>UP COUNT 5th NEW</option>
-				<option value='UP COUNT 6th NEW'>UP COUNT 6th NEW</option>
-				<option value='RANDOM 2nd NEW'>RANDOM 2nd NEW</option>
-				<option value='RANDOM 3rd NEW'>RANDOM 3rd NEW</option>
-				<option value='RANDOM 4th NEW'>RANDOM 4th NEW</option>
-				<option value='RANDOM 5th NEW'>RANDOM 5th NEW</option>
-				<option value='RANDOM 6th NEW'>RANDOM 6th NEW</option>
-				<option value='DOWN LAST CALL TIME 2nd NEW'>DOWN LAST CALL TIME 2nd NEW</option>
-				<option value='DOWN LAST CALL TIME 3rd NEW'>DOWN LAST CALL TIME 3rd NEW</option>
-				<option value='DOWN LAST CALL TIME 4th NEW'>DOWN LAST CALL TIME 4th NEW</option>
-				<option value='DOWN LAST CALL TIME 5th NEW'>DOWN LAST CALL TIME 5th NEW</option>
-				<option value='DOWN LAST CALL TIME 6th NEW'>DOWN LAST CALL TIME 6th NEW</option>
-				<option value='UP LAST CALL TIME 2nd NEW'>UP LAST CALL TIME 2nd NEW</option>
-				<option value='UP LAST CALL TIME 3rd NEW'>UP LAST CALL TIME 3rd NEW</option>
-				<option value='UP LAST CALL TIME 4th NEW'>UP LAST CALL TIME 4th NEW</option>
-				<option value='UP LAST CALL TIME 5th NEW'>UP LAST CALL TIME 5th NEW</option>
-				<option value='UP LAST CALL TIME 6th NEW'>UP LAST CALL TIME 6th NEW</option>
-				<option value='DOWN RANK 2nd NEW'>DOWN RANK 2nd NEW</option>
-				<option value='DOWN RANK 3rd NEW'>DOWN RANK 3rd NEW</option>
-				<option value='DOWN RANK 4th NEW'>DOWN RANK 4th NEW</option>
-				<option value='DOWN RANK 5th NEW'>DOWN RANK 5th NEW</option>
-				<option value='DOWN RANK 6th NEW'>DOWN RANK 6th NEW</option>
-				<option value='UP RANK 2nd NEW'>UP RANK 2nd NEW</option>
-				<option value='UP RANK 3rd NEW'>UP RANK 3rd NEW</option>
-				<option value='UP RANK 4th NEW'>UP RANK 4th NEW</option>
-				<option value='UP RANK 5th NEW'>UP RANK 5th NEW</option>
-				<option value='UP RANK 6th NEW'>UP RANK 6th NEW</option>
-				<option value='DOWN OWNER 2nd NEW'>DOWN OWNER 2nd NEW</option>
-				<option value='DOWN OWNER 3rd NEW'>DOWN OWNER 3rd NEW</option>
-				<option value='DOWN OWNER 4th NEW'>DOWN OWNER 4th NEW</option>
-				<option value='DOWN OWNER 5th NEW'>DOWN OWNER 5th NEW</option>
-				<option value='DOWN OWNER 6th NEW'>DOWN OWNER 6th NEW</option>
-				<option value='UP OWNER 2nd NEW'>UP OWNER 2nd NEW</option>
-				<option value='UP OWNER 3rd NEW'>UP OWNER 3rd NEW</option>
-				<option value='UP OWNER 4th NEW'>UP OWNER 4th NEW</option>
-				<option value='UP OWNER 5th NEW'>UP OWNER 5th NEW</option>
-				<option value='UP OWNER 6th NEW'>UP OWNER 6th NEW</option>
-				<option value='DOWN TIMEZONE 2nd NEW'>DOWN TIMEZONE 2nd NEW</option>
-				<option value='DOWN TIMEZONE 3rd NEW'>DOWN TIMEZONE 3rd NEW</option>
-				<option value='DOWN TIMEZONE 4th NEW'>DOWN TIMEZONE 4th NEW</option>
-				<option value='DOWN TIMEZONE 5th NEW'>DOWN TIMEZONE 5th NEW</option>
-				<option value='DOWN TIMEZONE 6th NEW'>DOWN TIMEZONE 6th NEW</option>
-				<option value='UP TIMEZONE 2nd NEW'>UP TIMEZONE 2nd NEW</option>
-				<option value='UP TIMEZONE 3rd NEW'>UP TIMEZONE 3rd NEW</option>
-				<option value='UP TIMEZONE 4th NEW'>UP TIMEZONE 4th NEW</option>
-				<option value='UP TIMEZONE 5th NEW'>UP TIMEZONE 5th NEW</option>
-				<option value='UP TIMEZONE 6th NEW'>UP TIMEZONE 6th NEW</option>
-				</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-lead_order')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right><a href="/z6IRf9c/admin.php?ADD=31&SUB=29&campaign_id=001&vcl_id=DISABLED">List Mix</a>: </td><td align=left><select size=1 name=list_order_mix>
-<option value="DISABLED">DISABLED</option>
-<option value="ACTIVE">ACTIVE (001 - D4)</option>
-<option selected value="DISABLED">DISABLED - </option>
-</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-list_order_mix')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right><a href="/z6IRf9c/admin.php?ADD=31111111&lead_filter_id=MED1_MED2_CA">Lead Filter</a>: </td><td align=left><select size=1 name=lead_filter_id>
-<option value="">NONE</option>
-<option value="ALL_GOOD_STATES">ALL_GOOD_STATES - ALL_GOOD_STATES</option>
-<option value="CLIENT_RECOMMENDED">CLIENT_RECOMMENDED - CLIENT_RECOMMENDED</option>
-<option value="D2_MED_25NOV">D2_MED_25NOV - D2_MED_25NOV</option>
-<option value="D4_GOOD_STATES">D4_GOOD_STATES - D4_Good_States</option>
-<option value="D4_GOOD_STATES_NY">D4_GOOD_STATES_NY - D4_Good_States_NY</option>
-<option value="D4_NOT_IN">D4_NOT_IN - D4_NOT_IN</option>
-<option value="D4_NOT_IN_NEW">D4_NOT_IN_NEW - D4_NOT_IN_New</option>
-<option value="D4_NOT_IN-TEST">D4_NOT_IN-TEST - D4_NOT_IN-test</option>
-<option value="D5_15_STATES">D5_15_STATES - D5_15_States</option>
-<option value="D5_GOODSTATES">D5_GOODSTATES - D5_GoodStates</option>
-<option value="D5_GOODSTATESNEW">D5_GOODSTATESNEW - D5_GoodStatesnew</option>
-<option value="DHM_STATES_FILTER">DHM_STATES_FILTER - DHM_STATES_FILTER</option>
-<option value="DHM-N">DHM-N - DHM-N</option>
-<option value="DHMNEW19NOV">DHMNEW19NOV - DHMNEW19NOV</option>
-<option value="DHMNEWCAR19NOV">DHMNEWCAR19NOV - DHM NEW CAR 19Nov</option>
-<option value="GREENSTATESONLY">GREENSTATESONLY - Green States Only</option>
-<option value="HI">HI - HI</option>
-<option value="MDDCSDNDWYVTAK">MDDCSDNDWYVTAK - MD,DC,SD,ND,WY,VT,AK,PR</option>
-<option value="MED_REV_20">MED_REV_20 - MED_REV_20</option>
-<option value="MED1_MED2">MED1_MED2 - MED1_MED2</option>
-<option value="MED1_MED2_CA">MED1_MED2_CA - MED1_MED2_CA</option>
-<option value="NOTINDC-MA">NOTINDC-MA - NotInDC-MA</option>
-<option value="PRIORITYD5">PRIORITYD5 - Priority D5</option>
-<option value="SDMDAKNDW">SDMDAKNDW - SD, MD , AK , ND , WV , MN</option>
-<option value="THE_D4_FILTER">THE_D4_FILTER - THE_D4_FILTER</option>
-<option value="THE_D4_FILTER_CARM">THE_D4_FILTER_CARM - THE_D4_FILTER_CARM</option>
-<option value="TODAY_19JUNE">TODAY_19JUNE - Today_19June</option>
-<option selected value="MED1_MED2_CA">MED1_MED2_CA - MED1_MED2_CA</option>
-</select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-lead_filter_id')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#B6C572><td align=right>Minimum Hopper Level: </td><td align=left><select size=1 name=hopper_level><option>1</option><option>5</option><option>10</option><option>20</option><option>50</option><option>100</option><option>200</option><option>500</option><option>700</option><option>1000</option><option>2000</option><option>3000</option><option>4000</option><option>5000</option><option SELECTED>2000</option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-hopper_level')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Force Reset of Hopper: </td><td align=left><select size=1 name=reset_hopper><option value='Y'>Y</option><option value="N" SELECTED>N</option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-force_reset_hopper')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#BDFFBD><td align=right>Dial Method: </td><td align=left><select size=1 name=dial_method><option value='MANUAL'>MANUAL</option><option value='RATIO'>RATIO</option><option value='ADAPT_HARD_LIMIT'>ADAPT_HARD_LIMIT</option><option value='ADAPT_TAPERED'>ADAPT_TAPERED</option><option value='ADAPT_AVERAGE'>ADAPT_AVERAGE</option><option value='INBOUND_MAN'>INBOUND_MAN</option><option value='RATIO' SELECTED>RATIO</option></select><IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-dial_method')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#BDFFBD><td align=right>Auto Dial Level: </td><td align=left><select size=1 name=auto_dial_level><option selected>10</option><option>0</option>
-<option>1</option>
-<option>1.1</option>
-<option>1.2</option>
-<option>1.3</option>
-<option>1.4</option>
-<option>1.5</option>
-<option>1.6</option>
-<option>1.7</option>
-<option>1.8</option>
-<option>1.9</option>
-<option>2</option>
-<option>2.1</option>
-<option>2.2</option>
-<option>2.3</option>
-<option>2.4</option>
-<option>2.5</option>
-<option>2.6</option>
-<option>2.7</option>
-<option>2.8</option>
-<option>2.9</option>
-<option>3</option>
-<option>3.25</option>
-<option>3.5</option>
-<option>3.75</option>
-<option>4</option>
-<option>4.5</option>
-<option>5</option>
-<option>6</option>
-<option>7</option>
-<option>8</option>
-<option>9</option>
-<option>10</option>
-<option>11</option>
-<option>12</option>
-<option>13</option>
-<option>14</option>
-<option>15</option>
-<option>16</option>
-<option>17</option>
-<option>18</option>
-<option>19</option>
-<option>20</option>
-<option>22</option>
-<option>24</option>
-<option>26</option>
-</select>(0 = off)<IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-auto_dial_level')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#BDFFBD><td align=right>Adapt Intensity Modifier: </td><td align=left><select size=1 name=adaptive_intensity>
-<option value="40">40 - More Intense</option>
-<option value="39">39 - More Intense</option>
-<option value="38">38 - More Intense</option>
-<option value="37">37 - More Intense</option>
-<option value="36">36 - More Intense</option>
-<option value="35">35 - More Intense</option>
-<option value="34">34 - More Intense</option>
-<option value="33">33 - More Intense</option>
-<option value="32">32 - More Intense</option>
-<option value="31">31 - More Intense</option>
-<option value="30">30 - More Intense</option>
-<option value="29">29 - More Intense</option>
-<option value="28">28 - More Intense</option>
-<option value="27">27 - More Intense</option>
-<option value="26">26 - More Intense</option>
-<option value="25">25 - More Intense</option>
-<option value="24">24 - More Intense</option>
-<option value="23">23 - More Intense</option>
-<option value="22">22 - More Intense</option>
-<option value="21">21 - More Intense</option>
-<option value="20">20 - More Intense</option>
-<option value="19">19 - More Intense</option>
-<option value="18">18 - More Intense</option>
-<option value="17">17 - More Intense</option>
-<option value="16">16 - More Intense</option>
-<option value="15">15 - More Intense</option>
-<option value="14">14 - More Intense</option>
-<option value="13">13 - More Intense</option>
-<option value="12">12 - More Intense</option>
-<option value="11">11 - More Intense</option>
-<option value="10">10 - More Intense</option>
-<option value="9">9 - More Intense</option>
-<option value="8">8 - More Intense</option>
-<option value="7">7 - More Intense</option>
-<option value="6">6 - More Intense</option>
-<option value="5">5 - More Intense</option>
-<option value="4">4 - More Intense</option>
-<option value="3">3 - More Intense</option>
-<option value="2">2 - More Intense</option>
-<option value="1">1 - More Intense</option>
-<option SELECTED value="0">0 - Balanced</option>
-<option value="-1">-1 - Less Intense</option>
-<option value="-2">-2 - Less Intense</option>
-<option value="-3">-3 - Less Intense</option>
-<option value="-4">-4 - Less Intense</option>
-<option value="-5">-5 - Less Intense</option>
-<option value="-6">-6 - Less Intense</option>
-<option value="-7">-7 - Less Intense</option>
-<option value="-8">-8 - Less Intense</option>
-<option value="-9">-9 - Less Intense</option>
-<option value="-10">-10 - Less Intense</option>
-<option value="-11">-11 - Less Intense</option>
-<option value="-12">-12 - Less Intense</option>
-<option value="-13">-13 - Less Intense</option>
-<option value="-14">-14 - Less Intense</option>
-<option value="-15">-15 - Less Intense</option>
-<option value="-16">-16 - Less Intense</option>
-<option value="-17">-17 - Less Intense</option>
-<option value="-18">-18 - Less Intense</option>
-<option value="-19">-19 - Less Intense</option>
-<option value="-20">-20 - Less Intense</option>
-<option value="-21">-21 - Less Intense</option>
-<option value="-22">-22 - Less Intense</option>
-<option value="-23">-23 - Less Intense</option>
-<option value="-24">-24 - Less Intense</option>
-<option value="-25">-25 - Less Intense</option>
-<option value="-26">-26 - Less Intense</option>
-<option value="-27">-27 - Less Intense</option>
-<option value="-28">-28 - Less Intense</option>
-<option value="-29">-29 - Less Intense</option>
-<option value="-30">-30 - Less Intense</option>
-<option value="-31">-31 - Less Intense</option>
-<option value="-32">-32 - Less Intense</option>
-<option value="-33">-33 - Less Intense</option>
-<option value="-34">-34 - Less Intense</option>
-<option value="-35">-35 - Less Intense</option>
-<option value="-36">-36 - Less Intense</option>
-<option value="-37">-37 - Less Intense</option>
-<option value="-38">-38 - Less Intense</option>
-<option value="-39">-39 - Less Intense</option>
-<option value="-40">-40 - Less Intense</option>
-</select> <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaigns-adaptive_intensity')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></td></tr>
-<tr bgcolor=#C4CF8B><td align=right><a href="/z6IRf9c/admin.php?ADD=3111111&script_id=">Script</a>: </td><td align=left></td></tr>
-<tr bgcolor=#C4CF8B><td align=right>Get Call Launch: </td><td align=left>NONE</td></tr>
-<tr bgcolor=#C4CF8B><td align=center colspan=2><input style='background-color:#EFEFEF' type=submit name=SUBMIT value='SUBMIT'></td></tr>
-</TABLE></center></FORM>
-<center>
-<form action=/z6IRf9c/admin.php method=POST>
-<input type=hidden name=ADD value=44>
-<input type=hidden name=DB value=>
-<input type=hidden name=stage value=list_activation>
-<input type=hidden name=campaign_id value="001">
-<br><b>LISTS WITHIN THIS CAMPAIGN: &nbsp; <IMG SRC="help.png" onClick="FillAndShowHelpDiv(event, '#campaign_lists')" WIDTH=20 HEIGHT=20 BORDER=0 ALT="HELP" ALIGN=TOP></b>
-<br /><a href='/z6IRf9c/admin.php?ADD=34&campaign_id=001&show_lead_count=1#tab_scroll'>Show Leads Count</a><br /><a href='/z6IRf9c/admin.php?ADD=34&campaign_id=001&ha_stats=1#tab_scroll'>Show Human Answers and Sales Stats</a><br /><a href='/z6IRf9c/admin.php?ADD=34&campaign_id=001&ha_stats=1&show_lead_count=1#tab_scroll'>Show Human Answers, Sales Stats and Leads Count</a><TABLE><TR><TD>
-<FONT FACE="ARIAL,HELVETICA" COLOR=BLACK SIZE=2><center><TABLE width=750 cellspacing=0 cellpadding=1>
-<TR BGCOLOR=BLACK><TD><a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001&stage=LISTIDDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>LIST ID</B></a></TD><TD><a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001&stage=LISTNAMEDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>LIST NAME</B></a></TD><TD><B><FONT FACE="Arial,Helvetica" size=1 color=white>DESCRIPTION</B></TD>
-<TD><a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001&stage=TALLYDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>LEADS COUNT</B></a></TD>
-<TD><a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001&stage=CALLTIMEDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>Call Time</B></a></TD><TD COLSPAN=3><a href="/z6IRf9c/admin.php?ADD=31&campaign_id=001&stage=ACTIVEDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>ACTIVE</B></a></TD><TD><a href="/z6IRf9c/admin.php?ADD=34&campaign_id=001&stage=CALLDATEDOWN"><B><FONT FACE="Arial,Helvetica" size=1 color=white>LAST CALL DATE</B></a></TD><TD><B><FONT FACE="Arial,Helvetica" size=1 color=white>MODIFY</TD>
-</TR>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=30500">30500</a></td><td><font size=1> Naqi_BT_MEDall_clean</td><td><font size=1> Naqi_BT_MEDall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="30500"</td><td><font size=1>&nbsp;</td><td><font size=1> </td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=30500">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50600">50600</a></td><td><font size=1> Brad_Fileall_cleanall_clean</td><td><font size=1> Brad_Fileall_cleanall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50600"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-14 11:14:32</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50600">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50601">50601</a></td><td><font size=1> Connect_Number1-2all_clean-001</td><td><font size=1> Connect_Number1-2all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50601"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 10:45:06</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50601">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50602">50602</a></td><td><font size=1> Brad_Fileall_cleanall_clean</td><td><font size=1> Brad_Fileall_cleanall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50602"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 17:54:37</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50602">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50603">50603</a></td><td><font size=1> Connect_Number1-2all_clean-001</td><td><font size=1> Connect_Number1-2all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50603"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-07 16:41:10</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50603">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50604">50604</a></td><td><font size=1> Naqi_Is_Backall_clean-000</td><td><font size=1> Naqi_Is_Backall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50604"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 15:27:28</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50604">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50605">50605</a></td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50605"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 15:27:22</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50605">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50606">50606</a></td><td><font size=1> albert 2_NEWall_clean</td><td><font size=1> albert 2_NEWall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50606"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 15:28:34</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50606">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50607">50607</a></td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50607"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 10:33:36</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50607">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50608">50608</a></td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50608"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 15:01:09</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50608">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50609">50609</a></td><td><font size=1> Testing_Chunk_fresh_DPall_clea</td><td><font size=1> Testing_Chunk_fresh_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50609"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 15:20:14</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50609">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50610">50610</a></td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50610"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 14:22:09</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50610">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50611">50611</a></td><td><font size=1> Naqi_Leadsall_clean-000</td><td><font size=1> Naqi_Leadsall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50611"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-16 15:07:45</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50611">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50612">50612</a></td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50612"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-17 10:11:30</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50612">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50613">50613</a></td><td><font size=1> Testing_Chunk_fresh_DPall_clea</td><td><font size=1> Testing_Chunk_fresh_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50613"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-17 11:44:50</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50613">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50614">50614</a></td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50614"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-17 10:51:34</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50614">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50615">50615</a></td><td><font size=1> Bali tech proall_clean</td><td><font size=1> Bali tech proall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50615"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 10:03:50</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50615">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50616">50616</a></td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> Naqi_Bestest_Medall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50616"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 11:21:43</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50616">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50617">50617</a></td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> Testing_Chunk_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50617"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-03 11:45:27</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50617">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50618">50618</a></td><td><font size=1> Testing_Chunk_fresh_DPall_clea</td><td><font size=1> Testing_Chunk_fresh_DPall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50618"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:17:18</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50618">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50619">50619</a></td><td><font size=1> BalitechNew_209kall_clean-000</td><td><font size=1> BalitechNew_209kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50619"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-17 16:36:34</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50619">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50620">50620</a></td><td><font size=1> BalitechNew_209kall_clean-000</td><td><font size=1> BalitechNew_209kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50620"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-20 10:50:44</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50620">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50621">50621</a></td><td><font size=1> BalitechNew_209kall_clean-000a</td><td><font size=1> BalitechNew_209kall_clean-000all_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50621"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 12:11:51</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50621">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50622">50622</a></td><td><font size=1> BalitechNew_209kall_clean-001a</td><td><font size=1> BalitechNew_209kall_clean-001all_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50622"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-20 15:31:15</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50622">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50623">50623</a></td><td><font size=1> BalitechNew_209kall_clean-001a</td><td><font size=1> BalitechNew_209kall_clean-001all_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50623"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 11:40:07</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50623">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50624">50624</a></td><td><font size=1> Monday_files_Naqiall_clean-000</td><td><font size=1> Monday_files_Naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50624"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 10:32:05</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50624">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50625">50625</a></td><td><font size=1> Monday_files_Naqiall_clean-000</td><td><font size=1> Monday_files_Naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50625"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 14:38:49</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50625">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50626">50626</a></td><td><font size=1> Monday_files_Naqiall_cleanall_</td><td><font size=1> Monday_files_Naqiall_cleanall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50626"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-21 16:05:38</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50626">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50627">50627</a></td><td><font size=1> Tuesday_21julyNAQI-000</td><td><font size=1> Tuesday_21julyNAQI-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50627"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-22 11:03:02</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50627">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50628">50628</a></td><td><font size=1> Tuesday_21julyNAQI-001</td><td><font size=1> Tuesday_21julyNAQI-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50628"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-05 17:16:10</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50628">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50629">50629</a></td><td><font size=1> Tuesday_21julyNAQI-000</td><td><font size=1> Tuesday_21julyNAQI-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50629"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 14:46:31</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50629">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50630">50630</a></td><td><font size=1> Balitech Medicare-2026-07-22 1</td><td><font size=1> Balitech Medicare-2026-07-22 11_08_01 170kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50630"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-22 18:36:36</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50630">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50631">50631</a></td><td><font size=1> Balitech Medicare-2026-07-22 1</td><td><font size=1> Balitech Medicare-2026-07-22 11_08_01 170kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50631"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-03 14:04:40</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50631">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50632">50632</a></td><td><font size=1> Thursday_file_Naqiall_clean</td><td><font size=1> Thursday_file_Naqiall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50632"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 16:43:16</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50632">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50633">50633</a></td><td><font size=1> Raw_Medicare_Naqiall_clean-001</td><td><font size=1> Raw_Medicare_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50633"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-23 15:41:26</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50633">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50634">50634</a></td><td><font size=1> Raw_Medicare_Naqiall_clean-001</td><td><font size=1> Raw_Medicare_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50634"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-24 11:53:15</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50634">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50635">50635</a></td><td><font size=1> Raw_Medicare_Friday_Naqiall_cl</td><td><font size=1> Raw_Medicare_Friday_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50635"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-24 14:38:07</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50635">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50636">50636</a></td><td><font size=1> Raw_Medicare_Friday_Naqiall_cl</td><td><font size=1> Raw_Medicare_Friday_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50636"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-27 10:24:53</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50636">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50637">50637</a></td><td><font size=1> Monday_Raw_Medicare_Naqiall_cl</td><td><font size=1> Monday_Raw_Medicare_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50637"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-27 15:02:19</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50637">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50638">50638</a></td><td><font size=1> Monday_Raw_Medicare_Naqiall_cl</td><td><font size=1> Monday_Raw_Medicare_Naqiall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50638"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-29 17:36:35</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50638">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50639">50639</a></td><td><font size=1> Tuesday_Raw_Medicare_Naqiall_c</td><td><font size=1> Tuesday_Raw_Medicare_Naqiall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50639"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-29 11:51:46</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50639">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50640">50640</a></td><td><font size=1> Medicare_Testing_Part2_AL_Sale</td><td><font size=1> Medicare_Testing_Part2_AL_Salesall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50640"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-28 15:10:58</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50640">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50641">50641</a></td><td><font size=1> Medicare_Testing_Part2_AL_Sale</td><td><font size=1> Medicare_Testing_Part2_AL_Salesall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50641"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-28 17:21:37</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50641">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50642">50642</a></td><td><font size=1> Medicare_Testing_Part2_AL_Sale</td><td><font size=1> Medicare_Testing_Part2_AL_Salesall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50642"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-29 16:39:27</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50642">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50643">50643</a></td><td><font size=1> Wed_Medicare_Testing_Part2_AL_</td><td><font size=1> Wed_Medicare_Testing_Part2_AL_Salesall_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50643"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 09:25:19</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50643">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50644">50644</a></td><td><font size=1> Wed_Raw_Medicare_Naqiall_clean</td><td><font size=1> Wed_Raw_Medicare_Naqiall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50644"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 12:43:30</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50644">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50645">50645</a></td><td><font size=1> Naqi_250kall_clean-000</td><td><font size=1> Naqi_250kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50645"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-29 15:29:27</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50645">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50646">50646</a></td><td><font size=1> Naqi_250kall_clean-000</td><td><font size=1> Naqi_250kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50646"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-29 17:51:09</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50646">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50647">50647</a></td><td><font size=1> Naqi_250kall_clean-0000</td><td><font size=1> Naqi_250kall_clean-0000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50647"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-30 12:24:20</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50647">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50648">50648</a></td><td><font size=1> Thr_Naqi_250kall_clean-000</td><td><font size=1> Thr_Naqi_250kall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50648"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:13:57</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50648">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50649">50649</a></td><td><font size=1> Naqi_DP_Countsall_clean-000</td><td><font size=1> Naqi_DP_Countsall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50649"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 09:50:26</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50649">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50650">50650</a></td><td><font size=1> Naqi_DP_Countsall_clean-000</td><td><font size=1> Naqi_DP_Countsall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50650"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 11:00:35</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50650">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50651">50651</a></td><td><font size=1> Med_7_30_26_all_clean-000</td><td><font size=1> Med_7_30_26_all_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50651"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-31 09:40:33</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50651">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50652">50652</a></td><td><font size=1> Med_7_31_26_all_clean-000</td><td><font size=1> Med_7_31_26_all_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50652"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 15:47:35</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50652">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50653">50653</a></td><td><font size=1> 31Naqi_DP_Countsall_clean-000</td><td><font size=1> 31Naqi_DP_Countsall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50653"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 15:29:07</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50653">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50654">50654</a></td><td><font size=1> Friday_31_Med_all_clean-001</td><td><font size=1> Friday_31_Med_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50654"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 11:19:08</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50654">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50655">50655</a></td><td><font size=1> Naqi_Fridayall_clean-001</td><td><font size=1> Naqi_Fridayall_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50655"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-07-31 14:34:23</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50655">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50656">50656</a></td><td><font size=1> Naqi_Fridayall_clean-0001</td><td><font size=1> Naqi_Fridayall_clean-0001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50656"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 14:23:57</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50656">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50657">50657</a></td><td><font size=1> Med_mix_all_clean-001</td><td><font size=1> Med_mix_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50657"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-03 10:32:11</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50657">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50658">50658</a></td><td><font size=1> Monday_Med_all_clean</td><td><font size=1> Monday_Med_all_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50658"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-03 17:24:44</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50658">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50659">50659</a></td><td><font size=1> Med_8_3_26_all_clean-001</td><td><font size=1> Med_8_3_26_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50659"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-03 18:25:05</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50659">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50660">50660</a></td><td><font size=1> Monday_Med_all_clean1</td><td><font size=1> Monday_Med_all_clean1</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50660"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 11:32:48</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50660">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50661">50661</a></td><td><font size=1> Med_8_4_26_all_clean-001</td><td><font size=1> Med_8_4_26_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50661"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 18:00:11</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50661">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50662">50662</a></td><td><font size=1> Tuesday_Med_all_clean1</td><td><font size=1> Tuesday_Med_all_clean1</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50662"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-04 10:43:54</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50662">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50663">50663</a></td><td><font size=1> Tuesday_Med__all_clean1</td><td><font size=1> Tuesday_Med__all_clean1</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50663"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-05 15:29:44</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50663">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50664">50664</a></td><td><font size=1> Med_mix_all_clean-001...</td><td><font size=1> Med_mix_all_clean-001...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50664"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-05 11:22:26</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50664">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50665">50665</a></td><td><font size=1> Med_8_4_26_all_clean-001</td><td><font size=1> Med_8_4_26_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50665"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-05 09:32:15</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50665">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50666">50666</a></td><td><font size=1> Shawn_Med_90K__all_clean-001</td><td><font size=1> Shawn_Med_90K__all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50666"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 09:05:26</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50666">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50667">50667</a></td><td><font size=1> Shawn_Med_90K__all_clean-001..</td><td><font size=1> Shawn_Med_90K__all_clean-001...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50667"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:08:50</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50667">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50668">50668</a></td><td><font size=1> Wed_Med_all_clean...</td><td><font size=1> Wed_Med_all_clean...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50668"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-05 14:32:20</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50668">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50669">50669</a></td><td><font size=1> Med_8_5_26_all_clean001</td><td><font size=1> Med_8_5_26_all_clean001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50669"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 10:36:22</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50669">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50670">50670</a></td><td><font size=1> Sale_Made_Naqiall_clean-000</td><td><font size=1> Sale_Made_Naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50670"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:19:31</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50670">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50671">50671</a></td><td><font size=1> Shawn_Med_70k_all_clean-000</td><td><font size=1> Shawn_Med_70k_all_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50671"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:00:05</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50671">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50672">50672</a></td><td><font size=1> Wed_5_Med_all_clean</td><td><font size=1> Wed_5_Med_all_clean</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50672"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 15:36:14</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50672">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50673">50673</a></td><td><font size=1> Med_8_5_26_all_clean-001...</td><td><font size=1> Med_8_5_26_all_clean-001...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50673"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 12:12:41</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50673">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50674">50674</a></td><td><font size=1> Qualified_Data_all_clean-001</td><td><font size=1> Qualified_Data_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50674"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 13:09:36</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50674">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50675">50675</a></td><td><font size=1> Qualified_Data_all_clean-001..</td><td><font size=1> Qualified_Data_all_clean-001..</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50675"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-06 15:34:01</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50675">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50676">50676</a></td><td><font size=1> Qualified_Data_all_clean-001..</td><td><font size=1> Qualified_Data_all_clean-001..</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50676"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-07 09:05:35</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50676">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50677">50677</a></td><td><font size=1> Friday_Qualified_Data_all_clea</td><td><font size=1> Friday_Qualified_Data_all_clean-001...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50677"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:38:13</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50677">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50678">50678</a></td><td><font size=1> Friday_naqiall_clean-000</td><td><font size=1> Friday_naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50678"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:55:40</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50678">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50679">50679</a></td><td><font size=1> Enrolment_Naqiall_clean-000</td><td><font size=1> Enrolment_Naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50679"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-07 15:14:15</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50679">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50680">50680</a></td><td><font size=1> Enrolment_Naqiall_clean-000</td><td><font size=1> Enrolment_Naqiall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50680"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-07 18:03:46</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50680">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50681">50681</a></td><td><font size=1> Enrolment_Naqiall_clean-000...</td><td><font size=1> Enrolment_Naqiall_clean-000...</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50681"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-10 15:51:14</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50681">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50682">50682</a></td><td><font size=1> Enrolment_Naqiall_clean-000...</td><td><font size=1> Enrolment_Naqiall_clean-000.....</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50682"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:30:18</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50682">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50683">50683</a></td><td><font size=1> Enrollment_mix_all_clean-001</td><td><font size=1> Enrollment_mix_all_clean-001</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50683"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 16:55:53</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50683">MODIFY</a></td></tr>
-<tr bgcolor="#C4CF8B"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50684">50684</a></td><td><font size=1> Enrolment_Naqiall_cleanall_cle</td><td><font size=1> Enrolment_Naqiall_cleanall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> N</td><td><input type="checkbox" name="list_active_change[]" value="50684"</td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 15:13:47</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50684">MODIFY</a></td></tr>
-<tr bgcolor="#B6C572"><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50685">50685</a></td><td><font size=1> Enrolment_Naqiall_cleanall_cle</td><td><font size=1> Enrolment_Naqiall_cleanall_clean-000</td><td><font size=1> X</td><td><font size=1> campaign</td><td><font size=1> Y</td><td><input type="checkbox" name="list_active_change[]" value="50685" CHECKED></td><td><font size=1>&nbsp;</td><td><font size=1> 2026-08-11 17:01:57</td><td><font size=1><a href="/z6IRf9c/admin.php?ADD=311&list_id=50685">MODIFY</a></td></tr>
-<TR><TD COLSPAN=9 ALIGN=CENTER><input type=submit value="SUBMIT ACTIVE LIST CHANGES"></TD></TR>
-</TABLE></center><BR></FORM>
-<center><b>
-<br /><a id='cus1_scroll' href='/z6IRf9c/admin.php?ADD=34&campaign_id=001&custom_report_1=1#cus1_scroll'>Show Campaign Statuses</a><br /><br /><a id='cus2_scroll' href='/z6IRf9c/admin.php?ADD=34&campaign_id=001&custom_report_2=1#cus2_scroll'>Show Agent Ranks</a><br /></TD></TR></TABLE></center>
-</TD></TR></TABLE></center>
-</TD></TR></TABLE></center>
-</TD></TR>
-<TR><TD bgcolor=#738035 ALIGN=CENTER>
-<FONT STYLE="font-family:HELVETICA;font-size:9;color:white;"><br><br><!-- RUNTIME: 0 seconds<BR> -->VERSION: 2.14-838a<BR>BUILD: 211217-0732
-<BR><a href="/z6IRf9c/admin.php?ADD=999995"><font color=white>&copy; 2021 ViciDial Group</font></a><BR><img src="images/pixel.gif"></FONT>
-
-</TD><TD BGCOLOR=#E0E7C2>
-</TD></TR><TABLE>
-</body>
-<script language="Javascript">
-if (!window.A_TCALSIDX)
-	{
-	if (document.addEventListener)
-		window.removeEventListener('scroll', f_tcalHideAll);
-	if (window.attachEvent)
-		window.detachEvent('onscroll', f_tcalHideAll);
-	}
-</script>
-<head>
-<META HTTP-EQUIV="Pragma" CONTENT="no-cache">
-<META HTTP-EQUIV="Expires" CONTENT="-1">
-<META HTTP-EQUIV="CACHE-CONTROL" CONTENT="NO-CACHE">
-</head>
-</html>
+You do not have permission to view this page

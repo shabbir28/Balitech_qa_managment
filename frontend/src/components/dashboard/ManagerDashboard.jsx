@@ -3,9 +3,10 @@ import { useAuth } from '../../context/AuthContext';
 import {
   ClipboardCheck, CheckCircle, XCircle, Users, Phone,
   Database, ListChecks, Target, Send, Activity,
-  ArrowRight, TrendingUp, BarChart2, Zap
+  ArrowRight, TrendingUp, BarChart2, Zap, AlertCircle, Clock
 } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar, Cell } from 'recharts';
+import DateRangeDropdown from '../common/DateRangeDropdown';
 
 const COLORS = ['#10b981', '#3b82f6', '#8b5cf6', '#f59e0b', '#ef4444', '#14b8a6'];
 
@@ -69,11 +70,9 @@ const ModuleCard = ({ title, desc, icon: Icon, color, path, onClick }) => {
   );
 };
 
-export default function ManagerDashboard({ stats, charts }) {
+export default function ManagerDashboard({ stats, charts, startDate, endDate, onChangeDateRange, dialer, onChangeDialer }) {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const passRate = stats?.totalEvaluated > 0
-    ? Math.round((stats.passedCalls / stats.totalEvaluated) * 100) : 0;
 
   const kpis = [
     {
@@ -109,11 +108,13 @@ export default function ManagerDashboard({ stats, charts }) {
     <div className="space-y-5 pb-8 max-w-[1400px] mx-auto">
 
       {/* ── HERO ── */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 border border-slate-700/50 p-6">
+      <div className="relative rounded-2xl border border-slate-700/50 p-6">
         {/* decorative blobs */}
-        <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-emerald-600/8 blur-3xl pointer-events-none" />
-        <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent" />
+        <div className="absolute inset-0 overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-900 to-slate-800 pointer-events-none">
+          <div className="absolute -top-16 -right-16 w-56 h-56 rounded-full bg-indigo-600/10 blur-3xl pointer-events-none" />
+          <div className="absolute -bottom-10 -left-10 w-40 h-40 rounded-full bg-emerald-600/8 blur-3xl pointer-events-none" />
+          <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-indigo-500/60 to-transparent" />
+        </div>
 
         <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
@@ -132,15 +133,31 @@ export default function ManagerDashboard({ stats, charts }) {
             </p>
           </div>
 
-          {/* Score pills */}
+          {/* Filters */}
           <div className="flex items-center gap-3">
-            <div className="flex flex-col items-center bg-slate-800/70 border border-slate-700/50 rounded-xl px-5 py-3">
-              <span className="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-0.5">Avg Score</span>
-              <span className="text-xl font-bold text-white">{stats?.avgScore ?? 0}%</span>
+            <div className="relative">
+              <select
+                value={dialer}
+                onChange={(e) => onChangeDialer(e.target.value)}
+                className="appearance-none w-36 sm:w-40 bg-slate-900/80 border border-slate-700/80 text-slate-200 text-[11px] sm:text-xs rounded-lg px-3 py-2 pr-8 hover:bg-slate-800 focus:outline-none focus:ring-1 focus:ring-indigo-500/50 transition-all cursor-pointer shadow-sm font-medium"
+              >
+                <option value="all">All Campaigns</option>
+                <option value="medicare">Medicare Only</option>
+                <option value="pharmacy">Pharmacy Only</option>
+              </select>
+              <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2.5 text-slate-400">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </div>
-            <div className="flex flex-col items-center bg-emerald-900/20 border border-emerald-500/20 rounded-xl px-5 py-3">
-              <span className="text-[10px] text-emerald-500 font-bold uppercase tracking-wider mb-0.5">Pass Rate</span>
-              <span className="text-xl font-bold text-emerald-300">{passRate}%</span>
+            
+            <div className="flex items-center">
+              <DateRangeDropdown 
+                startDate={startDate}
+                endDate={endDate}
+                onChange={onChangeDateRange}
+              />
             </div>
           </div>
         </div>
@@ -159,6 +176,34 @@ export default function ManagerDashboard({ stats, charts }) {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── DIALER SALES TODAY ── */}
+      <div className="bg-slate-900 border border-slate-800 rounded-xl p-5">
+        <h2 className="text-sm font-bold text-white mb-4 flex items-center gap-2">
+          <Database className="w-4 h-4 text-indigo-400" />
+          Today's Dialer Sales
+        </h2>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          {[
+            { label: 'Total Sales', value: stats?.dialerStats?.total ?? 0, icon: Database, bg: 'bg-slate-800', text: 'text-white', border: 'border-slate-700' },
+            { label: 'Assigned', value: stats?.dialerStats?.assigned ?? 0, icon: Send, bg: 'bg-indigo-500/10', text: 'text-indigo-400', border: 'border-indigo-500/20' },
+            { label: 'Accepted', value: stats?.dialerStats?.accepted ?? 0, icon: CheckCircle, bg: 'bg-emerald-500/10', text: 'text-emerald-400', border: 'border-emerald-500/20' },
+            { label: 'Rejected', value: stats?.dialerStats?.rejected ?? 0, icon: XCircle, bg: 'bg-rose-500/10', text: 'text-rose-400', border: 'border-rose-500/20' },
+            { label: 'Flagged', value: stats?.dialerStats?.flagged ?? 0, icon: AlertCircle, bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
+            { label: 'Pending', value: stats?.dialerStats?.pending ?? 0, icon: Clock, bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' }
+          ].map(({ label, value, icon: Icon, bg, text, border }) => (
+            <div key={label} className={`bg-slate-800/50 border ${border} rounded-xl p-3 flex flex-col justify-center items-start transition-all duration-300 hover:bg-slate-800 hover:-translate-y-0.5 group`}>
+              <div className="flex items-center gap-2 mb-2">
+                <div className={`w-7 h-7 rounded-md flex items-center justify-center ${bg} flex-shrink-0`}>
+                  <Icon className={`w-3.5 h-3.5 ${text}`} />
+                </div>
+                <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{label}</p>
+              </div>
+              <p className={`text-2xl font-bold ${text}`}>{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       {/* ── CHARTS ── */}
