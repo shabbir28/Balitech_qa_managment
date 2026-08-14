@@ -800,3 +800,323 @@ exports.assignSales = async (req, res) => {
   }
 };
 
+// POST /dialer-sales/compare-history
+// Save comparison results
+exports.saveCompareHistory = async (req, res) => {
+  try {
+    const { file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data } = req.body;
+    
+    if (!file_name || !dialer_type || !compare_date || !Array.isArray(uploaded_data) || !Array.isArray(result_data)) {
+      return res.status(400).json({ success: false, message: 'Missing required parameters' });
+    }
+
+    const { query } = require('../config/database');
+    const result = await query(
+      `INSERT INTO compare_history 
+        (user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING id`,
+      [
+        req.user ? req.user.id : null,
+        file_name,
+        dialer_type,
+        compare_date,
+        total_uploaded,
+        total_found,
+        not_found,
+        JSON.stringify(uploaded_data),
+        JSON.stringify(result_data)
+      ]
+    );
+
+    res.json({ success: true, message: 'Compare history saved', data: result.rows[0] });
+  } catch (error) {
+    console.error('Error in saveCompareHistory:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// GET /dialer-sales/compare-history
+// Fetch history of comparisons for a given date range
+exports.getCompareHistory = async (req, res) => {
+  try {
+    const { startDate, endDate } = req.query;
+    
+    if (!startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'startDate and endDate are required' });
+    }
+
+    const { query } = require('../config/database');
+    const result = await query(
+      `SELECT id, user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, created_at, uploaded_data, result_data
+       FROM compare_history
+       WHERE compare_date >= $1 AND compare_date <= $2
+       ORDER BY created_at DESC`,
+      [startDate, endDate]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    console.error('Error in getCompareHistory:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+// POST /dialer-sales/compare-history/:id/preview-recheck
+// Previews missing numbers against a new date range without modifying DB
+exports.previewRecheckCompareHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate } = req.body;
+
+    if (!id || !startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'id, startDate, and endDate are required' });
+    }
+
+    const { query } = require('../config/database');
+    
+    // 1. Fetch the source history record
+    const recordResult = await query(`SELECT * FROM compare_history WHERE id = $1`, [id]);
+    if (recordResult.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Record not found' });
+    }
+    const record = recordResult.rows[0];
+    const dialerType = record.dialer_type;
+    let resultData = typeof record.result_data === 'string' ? JSON.parse(record.result_data) : record.result_data;
+
+    // Cap the search endDate to the file's compare_date so we never match future sales
+    const compareDateStr = record.compare_date instanceof Date 
+      ? record.compare_date.toISOString().split('T')[0] 
+      : String(record.compare_date).split('T')[0];
+    const maxEndDate = endDate > compareDateStr ? compareDateStr : endDate;
+
+    // 2. Identify missing numbers
+    const missingPhones = resultData.filter(d => d.status === 'Not Found').map(d => d.phone);
+    if (missingPhones.length === 0) {
+      return res.json({ success: true, message: 'No missing numbers to recheck', data: { foundCount: 0, byDate: {} } });
+    }
+
+    // 3. Query dialer_sales_history for these phones in the new date range
+    const placeholders = missingPhones.map((_, i) => `$${i + 4}`).join(',');
+    const findSql = `
+      SELECT phone, status, agent, team, sale_date
+      FROM dialer_sales_history
+      WHERE dialer = $1 
+        AND sale_date >= $2 
+        AND sale_date <= $3
+        AND phone IN (${placeholders})
+    `;
+    const findValues = [dialerType, startDate, maxEndDate, ...missingPhones];
+    const foundResult = await query(findSql, findValues);
+
+    if (foundResult.rowCount === 0) {
+      return res.json({ success: true, message: 'No new numbers found', data: { foundCount: 0, byDate: {} } });
+    }
+
+    // 4. Group found numbers by sale_date
+    const foundByDate = {};
+    const allFoundPhones = new Set();
+    
+    foundResult.rows.forEach(r => {
+      // Prioritize preserving team info
+      if (!allFoundPhones.has(r.phone) || (r.team && r.team !== '-')) {
+         allFoundPhones.add(r.phone);
+         
+         const dateStr = r.sale_date instanceof Date ? r.sale_date.toISOString().split('T')[0] : String(r.sale_date).split('T')[0];
+         
+         if (!foundByDate[dateStr]) {
+           foundByDate[dateStr] = [];
+         }
+         
+         // Remove if it already exists for this date to avoid duplicates
+         foundByDate[dateStr] = foundByDate[dateStr].filter(item => item.phone !== r.phone);
+         
+         foundByDate[dateStr].push({
+           phone: r.phone,
+           status: r.status,
+           agent: r.agent || '-',
+           team: r.team || '-'
+         });
+      }
+    });
+
+    const totalFoundCount = allFoundPhones.size;
+
+    res.json({ 
+      success: true, 
+      message: `Found ${totalFoundCount} numbers!`, 
+      data: { foundCount: totalFoundCount, byDate: foundByDate } 
+    });
+
+  } catch (error) {
+    console.error('Error in previewRecheckCompareHistory:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+
+// POST /dialer-sales/compare-history/:id/recheck
+// Recheck missing numbers against a new date range, moving found ones to target date records
+exports.recheckCompareHistory = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { startDate, endDate } = req.body;
+
+    if (!id || !startDate || !endDate) {
+      return res.status(400).json({ success: false, message: 'id, startDate, and endDate are required' });
+    }
+
+    const { query } = require('../config/database');
+    
+    // 1. Fetch the source history record
+    const recordResult = await query(`SELECT * FROM compare_history WHERE id = $1`, [id]);
+    if (recordResult.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'Record not found' });
+    }
+    const record = recordResult.rows[0];
+    const dialerType = record.dialer_type;
+    let resultData = typeof record.result_data === 'string' ? JSON.parse(record.result_data) : record.result_data;
+    let uploadedData = typeof record.uploaded_data === 'string' ? JSON.parse(record.uploaded_data) : (record.uploaded_data || []);
+
+    // Cap the search endDate to the file's compare_date so we never match future sales
+    const compareDateStr = record.compare_date instanceof Date 
+      ? record.compare_date.toISOString().split('T')[0] 
+      : String(record.compare_date).split('T')[0];
+    const maxEndDate = endDate > compareDateStr ? compareDateStr : endDate;
+
+    // 2. Identify missing numbers
+    const missingPhones = resultData.filter(d => d.status === 'Not Found').map(d => d.phone);
+    if (missingPhones.length === 0) {
+      return res.json({ success: true, message: 'No missing numbers to recheck', data: record });
+    }
+
+    // 3. Query dialer_sales_history for these phones in the new date range
+    const placeholders = missingPhones.map((_, i) => `$${i + 4}`).join(',');
+    const findSql = `
+      SELECT phone, status, agent, team, sale_date
+      FROM dialer_sales_history
+      WHERE dialer = $1 
+        AND sale_date >= $2 
+        AND sale_date <= $3
+        AND phone IN (${placeholders})
+    `;
+    const findValues = [dialerType, startDate, maxEndDate, ...missingPhones];
+    const foundResult = await query(findSql, findValues);
+
+    if (foundResult.rowCount === 0) {
+      return res.json({ success: true, message: 'No new numbers found', data: record });
+    }
+
+    // 4. Group found numbers by sale_date
+    const foundByDate = {};
+    const allFoundPhones = new Set();
+    
+    foundResult.rows.forEach(r => {
+      // Prioritize preserving team info
+      if (!allFoundPhones.has(r.phone) || (r.team && r.team !== '-')) {
+         allFoundPhones.add(r.phone);
+         
+         const dateStr = r.sale_date instanceof Date ? r.sale_date.toISOString().split('T')[0] : String(r.sale_date).split('T')[0];
+         
+         if (!foundByDate[dateStr]) {
+           foundByDate[dateStr] = [];
+         }
+         
+         // Remove if it already exists for this date to avoid duplicates
+         foundByDate[dateStr] = foundByDate[dateStr].filter(item => item.phone !== r.phone);
+         
+         foundByDate[dateStr].push({
+           phone: r.phone,
+           status: r.status,
+           agent: r.agent || '-',
+           team: r.team || '-'
+         });
+      }
+    });
+
+    const totalFoundCount = allFoundPhones.size;
+    if (totalFoundCount === 0) {
+      return res.json({ success: true, message: 'No new numbers found', data: record });
+    }
+
+    // 5. Update Source Record (Remove found ones completely)
+    const newResultData = resultData.filter(item => !allFoundPhones.has(item.phone));
+    const newUploadedData = uploadedData.filter(phone => !allFoundPhones.has(phone));
+    const newNotFound = Math.max(0, record.not_found - totalFoundCount);
+    const newTotalUploaded = Math.max(0, record.total_uploaded - totalFoundCount);
+
+    const updateSourceSql = `
+      UPDATE compare_history 
+      SET result_data = $1, uploaded_data = $2, not_found = $3, total_uploaded = $4
+      WHERE id = $5
+      RETURNING *
+    `;
+    const updateSourceResult = await query(updateSourceSql, [
+      JSON.stringify(newResultData), 
+      JSON.stringify(newUploadedData), 
+      newNotFound, 
+      newTotalUploaded, 
+      id
+    ]);
+
+    // 6. Process Target Records (Move to specific dates)
+    for (const [dateStr, items] of Object.entries(foundByDate)) {
+      const itemsCount = items.length;
+      const justPhones = items.map(i => i.phone);
+      
+      // Look for an existing record for this date and dialer
+      const targetQuery = await query(`
+        SELECT * FROM compare_history 
+        WHERE compare_date = $1 AND dialer_type = $2 
+        ORDER BY created_at DESC LIMIT 1
+      `, [dateStr, dialerType]);
+
+      if (targetQuery.rowCount > 0) {
+        // Append to existing record
+        const targetRecord = targetQuery.rows[0];
+        let tResult = typeof targetRecord.result_data === 'string' ? JSON.parse(targetRecord.result_data) : (targetRecord.result_data || []);
+        let tUploaded = typeof targetRecord.uploaded_data === 'string' ? JSON.parse(targetRecord.uploaded_data) : (targetRecord.uploaded_data || []);
+        
+        tResult = [...tResult, ...items];
+        tUploaded = [...tUploaded, ...justPhones];
+        
+        const tTotalUploaded = targetRecord.total_uploaded + itemsCount;
+        const tTotalFound = targetRecord.total_found + itemsCount;
+        
+        await query(`
+          UPDATE compare_history 
+          SET result_data = $1, uploaded_data = $2, total_uploaded = $3, total_found = $4
+          WHERE id = $5
+        `, [JSON.stringify(tResult), JSON.stringify(tUploaded), tTotalUploaded, tTotalFound, targetRecord.id]);
+        
+      } else {
+        // Create new record
+        const fileName = `Backfilled from ${record.file_name}`;
+        await query(`
+          INSERT INTO compare_history 
+          (user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+        `, [
+          record.user_id, 
+          fileName, 
+          dialerType, 
+          dateStr, 
+          itemsCount, 
+          itemsCount, 
+          0, 
+          JSON.stringify(justPhones), 
+          JSON.stringify(items)
+        ]);
+      }
+    }
+
+    res.json({ 
+      success: true, 
+      message: `Moved ${totalFoundCount} numbers to their respective sale dates!`, 
+      data: updateSourceResult.rows[0] 
+    });
+
+  } catch (error) {
+    console.error('Error in recheckCompareHistory:', error);
+    res.status(500).json({ success: false, message: 'Server Error' });
+  }
+};
+

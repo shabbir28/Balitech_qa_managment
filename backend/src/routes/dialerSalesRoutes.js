@@ -13,4 +13,10 @@ router.post('/overrides-by-leads', authenticate, checkDialerAccess, dialerSalesC
 router.post('/backfill', authenticate, checkDialerAccess, dialerSalesController.backfillSales);
 router.post('/assign', authenticate, checkDialerAccess, dialerSalesController.assignSales);
 
+// Compare History
+router.post('/compare-history', authenticate, checkDialerAccess, dialerSalesController.saveCompareHistory);
+router.get('/compare-history', authenticate, checkDialerAccess, dialerSalesController.getCompareHistory);
+router.post('/compare-history/:id/preview-recheck', authenticate, checkDialerAccess, dialerSalesController.previewRecheckCompareHistory);
+router.post('/compare-history/:id/recheck', authenticate, checkDialerAccess, dialerSalesController.recheckCompareHistory);
+
 module.exports = router;

@@ -1,5 +1,11 @@
-const { Pool } = require('pg');
+const { Pool, types } = require('pg');
 require('dotenv').config();
+
+// Fix PostgreSQL DATE parsing timezone issue globally
+// OID 1082 is for PostgreSQL DATE type
+types.setTypeParser(1082, function(stringValue) {
+  return stringValue; // Returns YYYY-MM-DD string exactly as in DB instead of converting to local Date object
+});
 
 if (!process.env.DB_PASSWORD) {
   console.error('❌ DB_PASSWORD is not set. Configure it in your .env file before starting the server.');

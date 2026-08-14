@@ -1,10 +1,11 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { ArrowLeft, FileSpreadsheet, Upload, Search, Phone, CalendarRange, CalendarDays, ChevronDown, Loader2 } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, Upload, Search, Phone, CalendarRange, CalendarDays, ChevronDown, Loader2, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../services/api';
+import PreviewRecheckModal from '../components/PreviewRecheckModal';
 
 // ─── Date helpers ────────────────────────────────────────────────────────────
 const fmt = (d) => d.toISOString().slice(0, 10);
@@ -50,7 +51,7 @@ const getPresets = () => {
 };
 
 // ─── DateRangeDropdown component ─────────────────────────────────────────────
-function DateRangeDropdown({ startDate, endDate, onChange }) {
+function DateRangeDropdown({ startDate, endDate, onChange, customTrigger, placement = 'right' }) {
   const [open, setOpen] = useState(false);
   const [customStart, setCustomStart] = useState(startDate);
   const [customEnd, setCustomEnd]     = useState(endDate);
@@ -101,19 +102,21 @@ function DateRangeDropdown({ startDate, endDate, onChange }) {
 
   return (
     <div className="relative" ref={ref}>
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="flex items-center gap-2 h-[34px] px-3 bg-slate-950 border border-slate-700 text-slate-200 text-sm rounded-xl hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-w-[160px] justify-between shadow-inner"
-      >
-        <span className="flex items-center gap-1.5 truncate">
-          <CalendarRange className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-          <span className="text-sm truncate">{displayLabel}</span>
-        </span>
-        <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
+      {customTrigger ? customTrigger(() => setOpen(o => !o), open) : (
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-2 h-[34px] px-3 bg-slate-950 border border-slate-700 text-slate-200 text-sm rounded-xl hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-w-[160px] justify-between shadow-inner"
+        >
+          <span className="flex items-center gap-1.5 truncate">
+            <CalendarRange className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="text-sm truncate">{displayLabel}</span>
+          </span>
+          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+        </button>
+      )}
 
       {open && (
-        <div className="absolute right-0 mt-1 w-72 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden">
+        <div className={`absolute ${placement === 'right' ? 'right-0' : 'left-0'} mt-1 w-72 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden`}>
           <div className="p-1">
             {presets.map((preset) => (
               <button
@@ -203,8 +206,73 @@ export default function SalesComparePage() {
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [savedHistoryId, setSavedHistoryId] = useState(null);
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedTeam, setSelectedTeam] = useState('All');
+
+  const [previewData, setPreviewData] = useState(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [previewDates, setPreviewDates] = useState({ start: '', end: '' });
+
+  const handlePreviewRecheck = async (start, end) => {
+    if (!savedHistoryId) return;
+    setLoading(true);
+    try {
+      const res = await api.post(`/dialer-sales/compare-history/${savedHistoryId}/preview-recheck`, {
+        startDate: start,
+        endDate: end
+      });
+      if (res.data.success) {
+        setPreviewData(res.data.data);
+        setPreviewDates({ start, end });
+        setIsPreviewOpen(true);
+      } else {
+        toast.error(res.data.message || 'Failed to preview recheck');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error previewing missing numbers');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const confirmRecheck = async () => {
+    if (!savedHistoryId) return;
+    setIsConfirming(true);
+    try {
+      const res = await api.post(`/dialer-sales/compare-history/${savedHistoryId}/recheck`, {
+        startDate: previewDates.start,
+        endDate: previewDates.end
+      });
+      if (res.data.success) {
+        toast.success(res.data.message);
+        const updatedRecord = res.data.data;
+        const newResultData = typeof updatedRecord.result_data === 'string' 
+          ? JSON.parse(updatedRecord.result_data) 
+          : updatedRecord.result_data;
+
+        setResult(prev => ({
+          data: newResultData,
+          summary: {
+            ...prev.summary,
+            total_found: updatedRecord.total_found,
+            total_uploaded: updatedRecord.total_uploaded
+          },
+          notFoundCount: updatedRecord.not_found
+        }));
+        setIsPreviewOpen(false);
+      } else {
+        toast.error(res.data.message || 'Failed to recheck');
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Error rechecking missing numbers');
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   const onDrop = (acceptedFiles, rejectedFiles) => {
     if (rejectedFiles.length > 0) {
@@ -247,7 +315,6 @@ export default function SalesComparePage() {
       const phones = [];
 
       if (isExcel) {
-        // 1a. Parse Excel file using SheetJS
         const arrayBuffer = await file.arrayBuffer();
         const workbook = XLSX.read(arrayBuffer, { type: 'array' });
 
@@ -264,7 +331,6 @@ export default function SalesComparePage() {
           });
         });
       } else {
-        // 1b. Read CSV / TXT as text
         const text = await file.text();
         const lines = text.split(/\r?\n/);
         lines.forEach(line => {
@@ -286,7 +352,6 @@ export default function SalesComparePage() {
         return;
       }
 
-      // 3. Send to API for comparison
       const res = await api.post('/dialer-sales/compare', {
         dialer: dialerType,
         startDate: startDate,
@@ -295,7 +360,6 @@ export default function SalesComparePage() {
       });
 
       if (res.data.success) {
-        // Find which ones were missing
         const foundPhones = new Set(res.data.data.map(d => d.phone));
         const notFound = uniquePhones.filter(p => !foundPhones.has(p));
         
@@ -316,6 +380,25 @@ export default function SalesComparePage() {
         });
         
         toast.success(`Found ${res.data.summary.total_found} matches out of ${uniquePhones.length} numbers.`);
+
+        try {
+          const saveRes = await api.post('/dialer-sales/compare-history', {
+            file_name: file.name,
+            dialer_type: dialerType,
+            compare_date: startDate,
+            total_uploaded: uniquePhones.length,
+            total_found: res.data.summary.total_found,
+            not_found: notFound.length,
+            uploaded_data: uniquePhones,
+            result_data: combinedData
+          });
+          if (saveRes.data.success && saveRes.data.data?.id) {
+            setSavedHistoryId(saveRes.data.data.id);
+          }
+        } catch (saveErr) {
+          console.error('Failed to save compare history:', saveErr);
+        }
+
       } else {
         toast.error('Comparison failed');
       }
@@ -326,6 +409,38 @@ export default function SalesComparePage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDownload = (e, teamFilter) => {
+    e.stopPropagation();
+    if (!result) return;
+
+    let exportData = result.data;
+    if (teamFilter !== 'All') {
+      exportData = exportData.filter(d => (d.team || '-') === teamFilter);
+    }
+
+    if (exportData.length === 0) {
+      toast.error('No data to download for this team');
+      return;
+    }
+
+    const formattedData = exportData.map(row => ({
+      'Phone Number': row.phone,
+      'Status': row.status,
+      'Agent': row.agent,
+      'Team': row.team
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(formattedData);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Comparison Results");
+    
+    let filename = `compare_results_${dialerType}_${startDate}`;
+    if (teamFilter !== 'All') filename += `_${teamFilter.replace(/[^a-z0-9]/gi, '_')}`;
+    filename += '.xlsx';
+
+    XLSX.writeFile(wb, filename);
   };
 
   const { filteredData, statusCounts, teamCounts } = useMemo(() => {
@@ -488,10 +603,30 @@ export default function SalesComparePage() {
                 <p className="text-[11px] text-emerald-400/80 font-bold uppercase tracking-wider mb-1">Matches Found</p>
                 <p className="text-2xl font-bold text-emerald-400 font-mono">{result.summary.total_found}</p>
              </div>
-             <div className="bg-gradient-to-br from-red-900/30 to-slate-900 border border-red-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden group">
-                <div className="absolute top-0 right-0 w-16 h-16 bg-red-500/10 rounded-bl-full group-hover:bg-red-500/20 transition-colors"></div>
-                <p className="text-[11px] text-red-400/80 font-bold uppercase tracking-wider mb-1">Not Found</p>
-                <p className="text-2xl font-bold text-red-400 font-mono">{result.notFoundCount}</p>
+             <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center relative">
+               <div>
+                 <div className="flex items-center gap-2 mb-1">
+                   <p className="text-xs uppercase font-bold text-rose-500/80">Not Found</p>
+                   {result.notFoundCount > 0 && savedHistoryId && (
+                     <DateRangeDropdown
+                       startDate={startDate}
+                       endDate={endDate}
+                       placement="left"
+                       onChange={(start, end) => handlePreviewRecheck(start, end)}
+                       customTrigger={(onClick, isOpen) => (
+                         <button
+                           onClick={onClick}
+                           className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded text-[10px] font-bold uppercase transition-colors"
+                           title="Search database for these missing numbers in another date range"
+                         >
+                           <Search className="w-3 h-3" /> Find
+                         </button>
+                       )}
+                     />
+                   )}
+                 </div>
+                 <p className="text-2xl font-mono font-bold text-rose-400">{result.notFoundCount}</p>
+               </div>
              </div>
              <div className="bg-slate-900 border border-slate-800 rounded-xl p-4 shadow-sm flex flex-col justify-center items-center">
                 <button 
@@ -580,9 +715,18 @@ export default function SalesComparePage() {
                         : 'bg-slate-900 border-slate-800/80 hover:border-slate-600'
                     }`}
                   >
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${selectedTeam === 'All' ? 'text-white' : 'text-slate-400'}`}>
-                      All Teams
-                    </span>
+                    <div className="flex items-center justify-between w-full">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${selectedTeam === 'All' ? 'text-white' : 'text-slate-400'}`}>
+                        All Teams
+                      </span>
+                      <button 
+                        onClick={(e) => handleDownload(e, 'All')}
+                        className="text-slate-500 hover:text-emerald-400 transition-colors p-1 rounded-md hover:bg-slate-800/50"
+                        title="Download All Teams"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <span className="text-lg font-bold text-slate-100 font-mono">{result.data.length}</span>
                 </div>
 
@@ -612,9 +756,18 @@ export default function SalesComparePage() {
                           }`}>
                             {displayName}
                           </span>
-                          <div className={`w-1.5 h-1.5 rounded-full shadow-sm ${
-                            isNoTeam ? 'bg-slate-600' : 'bg-indigo-500'
-                          }`} />
+                          <div className="flex items-center gap-1.5">
+                            <button 
+                              onClick={(e) => handleDownload(e, team)}
+                              className="text-slate-500 hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-slate-800/50"
+                              title={`Download ${displayName} data`}
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                            <div className={`w-1.5 h-1.5 rounded-full shadow-sm ${
+                              isNoTeam ? 'bg-slate-600' : 'bg-indigo-500'
+                            }`} />
+                          </div>
                         </div>
                         <span className={`text-lg font-bold font-mono z-10 ${
                           isSelected ? 'text-indigo-400' : 'text-slate-200'
@@ -698,6 +851,15 @@ export default function SalesComparePage() {
         </div>
       )}
 
+      <PreviewRecheckModal 
+        isOpen={isPreviewOpen}
+        onClose={() => !isConfirming && setIsPreviewOpen(false)}
+        previewData={previewData}
+        onConfirm={confirmRecheck}
+        isConfirming={isConfirming}
+        startDate={previewDates.start}
+        endDate={previewDates.end}
+      />
     </div>
   );
 }

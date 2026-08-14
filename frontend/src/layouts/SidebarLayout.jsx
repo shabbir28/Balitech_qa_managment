@@ -4,7 +4,7 @@ import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Phone, ClipboardCheck,
   LogOut, Menu, X, Target,
-  UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays
+  UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays, History
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
@@ -36,6 +36,7 @@ const SidebarLayout = ({ children }) => {
     { name: 'Dialer Sales',    path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
     { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
     { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Compare History', path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin'] },
 
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },

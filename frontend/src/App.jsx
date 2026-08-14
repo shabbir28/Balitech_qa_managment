@@ -16,6 +16,7 @@ import CampaignsPage from './pages/CampaignsPage';
 import UnauthorizedPage from './pages/UnauthorizedPage';
 import DialerSalesPage from './pages/DialerSalesPage';
 import SalesComparePage from './pages/SalesComparePage';
+import CompareHistoryPage from './pages/CompareHistoryPage';
 import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
@@ -101,6 +102,11 @@ function App() {
           <Route path="/dialer-sales/compare" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><SalesComparePage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer-sales/compare-history" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><CompareHistoryPage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/dialer-sales/history" element={
