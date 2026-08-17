@@ -217,7 +217,7 @@ exports.getSales = async (req, res) => {
                 last_call: cols[0].trim(),
                 phone: cols[1] ? cols[1].trim() : '',
                 status: cols[2] ? cols[2].trim() : '',
-                last_agent: cols[4] ? cols[4].trim() : '', // Agent Name is typically col 4
+                last_agent: (cols[4] ? cols[4].trim() : '') + (cols[3] && cols[3].trim() ? ` (${cols[3].trim()})` : ''), // Agent Name (col 4) + ID (col 3)
                 team: cols.length > 31 ? (cols[31] ? cols[31].trim() : '') : '', // User Group / Team
                 name: cols.length > 13 ? (cols[13] ? cols[13].trim() : '') : '', // First Name
                 lead_id: parsedLeadId

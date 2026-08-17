@@ -13,10 +13,7 @@ async function test() {
   params.append('export_fields', 'STANDARD');
   params.append('SUBMIT', 'SUBMIT');
 
-  const statuses = ['D2', 'D3', 'D4', 'D5', 'D6CPL', 'D7', 'D8', 'HI', 'HI2', 'HIB', 'HIC', 'HIMAIN'];
-  statuses.forEach(s => params.append('status[]', s));
-
-  console.log('Fetching for Aug 12...');
+  console.log('Fetching for Aug 12 without status filter...');
   const tsvData = await fetchAdminPage('call_report_export.php', 'medicare', 'POST', params.toString());
   const lines = tsvData.split('\n');
   console.log(`Received ${lines.length} lines.`);
