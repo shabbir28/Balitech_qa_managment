@@ -1,4 +1,4 @@
--- Migration: Add qa_status column to dialer_sales_history
+g-- Migration: Add qa_status column to dialer_sales_history
 -- Run this once on your PostgreSQL database
 
 ALTER TABLE dialer_sales_history

@@ -1,5 +1,6 @@
 const { fetchAdminPage, extractLeadsFromHtml } = require('./dialerController');
 const { query } = require('../config/database');
+const { syncDialerTransfersToHRMS, mapRowToHrms } = require('../services/hrmsSyncService');
 // Memory cache for statuses
 const saleStatusesCache = {
   pharmacy: { statuses: null, lastFetched: 0 },
@@ -47,10 +48,13 @@ async function getSaleStatuses(dialerType) {
     }
 
     const result = [...statuses];
-    saleStatusesCache[dialerType] = {
-      statuses: result,
-      lastFetched: now
-    };
+    // Only cache if we found statuses
+    if (result.length > 0) {
+      saleStatusesCache[dialerType] = {
+        statuses: result,
+        lastFetched: now
+      };
+    }
     return result;
 
   } catch (error) {
@@ -178,7 +182,13 @@ exports.getSales = async (req, res) => {
         try {
           const html = await fetchAdminPage('admin_search_lead.php', dialerType, 'POST', body);
           const leads = extractLeadsFromHtml(html);
-          allLeads = [...allLeads, ...leads];
+          // Filter by date range for pharmacy (admin_search_lead.php returns all dates)
+          const filtered = leads.filter(l => {
+            if (!l.last_call || l.last_call.length < 10) return false;
+            const d = l.last_call.substring(0, 10);
+            return d >= queryDateStr && d <= endDateStr;
+          });
+          allLeads = [...allLeads, ...filtered];
         } catch (err) {
           console.error(`Error fetching status ${status} on ${dialerType}:`, err.message);
         }
@@ -284,8 +294,21 @@ exports.getSales = async (req, res) => {
               team = EXCLUDED.team
           `;
           
-          // Fire and forget chunks
-          query(sql, values).catch(e => console.error('Bulk insert chunk error:', e.message));
+          // Fire and forget chunks — also sync to HRMS after each successful insert
+          query(sql, values).then(() => {
+            // Map chunk to HRMS format and sync (non-blocking, non-fatal)
+            const hrmsRecords = chunk.map(l => ({
+              lead_id:           l.lead_id,
+              status:            l.status,
+              qa_status:         'Pending',
+              phone_number:      l.phone,
+              customer_name:     l.name || null,
+              team:              l.team || '',
+              dialer_agent_name: l.last_agent || l.agent || null,
+              last_call_at:      l.last_call || new Date().toISOString(),
+            }));
+            syncDialerTransfersToHRMS(hrmsRecords, true).catch(e => console.warn('[HRMS Sync] fire-and-forget error:', e.message));
+          }).catch(e => console.error('Bulk insert chunk error:', e.message));
         }
       } catch (syncErr) {
         console.error('Error preparing bulk insert for dialer_sales_history:', syncErr);
@@ -671,7 +694,7 @@ exports.setQaStatus = async (req, res) => {
       `UPDATE dialer_sales_history
        SET qa_status = $3
        WHERE lead_id = $1 AND dialer = $2
-       RETURNING lead_id, dialer, qa_override, qa_status`,
+       RETURNING lead_id, dialer, qa_override, qa_status, phone, status, agent, team, sale_date`,
       [lead_id, dialer, qa_status]
     );
 
@@ -680,13 +703,20 @@ exports.setQaStatus = async (req, res) => {
       const insResult = await query(
         `INSERT INTO dialer_sales_history (lead_id, dialer, qa_status, sale_date)
          VALUES ($1, $2, $3, CURRENT_DATE)
-         RETURNING lead_id, dialer, qa_override, qa_status`,
+         RETURNING lead_id, dialer, qa_override, qa_status, phone, status, agent, team, sale_date`,
         [lead_id, dialer, qa_status]
       );
-      return res.json({ success: true, data: insResult.rows[0] });
+      // Sync skeleton record to HRMS (non-fatal)
+      const skelRow = insResult.rows[0];
+      syncDialerTransfersToHRMS([skelRow]).catch(e => console.warn('[HRMS Sync] qa-status skeleton error:', e.message));
+      return res.json({ success: true, data: { lead_id: skelRow.lead_id, dialer: skelRow.dialer, qa_override: skelRow.qa_override, qa_status: skelRow.qa_status } });
     }
 
-    return res.json({ success: true, data: result.rows[0] });
+    // Sync updated record to HRMS (non-fatal, fire-and-forget)
+    const updatedRow = result.rows[0];
+    syncDialerTransfersToHRMS([updatedRow]).catch(e => console.warn('[HRMS Sync] qa-status update error:', e.message));
+
+    return res.json({ success: true, data: { lead_id: updatedRow.lead_id, dialer: updatedRow.dialer, qa_override: updatedRow.qa_override, qa_status: updatedRow.qa_status } });
   } catch (error) {
     console.error('Error in setQaStatus:', error);
     res.status(500).json({ success: false, message: 'Server Error' });
@@ -735,7 +765,7 @@ exports.assignSales = async (req, res) => {
     }
 
     // Verify campaign
-    const campaignName = dialer === 'medicare' ? 'Medicare Dialer' : 'Pharmacy Dialer';
+    const campaignName = dialer === 'medicare' ? 'Medicare' : 'Pharmacy';
     let campRes = await query('SELECT id FROM campaigns WHERE name = $1 LIMIT 1', [campaignName]);
     let campaignId = null;
     if (campRes.rows[0]) {
@@ -1120,3 +1150,70 @@ exports.recheckCompareHistory = async (req, res) => {
   }
 };
 
+// POST /dialer-sales/sync-hrms-test
+// Sends one hardcoded test record to HRMS — useful for verifying integration.
+exports.syncHrmsTest = async (req, res) => {
+  try {
+    const testRecord = {
+      lead_id:           'TEST-QA-LOCAL-D5-001',
+      status:            'D5',
+      qa_status:         'Pending',
+      phone_number:      '3183060984',
+      customer_name:     'Test Customer',
+      team:              'MED_IN',
+      dialer_agent_name: 'Muhammad Shabbir (5053)',
+      last_call_at:      new Date().toISOString(),
+    };
+
+    // Do a real awaited (not fire-and-forget) call so we can return HRMS response
+    const url    = process.env.HRMS_SYNC_URL;
+    const secret = process.env.HRMS_SYNC_SECRET;
+
+    if (!url || !secret) {
+      return res.status(500).json({ success: false, message: 'HRMS_SYNC_URL or HRMS_SYNC_SECRET not set in .env' });
+    }
+
+    const https = require('https');
+    const http  = require('http');
+    const payload = JSON.stringify({ secret, records: [testRecord] });
+
+    const result = await new Promise((resolve, reject) => {
+      const urlObj = new URL(url);
+      const lib    = urlObj.protocol === 'https:' ? https : http;
+      const options = {
+        hostname: urlObj.hostname,
+        port:     urlObj.port || (urlObj.protocol === 'https:' ? 443 : 80),
+        path:     urlObj.pathname + urlObj.search,
+        method:   'POST',
+        headers: {
+          'Content-Type':   'application/json',
+          'Content-Length': Buffer.byteLength(payload),
+        },
+        timeout: 15000,
+      };
+      const req = lib.request(options, (resp) => {
+        let data = '';
+        resp.on('data', d => { data += d; });
+        resp.on('end', () => {
+          try { resolve({ status: resp.statusCode, body: JSON.parse(data) }); }
+          catch { resolve({ status: resp.statusCode, body: data }); }
+        });
+      });
+      req.on('timeout', () => { req.destroy(); reject(new Error('Request timed out')); });
+      req.on('error', reject);
+      req.write(payload);
+      req.end();
+    });
+
+    return res.json({
+      success: true,
+      message: 'Test record sent to HRMS',
+      test_record: testRecord,
+      hrms_status:   result.status,
+      hrms_response: result.body,
+    });
+  } catch (error) {
+    console.error('[HRMS Test] Error:', error.message);
+    res.status(500).json({ success: false, message: error.message });
+  }
+};

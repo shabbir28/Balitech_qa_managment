@@ -613,7 +613,7 @@ export default function SalesComparePage() {
                        endDate={endDate}
                        placement="left"
                        onChange={(start, end) => handlePreviewRecheck(start, end)}
-                       customTrigger={(onClick, isOpen) => (
+                       customTrigger={(onClick) => (
                          <button
                            onClick={onClick}
                            className="flex items-center gap-1 px-1.5 py-0.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 rounded text-[10px] font-bold uppercase transition-colors"

@@ -12,7 +12,7 @@ export default function DashboardPage() {
   const [charts, setCharts] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const [startDate, setStartDate] = useState(() => {
+  const getInitialDate = () => {
     const todayEST = getEstDateString(new Date());
     const baseDate = new Date(`${todayEST}T00:00:00`);
     baseDate.setDate(baseDate.getDate() - 1);
@@ -21,18 +21,10 @@ export default function DashboardPage() {
     const m = String(baseDate.getMonth() + 1).padStart(2, '0');
     const day = String(baseDate.getDate()).padStart(2, '0');
     return `${y}-${m}-${day}`;
-  });
-  
-  const [endDate, setEndDate] = useState(() => {
-    const todayEST = getEstDateString(new Date());
-    const baseDate = new Date(`${todayEST}T00:00:00`);
-    baseDate.setDate(baseDate.getDate() - 1);
-    
-    const y = baseDate.getFullYear();
-    const m = String(baseDate.getMonth() + 1).padStart(2, '0');
-    const day = String(baseDate.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
-  });
+  };
+
+  const [startDate, setStartDate] = useState(getInitialDate);
+  const [endDate, setEndDate] = useState(getInitialDate);
 
   const [dialer, setDialer] = useState('medicare');
 
@@ -41,7 +33,7 @@ export default function DashboardPage() {
     const dialerParam = dialer !== 'all' ? `&dialer=${dialer}` : '';
     Promise.all([
       api.get(`/dashboard/stats?startDate=${startDate}&endDate=${endDate}${dialerParam}`), 
-      api.get(`/dashboard/charts`)
+      api.get(`/dashboard/charts?startDate=${startDate}&endDate=${endDate}${dialerParam}`)
     ])
       .then(([s, c]) => { 
         setStats(s.data.data); 
