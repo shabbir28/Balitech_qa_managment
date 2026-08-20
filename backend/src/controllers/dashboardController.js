@@ -13,7 +13,7 @@ const getDashboardStats = async (req, res, next) => {
     const dialerFilter = req.query.dialer;
 
     // For Users: filter evaluations by who performed them (evaluated_by), not agent_id
-    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1 AND DATE(evaluation_date) BETWEEN $2 AND $3` : `WHERE is_deleted = FALSE AND DATE(evaluation_date) BETWEEN $1 AND $2`;
+    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1 AND DATE(evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $2 AND $3` : `WHERE is_deleted = FALSE AND DATE(evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`;
     const callLeadsWhere = isUser ? `WHERE is_deleted = FALSE AND DATE(call_date) BETWEEN $2 AND $3 AND batch_id IN (SELECT DISTINCT batch_id FROM qa_evaluations WHERE evaluated_by = $1 AND is_deleted = FALSE)` : `WHERE is_deleted = FALSE AND DATE(call_date) BETWEEN $1 AND $2`;
     const params = isUser ? [userId, startDate, endDate] : [startDate, endDate];
 
@@ -39,14 +39,14 @@ const getDashboardStats = async (req, res, next) => {
       query(`SELECT COUNT(*) FROM qa_evaluations ${baseWhere} AND status = 'Pass'`, params),
       query(`SELECT COUNT(*) FROM qa_evaluations ${baseWhere} AND status = 'Fail'`, params),
       query(isUser
-        ? `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE AND DATE(qe.evaluation_date) BETWEEN $2 AND $3`
-        : `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.is_deleted = FALSE AND DATE(qe.evaluation_date) BETWEEN $1 AND $2`, params),
+        ? `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE AND DATE(qe.evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $2 AND $3`
+        : `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.is_deleted = FALSE AND DATE(qe.evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`, params),
       query(isUser
-        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND agent_user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3`
-        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND DATE(created_at) BETWEEN $1 AND $2`, params),
+        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND agent_user_id = $1 AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $2 AND $3`
+        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`, params),
       query(isUser
-        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND agent_user_id = $1 AND DATE(created_at) BETWEEN $2 AND $3`
-        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND DATE(created_at) BETWEEN $1 AND $2`, params),
+        ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND agent_user_id = $1 AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $2 AND $3`
+        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`, params),
       query(`
         SELECT 
           COUNT(*) as total_sales,
@@ -58,13 +58,20 @@ const getDashboardStats = async (req, res, next) => {
         WHERE sale_date >= $1::date AND sale_date <= $2::date
         ${dialerFilter === 'medicare' || dialerFilter === 'pharmacy' ? `AND dialer = '${dialerFilter}'` : ''}
       `, [startDate, endDate]),
-      query(`
+      query(isUser ? `
         SELECT COUNT(DISTINCT cl.id) as assigned
         FROM call_leads cl
         JOIN lead_assignments la ON cl.id = la.call_lead_id
         WHERE cl.notes LIKE 'Assigned from Dialer Sales page%'
-        AND DATE(la.assigned_at) BETWEEN $1::date AND $2::date
-      `, [startDate, endDate])
+        AND DATE(la.assigned_at AT TIME ZONE 'America/New_York') BETWEEN $2::date AND $3::date
+        AND la.assigned_to = $1
+      ` : `
+        SELECT COUNT(DISTINCT cl.id) as assigned
+        FROM call_leads cl
+        JOIN lead_assignments la ON cl.id = la.call_lead_id
+        WHERE cl.notes LIKE 'Assigned from Dialer Sales page%'
+        AND DATE(la.assigned_at AT TIME ZONE 'America/New_York') BETWEEN $1::date AND $2::date
+      `, params)
     ]);
 
     res.json({

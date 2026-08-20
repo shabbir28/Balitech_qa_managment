@@ -188,13 +188,13 @@ const ManagerEvaluationViewPage = () => {
                   <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-36">QA Status</th>
                   <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[300px]">Agentside Feedback</th>
                   <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[350px]">LA side</th>
+                  <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">LA Side Error</th>
                   {CHECKBOX_FIELDS.map(f => (
                     <th key={f.key} className="px-3 py-5 border-b border-r border-slate-800/50 text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-24 text-center">
                       {f.label}
                     </th>
                   ))}
-                  <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">Error Category</th>
-                  <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">LA Side Error</th>
+                  <th className="px-4 py-5 border-b border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">Error Category</th>
                 </tr>
               </thead>
               <tbody>
@@ -303,6 +303,26 @@ const ManagerEvaluationViewPage = () => {
                     />
                   </td>
 
+                  <td className="p-3 border-r border-slate-800/50 align-top">
+                    <input 
+                      list="manager-la-side-error-category-options"
+                      disabled={user?.role === 'QA Agent'}
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+                      value={metadata.laSideErrorCategory || ''}
+                      onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
+                      placeholder="Select or type LA Category..."
+                    />
+                    <datalist id="manager-la-side-error-category-options">
+                      <option value="Already in a good plan" />
+                      <option value="No plan Available" />
+                      <option value="Customer become not intrested" />
+                      <option value="call Back arange" />
+                      <option value="call ended in no result" />
+                      <option value="Dnq Customer" />
+                      <option value="Dnc Customer" />
+                    </datalist>
+                  </td>
+
                   {/* Checkboxes */}
                   {CHECKBOX_FIELDS.map(f => (
                     <td key={f.key} className="p-3 border-r border-slate-800/50 align-top pt-5">
@@ -329,7 +349,7 @@ const ManagerEvaluationViewPage = () => {
                     </td>
                   ))}
 
-                  <td className="p-3 border-r border-slate-800/50 align-top">
+                  <td className="p-3 border-slate-800/50 align-top">
                     <input 
                       list="manager-error-category-options"
                       disabled={user?.role === 'QA Agent'}
@@ -347,26 +367,6 @@ const ManagerEvaluationViewPage = () => {
                       <option value="Falls Statement" />
                       <option value="Promoising Statement" />
                       <option value="DNC Customer" />
-                    </datalist>
-                  </td>
-
-                  <td className="p-3 border-slate-800/50 align-top">
-                    <input 
-                      list="manager-la-side-error-category-options"
-                      disabled={user?.role === 'QA Agent'}
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
-                      value={metadata.laSideErrorCategory || ''}
-                      onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
-                      placeholder="Select or type LA Category..."
-                    />
-                    <datalist id="manager-la-side-error-category-options">
-                      <option value="Already in a good plan" />
-                      <option value="No plan Available" />
-                      <option value="Customer become not intrested" />
-                      <option value="call Back arange" />
-                      <option value="call ended in no result" />
-                      <option value="Dnq Customer" />
-                      <option value="Dnc Customer" />
                     </datalist>
                   </td>
                 </tr>

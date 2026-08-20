@@ -72,6 +72,12 @@ const EvaluationFormPage = () => {
           return;
         }
         setCall(callData);
+        if (callData.campaign_name || callData.team) {
+          setMetadata(prev => ({
+            ...prev,
+            teams: callData.team || callData.campaign_name || prev.teams
+          }));
+        }
       }).catch(() => toast.error('Failed to load call details.'));
     }
   }, [callId, navigate]);
@@ -223,13 +229,13 @@ const EvaluationFormPage = () => {
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-36">QA Status</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[300px]">Agentside Feedback</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[350px]">LA side</th>
+                      <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">LA Side Error</th>
                       {CHECKBOX_FIELDS.map(f => (
                         <th key={f.key} className="px-3 py-5 border-b border-r border-slate-800/50 text-[10px] font-bold text-indigo-400 uppercase tracking-wider w-24 text-center">
                           {f.label}
                         </th>
                       ))}
-                      <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">Error Category</th>
-                      <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">LA Side Error</th>
+                      <th className="px-4 py-5 border-b border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-48">Error Category</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -328,6 +334,25 @@ const EvaluationFormPage = () => {
                         />
                       </td>
 
+                      <td className="p-3 border-r border-slate-800/50 align-top">
+                        <input 
+                          list="la-side-error-category-options"
+                          value={metadata.laSideErrorCategory} 
+                          onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} 
+                          placeholder="Select or type LA category..."
+                          className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-650"
+                        />
+                        <datalist id="la-side-error-category-options">
+                          <option value="Already in a good plan" />
+                          <option value="No plan Available" />
+                          <option value="Customer become not intrested" />
+                          <option value="call Back arange" />
+                          <option value="call ended in no result" />
+                          <option value="DNQ Customer" />
+                          <option value="DNC Customer" />
+                        </datalist>
+                      </td>
+
                       {CHECKBOX_FIELDS.map(f => (
                         <td key={f.key} className="p-3 border-r border-slate-800/50 align-top pt-5">
                           <div className="flex justify-center w-full">
@@ -353,7 +378,7 @@ const EvaluationFormPage = () => {
                         </td>
                       ))}
 
-                      <td className="p-3 border-r border-slate-800/50 align-top">
+                      <td className="p-3 border-slate-800/50 align-top">
                         <input 
                           list="error-category-options"
                           value={metadata.errorCategory} 
@@ -369,25 +394,6 @@ const EvaluationFormPage = () => {
                           <option value="Quoting Money" />
                           <option value="Falls Statement" />
                           <option value="Promoising Statement" />
-                          <option value="DNC Customer" />
-                        </datalist>
-                      </td>
-
-                      <td className="p-3 border-slate-800/50 align-top">
-                        <input 
-                          list="la-side-error-category-options"
-                          value={metadata.laSideErrorCategory} 
-                          onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} 
-                          placeholder="Select or type LA category..."
-                          className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-650"
-                        />
-                        <datalist id="la-side-error-category-options">
-                          <option value="Already in a good plan" />
-                          <option value="No plan Available" />
-                          <option value="Customer become not intrested" />
-                          <option value="call Back arange" />
-                          <option value="call ended in no result" />
-                          <option value="DNQ Customer" />
                           <option value="DNC Customer" />
                         </datalist>
                       </td>

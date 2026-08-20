@@ -193,15 +193,25 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
             { label: 'Flagged', value: stats?.dialerStats?.flagged ?? 0, icon: AlertCircle, bg: 'bg-amber-500/10', text: 'text-amber-400', border: 'border-amber-500/20' },
             { label: 'Pending', value: stats?.dialerStats?.pending ?? 0, icon: Clock, bg: 'bg-slate-500/10', text: 'text-slate-400', border: 'border-slate-500/20' }
           ].map(({ label, value, icon: Icon, bg, text, border }) => (
-            <div key={label} className={`bg-slate-800/50 border ${border} rounded-xl p-3 flex flex-col justify-center items-start transition-all duration-300 hover:bg-slate-800 hover:-translate-y-0.5 group`}>
-              <div className="flex items-center gap-2 mb-2">
-                <div className={`w-7 h-7 rounded-md flex items-center justify-center ${bg} flex-shrink-0`}>
+            <button
+              key={label}
+              onClick={() => {
+                if (label === 'Assigned') {
+                  navigate('/assign-leads');
+                } else {
+                  navigate(`/dialer-sales/history?start=${startDate}&end=${endDate}&dialer=${dialer === 'all' ? 'medicare' : dialer}&qaStatus=${label === 'Total Sales' ? 'All' : label}`);
+                }
+              }}
+              className={`w-full text-left bg-slate-800/50 border ${border} rounded-xl p-3 flex flex-col justify-center items-start transition-all duration-300 hover:bg-slate-800 hover:-translate-y-1 hover:shadow-lg cursor-pointer group`}
+            >
+              <div className="flex items-center gap-2 mb-2 w-full">
+                <div className={`w-7 h-7 rounded-md flex items-center justify-center ${bg} flex-shrink-0 group-hover:scale-110 transition-transform`}>
                   <Icon className={`w-3.5 h-3.5 ${text}`} />
                 </div>
                 <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">{label}</p>
               </div>
               <p className={`text-2xl font-bold ${text}`}>{value}</p>
-            </div>
+            </button>
           ))}
         </div>
       </div>

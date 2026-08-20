@@ -792,7 +792,7 @@ exports.assignSales = async (req, res) => {
           [
             lead.agent || lead.last_agent || 'Dialer Agent',
             lead.agent || lead.last_agent || 'DIALER',
-            campaignName,
+            lead.team || campaignName,
             campaignId,
             lead.name || '',
             lead.phone,
@@ -811,7 +811,7 @@ exports.assignSales = async (req, res) => {
           `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
            VALUES ($1, $2, $3, $4, $5)
            RETURNING id`,
-          [callLeadId, assigned_to, req.user.id, campaignName, notes || '']
+          [callLeadId, assigned_to, req.user.id, lead.team || campaignName, notes || '']
         );
         if (r.rows[0]) {
           assignedCount.push(r.rows[0].id);

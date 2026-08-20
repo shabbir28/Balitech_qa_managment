@@ -621,7 +621,8 @@ export default function DialerSalesPage() {
       {/* 
         CLEAN DATA TABLE 
       */}
-      <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+      {user?.role !== 'QA Agent' && (
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
         <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
           <h3 className="text-slate-300 text-xs font-medium flex items-center gap-2">
             <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold">
@@ -719,6 +720,7 @@ export default function DialerSalesPage() {
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

@@ -15,7 +15,6 @@ export default function DashboardPage() {
   const getInitialDate = () => {
     const todayEST = getEstDateString(new Date());
     const baseDate = new Date(`${todayEST}T00:00:00`);
-    baseDate.setDate(baseDate.getDate() - 1);
     
     const y = baseDate.getFullYear();
     const m = String(baseDate.getMonth() + 1).padStart(2, '0');

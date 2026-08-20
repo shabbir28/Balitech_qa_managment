@@ -1,8 +1,9 @@
 import { useEffect, useState, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { LoadingPage, EmptyState } from '../components/ui';
+import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
 import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
@@ -23,8 +24,8 @@ const AudioModal = ({ url, phone, onClose }) => {
     else { audioRef.current.play().catch(() => toast.error('Cannot play audio.')); setPlaying(true); }
   };
 
-  return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-md relative overflow-hidden">
         <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-emerald-500 to-teal-500" />
         <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-slate-800">
@@ -66,7 +67,8 @@ const AudioModal = ({ url, phone, onClose }) => {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
 
@@ -167,8 +169,11 @@ const EvaluationListPage = () => {
             <option value="">All Campaigns</option>
             {campaigns.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
           </select>
-          <input type="date" className="input w-36" value={filters.from_date} onChange={e => setFilters(f => ({ ...f, from_date: e.target.value }))} />
-          <input type="date" className="input w-36" value={filters.to_date} onChange={e => setFilters(f => ({ ...f, to_date: e.target.value }))} />
+          <DateRangeDropdown
+            startDate={filters.from_date}
+            endDate={filters.to_date}
+            onChange={(start, end) => setFilters(f => ({ ...f, from_date: start || '', to_date: end || '' }))}
+          />
           {(filters.search || filters.campaign || filters.from_date || filters.to_date) && (
             <button onClick={() => setFilters({ search: '', campaign: '', from_date: '', to_date: '' })} className="btn-ghost text-sm">
               <X size={14} /> Clear
@@ -242,8 +247,8 @@ const EvaluationListPage = () => {
       </div>
 
       {/* Activity Modal for QA Performance */}
-      {selectedUser && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
+      {selectedUser && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
           <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-5xl w-full h-[90vh] flex flex-col relative overflow-hidden">
             <div className="absolute top-0 left-0 w-full h-[3px] bg-gradient-to-r from-indigo-500 to-purple-500" />
             
@@ -343,7 +348,8 @@ const EvaluationListPage = () => {
               )}
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
 

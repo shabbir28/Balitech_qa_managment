@@ -297,7 +297,7 @@ export default function MyAssignmentsPage() {
                                     </>
                                   )}
                                   {a.status === 'accepted' && (
-                                    <button onClick={() => navigate(`/dialer?phone=${encodeURIComponent(a.customer_phone)}&assignment_id=${a.call_lead_id}&dialer=${a.campaign_name.toLowerCase().includes('pharmacy') ? 'pharmacy' : 'medicare'}`)} className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_10px_rgba(99,102,241,0.2)]">
+                                    <button onClick={() => navigate(`/dialer?phone=${encodeURIComponent(a.customer_phone)}&assignment_id=${a.call_lead_id}&dialer=${(a.dialer_campaign || a.campaign_name).toLowerCase().includes('pharmacy') ? 'pharmacy' : 'medicare'}`)} className="flex items-center gap-1.5 px-4 py-1.5 bg-indigo-500 hover:bg-indigo-400 text-white rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all shadow-[0_0_10px_rgba(99,102,241,0.2)]">
                                       <Eye className="w-3.5 h-3.5" /> Evaluate
                                     </button>
                                   )}

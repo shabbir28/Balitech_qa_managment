@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Loader2, AlertCircle, History, ChevronDown,
   CalendarDays, Search, Users, TrendingUp, Phone, Filter, X, Ban, UserCheck
@@ -169,7 +169,8 @@ function AssignLeadsModal({ onClose, dialer, filteredLeads, onComplete }) {
           status: l.status,
           agent: l.agent || l.last_agent || 'Dialer Agent',
           name: l.name || '',
-          sale_date: l.sale_date || l.last_call?.substring(0, 10)
+          sale_date: l.sale_date || l.last_call?.substring(0, 10),
+          team: l.team || ''
         })),
         notes
       });
@@ -284,6 +285,7 @@ function AssignLeadsModal({ onClose, dialer, filteredLeads, onComplete }) {
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function DialerSalesHistoryPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user } = useAuth();
 
   const getInitialDates = () => {
@@ -294,11 +296,16 @@ export default function DialerSalesHistoryPage() {
     return { start: dateStr, end: dateStr };
   };
 
-  const [dialerType, setDialerType]     = useState('medicare');
+  const initStart = searchParams.get('start') || getInitialDates().start;
+  const initEnd = searchParams.get('end') || getInitialDates().end;
+  const initDialer = searchParams.get('dialer') || 'medicare';
+  const initQaStatus = searchParams.get('qaStatus') || 'All';
 
-  // Sync dialerType state with user's assigned campaign
+  const [dialerType, setDialerType]     = useState(initDialer);
+
+  // Sync dialerType state with user's assigned campaign, but allow URL to override if valid
   useEffect(() => {
-    if (user && user.role === 'QA Agent') {
+    if (user && user.role === 'QA Agent' && !searchParams.get('dialer')) {
       const camp = (user.campaign_name || '').toLowerCase();
       if (camp.includes('medicare')) {
         setDialerType('medicare');
@@ -306,10 +313,10 @@ export default function DialerSalesHistoryPage() {
         setDialerType('pharmacy');
       }
     }
-  }, [user]);
+  }, [user, searchParams]);
 
-  const [startDate, setStartDate]       = useState(getInitialDates().start);
-  const [endDate, setEndDate]           = useState(getInitialDates().end);
+  const [startDate, setStartDate]       = useState(initStart);
+  const [endDate, setEndDate]           = useState(initEnd);
   const [loading, setLoading]           = useState(false);
   const [fetched, setFetched]           = useState(false);
   const [sales, setSales]               = useState([]);
@@ -321,6 +328,7 @@ export default function DialerSalesHistoryPage() {
   const [showAssign, setShowAssign]     = useState(false);
 
   const [filterStatus, setFilterStatus] = useState('All');
+  const [filterQaStatus, setFilterQaStatus] = useState(initQaStatus === 'All' ? 'All' : initQaStatus);
   const [filterTeam, setFilterTeam]     = useState('All');
   const [filterNotASale, setFilterNotASale] = useState(false);
   const [searchText, setSearchText]     = useState('');
@@ -337,6 +345,7 @@ export default function DialerSalesHistoryPage() {
     setLoading(true);
     setError('');
     setFilterStatus('All');
+    setFilterQaStatus('All');
     setFilterTeam('All');
     setFilterNotASale(false);
     setSearchText('');
@@ -380,6 +389,14 @@ export default function DialerSalesHistoryPage() {
     setSales(prev => prev.map(r => r.lead_id === lead_id ? { ...r, qa_status } : r));
   }, []);
 
+  // Automatically fetch on mount if coming from dashboard with dates
+  useEffect(() => {
+    if (searchParams.get('start') && searchParams.get('end')) {
+      fetchHistory(searchParams.get('start'), searchParams.get('end'));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only on initial mount if searchParams exist
+
   const filteredSales = useMemo(() => {
     let arr = sales;
     if (filterNotASale) {
@@ -387,6 +404,13 @@ export default function DialerSalesHistoryPage() {
     } else {
       if (filterStatus !== 'All') arr = arr.filter(r => r.status === filterStatus);
       if (filterTeam !== 'All')   arr = arr.filter(r => (r.team || 'Unknown') === filterTeam);
+      if (filterQaStatus !== 'All') {
+        if (filterQaStatus === 'Pending') {
+           arr = arr.filter(r => !r.qa_status || r.qa_status === 'Pending');
+        } else {
+           arr = arr.filter(r => r.qa_status === filterQaStatus);
+        }
+      }
     }
     if (searchText.trim()) {
       const q = searchText.trim().toLowerCase();
@@ -400,9 +424,9 @@ export default function DialerSalesHistoryPage() {
       );
     }
     return arr;
-  }, [sales, filterStatus, filterTeam, filterNotASale, searchText]);
+  }, [sales, filterStatus, filterTeam, filterQaStatus, filterNotASale, searchText]);
 
-  const hasFilters = filterStatus !== 'All' || filterTeam !== 'All' || filterNotASale || searchText.trim();
+  const hasFilters = filterStatus !== 'All' || filterTeam !== 'All' || filterQaStatus !== 'All' || filterNotASale || searchText.trim();
 
   const dateRangeLabel = startDate === endDate
     ? startDate
@@ -626,7 +650,7 @@ export default function DialerSalesHistoryPage() {
                   {' '}— {dateRangeLabel}
                 </h3>
                 {hasFilters && (
-                  <button onClick={() => { setFilterStatus('All'); setFilterTeam('All'); setFilterNotASale(false); setSearchText(''); }} className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 ml-2">
+                  <button onClick={() => { setFilterStatus('All'); setFilterTeam('All'); setFilterQaStatus('All'); setFilterNotASale(false); setSearchText(''); }} className="text-xs text-rose-400 hover:text-rose-300 flex items-center gap-1 ml-2">
                     <X className="w-3 h-3" /> Clear
                   </button>
                 )}

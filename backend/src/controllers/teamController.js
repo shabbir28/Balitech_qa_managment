@@ -196,12 +196,14 @@ const getAssignments = async (req, res, next) => {
     const result = await query(
       `SELECT la.*,
         cl.customer_phone, cl.agent_name, cl.campaign_name, cl.call_date, cl.call_duration, cl.recording_url, cl.disposition,
+        c.name as dialer_campaign,
         u1.name as assigned_to_name, u1.email as assigned_to_email,
         u2.name as assigned_by_name,
         e.status as evaluation_status, e.id as evaluation_id,
         ub.batch_name, ub.file_name
        FROM lead_assignments la
        JOIN call_leads cl ON la.call_lead_id = cl.id
+       LEFT JOIN campaigns c ON cl.campaign_id = c.id
        LEFT JOIN upload_batches ub ON cl.batch_id = ub.id
        JOIN users u1 ON la.assigned_to = u1.id
        JOIN users u2 ON la.assigned_by = u2.id
