@@ -38,7 +38,7 @@ exports.fetchAdminPage = async function fetchAdminPage(path, dialerType = 'pharm
   const options = {
     method,
     headers: { Authorization: authHeader },
-    signal: AbortSignal.timeout(15000),
+    signal: AbortSignal.timeout(60000),
   };
   if (body && method === 'POST') {
     options.headers['Content-Type'] = 'application/x-www-form-urlencoded';
