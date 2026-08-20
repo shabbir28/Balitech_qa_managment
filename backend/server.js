@@ -22,7 +22,6 @@ const campaignRoutes = require('./src/routes/campaignRoutes');
 const teamRoutes = require('./src/routes/teamRoutes');
 const assignmentRoutes = require('./src/routes/assignmentRoutes');
 const dialerRoutes = require('./src/routes/dialerRoutes');
-const transferQaRoutes = require('./src/routes/transferQaRoutes');
 
 if (!process.env.JWT_SECRET) {
   console.error('❌ JWT_SECRET is not set. Configure it in your .env file before starting the server.');
@@ -92,7 +91,6 @@ app.use('/api/campaigns', campaignRoutes);
 app.use('/api/teams', teamRoutes);
 app.use('/api/assignments', assignmentRoutes);
 app.use('/api/dialer', dialerRoutes);
-app.use('/api/transfer-qa', transferQaRoutes);
 
 // ── Error Handling ────────────────────────────────────────────────────
 app.use(notFound);

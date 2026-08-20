@@ -1,8 +1,43 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { X, CalendarDays, ArrowRight, Loader2, CheckCircle2 } from 'lucide-react';
+import { X, CalendarDays, ArrowRight, Loader2, CheckCircle2, Download } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const PreviewRecheckModal = ({ isOpen, onClose, previewData, onConfirm, isConfirming, startDate, endDate }) => {
+  const downloadedRef = useRef(false);
+
+  const downloadExcel = React.useCallback(() => {
+    if (!previewData || previewData.foundCount === 0) return;
+    
+    const exportData = [];
+    Object.entries(previewData.byDate || {}).forEach(([date, items]) => {
+      items.forEach(item => {
+        exportData.push({
+          Date: date,
+          Phone: item.phone,
+          Agent: item.agent || '—',
+          Team: item.team || '—',
+          Status: item.status || '—'
+        });
+      });
+    });
+
+    const worksheet = XLSX.utils.json_to_sheet(exportData);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Found Numbers');
+    XLSX.writeFile(workbook, `Found_Numbers_${new Date().getTime()}.xlsx`);
+  }, [previewData]);
+
+  useEffect(() => {
+    if (isOpen && previewData?.foundCount > 0 && !downloadedRef.current) {
+      downloadExcel();
+      downloadedRef.current = true;
+    }
+    if (!isOpen) {
+      downloadedRef.current = false;
+    }
+  }, [isOpen, previewData, downloadExcel]);
+
   if (!isOpen) return null;
 
   return createPortal(
@@ -19,13 +54,24 @@ const PreviewRecheckModal = ({ isOpen, onClose, previewData, onConfirm, isConfir
               Found <strong className="text-emerald-400">{previewData?.foundCount || 0}</strong> numbers between {startDate} and {endDate}
             </p>
           </div>
-          <button 
-            onClick={onClose}
-            disabled={isConfirming}
-            className="p-2 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors disabled:opacity-50"
-          >
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {previewData?.foundCount > 0 && (
+              <button
+                onClick={downloadExcel}
+                className="p-2 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 rounded-lg transition-colors border border-emerald-500/20"
+                title="Download Excel again"
+              >
+                <Download className="w-5 h-5" />
+              </button>
+            )}
+            <button 
+              onClick={onClose}
+              disabled={isConfirming}
+              className="p-2 bg-slate-800/50 hover:bg-rose-500/20 text-slate-400 hover:text-rose-400 rounded-lg transition-colors disabled:opacity-50"
+            >
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="p-5 overflow-y-auto custom-scrollbar flex-1 space-y-6">

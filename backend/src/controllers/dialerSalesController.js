@@ -206,6 +206,7 @@ exports.getSales = async (req, res) => {
       params.append('header_row', 'Y');
       params.append('rec_fields', 'N');
       params.append('export_fields', 'STANDARD');
+      params.append('search_archived_data', 'checked');
       params.append('SUBMIT', 'SUBMIT');
 
       statuses.forEach(s => params.append('status[]', s));
@@ -459,6 +460,7 @@ exports.backfillSales = async (req, res) => {
       params.append('header_row', 'Y');
       params.append('rec_fields', 'N');
       params.append('export_fields', 'STANDARD');
+      params.append('search_archived_data', 'checked');
       params.append('SUBMIT', 'SUBMIT');
       statuses.forEach(s => params.append('status[]', s));
       console.log(`[Backfill] Fetching Medicare: query_date=${startDate} end_date=${todayStr} (today, required by Vicidial)`);

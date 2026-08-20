@@ -21,7 +21,6 @@ import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
-import TransferQAPage from './pages/TransferQAPage';
 
 import DialerSearchPage from './pages/DialerSearchPage';
 import DialerLeadDetailsPage from './pages/DialerLeadDetailsPage';
@@ -129,12 +128,6 @@ function App() {
             </ProtectedRoute>
           } />
 
-          {/* Transfer QA */}
-          <Route path="/transfer-qa" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
-              <SidebarLayout><TransferQAPage /></SidebarLayout>
-            </ProtectedRoute>
-          } />
 
           {/* Users */}
           <Route path="/users" element={

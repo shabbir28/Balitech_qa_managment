@@ -202,12 +202,21 @@ exports.importLeadForEval = async (req, res, next) => {
     }
 
     // Check if already imported by recording_url
-    const existing = await query('SELECT id FROM call_leads WHERE recording_url = $1 AND is_deleted = FALSE LIMIT 1', [recording_url]);
+    const existing = await query('SELECT id, campaign_name FROM call_leads WHERE recording_url = $1 AND is_deleted = FALSE LIMIT 1', [recording_url]);
     if (existing.rows.length > 0) {
       const existingId = existing.rows[0].id;
       if (agent_name) {
         await query('UPDATE call_leads SET agent_name = $1 WHERE id = $2', [agent_name, existingId]);
       }
+      
+      // Auto-assign to self so it appears in the evaluations list
+      await query(
+        `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, status, notes) 
+         VALUES ($1, $2, $3, $4, 'pending', 'Self-assigned via direct evaluation') 
+         ON CONFLICT DO NOTHING`,
+        [existingId, req.user.id, req.user.id, existing.rows[0].campaign_name || '']
+      );
+      
       return res.json({ success: true, call_id: existingId });
     }
 
@@ -235,7 +244,17 @@ exports.importLeadForEval = async (req, res, next) => {
       ]
     );
 
-    return res.json({ success: true, call_id: insertRes.rows[0].id });
+    const newCallId = insertRes.rows[0].id;
+
+    // Auto-assign to self so it appears in the evaluations list
+    await query(
+      `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, status, notes) 
+       VALUES ($1, $2, $3, $4, 'pending', 'Self-assigned via direct evaluation') 
+       ON CONFLICT DO NOTHING`,
+      [newCallId, req.user.id, req.user.id, campaignName]
+    );
+
+    return res.json({ success: true, call_id: newCallId });
   } catch (error) {
     next(error);
   }

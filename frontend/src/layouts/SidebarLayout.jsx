@@ -41,7 +41,6 @@ const SidebarLayout = ({ children }) => {
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },
     { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin'] },
-    { name: 'Transfer QA',     path: '/transfer-qa',       icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
   ];
 
   // Section headers for visual grouping
