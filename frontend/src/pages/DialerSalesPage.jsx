@@ -325,7 +325,7 @@ export default function DialerSalesPage() {
     try {
       const res = await api.get(`/dialer-sales?dialer=${encodeURIComponent(dialerType)}&timeFilter=${timeFilter}`);
       if (res.data.success) {
-        const leads = res.data.data;
+        const leads = Array.isArray(res.data.data) ? res.data.data : (res.data.data?.leads || res.data.data?.sales || []);
         setSales(leads);
         setStatuses(res.data.statuses || []);
         if (leads.length === 0) {

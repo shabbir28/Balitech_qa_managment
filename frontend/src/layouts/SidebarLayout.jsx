@@ -35,6 +35,7 @@ const SidebarLayout = ({ children }) => {
     { name: 'Dialer Search',   path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
     { name: 'Dialer Sales',    path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
     { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Agent Wise Sales',path: '/dialer-sales/agent-sales', icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
     { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin'] },
     { name: 'Compare History', path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin'] },
 

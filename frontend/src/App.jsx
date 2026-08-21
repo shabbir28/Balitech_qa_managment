@@ -18,6 +18,7 @@ import DialerSalesPage from './pages/DialerSalesPage';
 import SalesComparePage from './pages/SalesComparePage';
 import CompareHistoryPage from './pages/CompareHistoryPage';
 import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
+import AgentSalesPage from './pages/AgentSalesPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
@@ -111,6 +112,11 @@ function App() {
           <Route path="/dialer-sales/history" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
               <SidebarLayout><DialerSalesHistoryPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/dialer-sales/agent-sales" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent']}>
+              <SidebarLayout><AgentSalesPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 

@@ -143,10 +143,10 @@ exports.getSales = async (req, res) => {
     const now = new Date();
     const todayStr = formatter.format(now);
     
-    let queryDateStr = todayStr;
-    const endDateStr = todayStr;
+    let queryDateStr = req.query.startDate || todayStr;
+    const endDateStr = req.query.endDate || todayStr;
 
-    if (timeFilter === 'MONTH') {
+    if (!req.query.startDate && timeFilter === 'MONTH') {
       // Get the 1st of the current month in the Vicidial timezone
       // We can create a new Date for the 1st of the current month
       const parts = formatter.formatToParts(now);
@@ -221,18 +221,40 @@ exports.getSales = async (req, res) => {
           console.error('Export permissions missing for', dialerType);
         } else {
           const lines = tsvData.split('\n'); // Standard newline split works best for TSV
+          let headers = [];
+          
           for (const line of lines) {
             const cols = line.split('\t');
+            
+            // Look for header row
+            if (headers.length === 0 && cols.length >= 10 && cols.some(c => c.toLowerCase().includes('call_date') || c.toLowerCase().includes('lead_id'))) {
+              headers = cols.map(c => c.trim().toLowerCase());
+              continue;
+            }
+            
             // If row has at least 10 columns and starts with a date
             if (cols.length >= 10 && cols[0] && cols[0].trim().startsWith('20')) {
-              const parsedLeadId = cols.length > 35 ? (cols[35] ? cols[35].trim() : '') : (cols[cols.length - 1] ? cols[cols.length - 1].trim() : '');
+              let leadIdIdx = headers.indexOf('lead_id');
+              if (leadIdIdx === -1) leadIdIdx = cols.length > 35 ? 35 : cols.length - 1;
+              
+              let firstNameIdx = headers.indexOf('first_name');
+              if (firstNameIdx === -1) firstNameIdx = cols.length > 13 ? 13 : 4;
+
+              let userIdx = headers.indexOf('user');
+              if (userIdx === -1) userIdx = 3;
+
+              let fullNameIdx = headers.indexOf('full_name');
+              if (fullNameIdx === -1) fullNameIdx = 4;
+
+              const parsedLeadId = cols[leadIdIdx] ? cols[leadIdIdx].trim() : '';
+              
               allLeads.push({
                 last_call: cols[0].trim(),
                 phone: cols[1] ? cols[1].trim() : '',
                 status: cols[2] ? cols[2].trim() : '',
-                last_agent: (cols[4] ? cols[4].trim() : '') + (cols[3] && cols[3].trim() ? ` (${cols[3].trim()})` : ''), // Agent Name (col 4) + ID (col 3)
+                last_agent: (cols[fullNameIdx] ? cols[fullNameIdx].trim() : '') + (cols[userIdx] && cols[userIdx].trim() ? ` (${cols[userIdx].trim()})` : ''),
                 team: cols.length > 31 ? (cols[31] ? cols[31].trim() : '') : '', // User Group / Team
-                name: cols.length > 13 ? (cols[13] ? cols[13].trim() : '') : '', // First Name
+                name: cols[firstNameIdx] ? cols[firstNameIdx].trim() : '', // First Name
                 lead_id: parsedLeadId
               });
             }
@@ -245,18 +267,35 @@ exports.getSales = async (req, res) => {
 
     // Deduplicate leads just in case
     const uniqueMap = new Map();
+    let unparsedCounter = 0;
     allLeads.forEach(l => {
-      if (l.lead_id) {
-        uniqueMap.set(l.lead_id, l);
+      // If lead_id is missing, generate a fallback so it doesn't get dropped by uniqueMap
+      if (!l.lead_id) {
+         l.lead_id = `MISSING_${++unparsedCounter}`;
+      }
+      
+      let key = l.lead_id;
+      // If duplicate lead_id exists, we can either overwrite (keep latest) or keep both. 
+      // Vicidial might report 2 sales for the same lead. We should keep both if they have different call times to match dialer counts!
+      if (uniqueMap.has(key)) {
+         key = key + '_' + (++unparsedCounter);
+         l.lead_id = key; // Update the object itself so frontend React keys are unique
+         uniqueMap.set(key, l); 
       } else {
-        // Fallback for leads without lead_id so they don't overwrite each other
-        uniqueMap.set(`${l.phone}_${l.last_call}`, l);
+         uniqueMap.set(key, l);
       }
     });
     const uniqueLeads = Array.from(uniqueMap.values());
 
     // Sort by last call time desc
     uniqueLeads.sort((a, b) => new Date(b.last_call) - new Date(a.last_call));
+
+    let finalLeads = uniqueLeads;
+    const agentQuery = req.query.agent;
+    if (agentQuery) {
+      const q = agentQuery.toLowerCase();
+      finalLeads = uniqueLeads.filter(l => l.last_agent && l.last_agent.toLowerCase().includes(q));
+    }
 
     // BACKGROUND SYNC: Save all fetched sales into dialer_sales_history
     if (uniqueLeads.length > 0) {
@@ -313,14 +352,18 @@ exports.getSales = async (req, res) => {
             syncDialerTransfersToHRMS(hrmsRecords, true).catch(e => console.warn('[HRMS Sync] fire-and-forget error:', e.message));
           }).catch(e => console.error('Bulk insert chunk error:', e.message));
         }
-      } catch (syncErr) {
-        console.error('Error preparing bulk insert for dialer_sales_history:', syncErr);
+      } catch (err) {
+        console.error('Error saving background sales history:', err);
       }
     }
 
     res.json({
       success: true,
-      data: uniqueLeads,
+      data: {
+        total: finalLeads.length,
+        leads: finalLeads, // keep 'leads' for live API compatibility
+        sales: finalLeads  // add 'sales' so AgentSalesPage can use it interchangeably
+      },
       statuses: statuses
     });
 
@@ -478,8 +521,15 @@ exports.backfillSales = async (req, res) => {
         const lines = tsvData.split('\n');
         console.log(`[Backfill] Total TSV lines: ${lines.length}`);
         let skippedLines = 0;
+        let headers = [];
         for (const line of lines) {
           const cols = line.split('\t');
+          
+          if (headers.length === 0 && cols.length >= 10 && cols.some(c => c.toLowerCase().includes('call_date') || c.toLowerCase().includes('lead_id'))) {
+            headers = cols.map(c => c.trim().toLowerCase());
+            continue;
+          }
+          
           if (cols.length >= 10 && cols[0] && cols[0].trim().startsWith('20')) {
             const saleDate = cols[0].trim().substring(0, 10);
             // Filter: only keep records within the user's requested date range
@@ -487,19 +537,29 @@ exports.backfillSales = async (req, res) => {
               skippedLines++;
               continue;
             }
+            
+            let leadIdIdx = headers.indexOf('lead_id');
+            if (leadIdIdx === -1) leadIdIdx = cols.length > 35 ? 35 : cols.length - 1;
+            
+            let firstNameIdx = headers.indexOf('first_name');
+            if (firstNameIdx === -1) firstNameIdx = cols.length > 13 ? 13 : 4;
+
+            let userIdx = headers.indexOf('user');
+            if (userIdx === -1) userIdx = 3;
+
+            let fullNameIdx = headers.indexOf('full_name');
+            if (fullNameIdx === -1) fullNameIdx = 4;
+
             const lead = {
               last_call:  cols[0].trim(),
               phone:      cols[1] ? cols[1].trim() : '',
               status:     cols[2] ? cols[2].trim() : '',
-              last_agent: cols[4] ? cols[4].trim() : '',
+              last_agent: (cols[fullNameIdx] ? cols[fullNameIdx].trim() : '') + (cols[userIdx] && cols[userIdx].trim() ? ` (${cols[userIdx].trim()})` : ''),
               team:       cols.length > 31 ? (cols[31] ? cols[31].trim() : '') : '',
-              lead_id:    cols.length > 35 ? (cols[35] ? cols[35].trim() : '') : (cols[cols.length - 1] ? cols[cols.length - 1].trim() : '')
+              name:       cols[firstNameIdx] ? cols[firstNameIdx].trim() : '',
+              lead_id:    cols[leadIdIdx] ? cols[leadIdIdx].trim() : ''
             };
-            if (lead.lead_id) {
-              allLeads.push(lead);
-            } else {
-              skippedLines++;
-            }
+            allLeads.push(lead);
           } else if (line.trim()) {
             skippedLines++;
           }
@@ -513,7 +573,18 @@ exports.backfillSales = async (req, res) => {
 
     // 3. Deduplicate
     const uniqueMap = new Map();
-    allLeads.forEach(l => { if (l.lead_id) uniqueMap.set(l.lead_id, l); });
+    let unparsedCounter = 0;
+    allLeads.forEach(l => { 
+      if (!l.lead_id) {
+         l.lead_id = `MISSING_${++unparsedCounter}`;
+      }
+      let key = l.lead_id;
+      if (uniqueMap.has(key)) {
+         key = key + '_' + (++unparsedCounter);
+         l.lead_id = key;
+      }
+      uniqueMap.set(key, l); 
+    });
     const uniqueLeads = Array.from(uniqueMap.values());
 
     console.log(`[Backfill] Fetched ${uniqueLeads.length} unique leads from dialer`);
@@ -579,7 +650,7 @@ exports.backfillSales = async (req, res) => {
 // GET /dialer-sales/history?dialer=medicare&startDate=2026-08-01&endDate=2026-08-13
 exports.getHistorySales = async (req, res) => {
   try {
-    const { dialer, startDate, endDate, date } = req.query;
+    const { dialer, startDate, endDate, date, agent, onlyMatched } = req.query;
 
     if (!['pharmacy', 'medicare'].includes(dialer)) {
       return res.status(400).json({ success: false, message: 'Invalid dialer type' });
@@ -594,13 +665,29 @@ exports.getHistorySales = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid date format. Use YYYY-MM-DD' });
     }
 
-    const result = await query(
-      `SELECT lead_id, phone, status, agent, team, sale_date, qa_override, qa_status
-       FROM dialer_sales_history
-       WHERE dialer = $1 AND sale_date >= $2 AND sale_date <= $3
-       ORDER BY sale_date DESC, lead_id DESC`,
-      [dialer, start, end]
-    );
+    let queryStr = `
+      SELECT lead_id, phone, status, agent, team, sale_date, qa_override, qa_status
+      FROM dialer_sales_history
+      WHERE dialer = $1 AND sale_date >= $2 AND sale_date <= $3
+    `;
+    const queryParams = [dialer, start, end];
+    
+    if (agent) {
+      queryStr += ` AND agent ILIKE $4`;
+      queryParams.push(`%${agent}%`);
+    }
+
+    if (onlyMatched === 'true') {
+      queryStr += ` AND phone IN (
+        SELECT json_array_elements_text(uploaded_data::json)
+        FROM compare_history 
+        WHERE dialer_type = $1 AND compare_date >= $2 AND compare_date <= $3
+      )`;
+    }
+    
+    queryStr += ` ORDER BY sale_date DESC, lead_id DESC`;
+
+    const result = await query(queryStr, queryParams);
 
     // Group by status / team for summary
     const statusSummary = {};
