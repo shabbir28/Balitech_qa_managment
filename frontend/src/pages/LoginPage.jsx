@@ -59,7 +59,7 @@ const LoginPage = () => {
               Balitech
             </h1>
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-orange-500">
-              QA Portal
+              QA Desk
             </h1>
             <div className="w-16 h-1 bg-orange-500 mt-6 lg:mx-0 mx-auto rounded-full" />
           </div>
