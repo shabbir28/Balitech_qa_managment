@@ -666,7 +666,7 @@ exports.getHistorySales = async (req, res) => {
     }
 
     let queryStr = `
-      SELECT lead_id, phone, status, agent, team, sale_date, qa_override, qa_status
+      SELECT lead_id, phone, status, agent, team, sale_date, qa_override, qa_status, is_assigned, assigned_qa_name
       FROM dialer_sales_history
       WHERE dialer = $1 AND sale_date >= $2 AND sale_date <= $3
     `;
@@ -824,18 +824,20 @@ exports.getOverridesForLeads = async (req, res) => {
     }
 
     const result = await query(
-      `SELECT lead_id, qa_override, qa_status
+      `SELECT lead_id, qa_override, qa_status, is_assigned, assigned_qa_name
        FROM dialer_sales_history
        WHERE dialer = $1 AND lead_id = ANY($2::varchar[])`,
       [dialer, lead_ids]
     );
 
-    // Return as a map: { lead_id -> { qa_override, qa_status } }
+    // Return as a map: { lead_id -> { qa_override, qa_status, is_assigned, assigned_qa_name } }
     const map = {};
     result.rows.forEach(r => {
       map[r.lead_id] = {
         qa_override: r.qa_override,
-        qa_status: r.qa_status || 'Pending'
+        qa_status: r.qa_status || 'Pending',
+        is_assigned: r.is_assigned,
+        assigned_qa_name: r.assigned_qa_name
       };
     });
 
@@ -867,6 +869,7 @@ exports.assignSales = async (req, res) => {
     }
 
     const assignedCount = [];
+    const assignedLeadIds = [];
 
     for (const lead of leads) {
       // Check if call_leads already exists for this phone and campaign
@@ -906,8 +909,21 @@ exports.assignSales = async (req, res) => {
         );
         if (r.rows[0]) {
           assignedCount.push(r.rows[0].id);
+          if (lead.lead_id) assignedLeadIds.push(lead.lead_id);
         }
       }
+    }
+
+    if (assignedLeadIds.length > 0) {
+      const qaUser = await query('SELECT name FROM users WHERE id = $1', [assigned_to]);
+      const qaName = qaUser.rows[0] ? qaUser.rows[0].name : 'QA Agent';
+
+      await query(
+        `UPDATE dialer_sales_history 
+         SET is_assigned = true, assigned_qa_name = $1 
+         WHERE dialer = $2 AND lead_id = ANY($3::varchar[])`,
+        [qaName, dialer, assignedLeadIds]
+      );
     }
 
     return res.json({

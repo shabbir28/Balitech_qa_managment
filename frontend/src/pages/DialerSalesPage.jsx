@@ -520,7 +520,7 @@ export default function DialerSalesPage() {
         <AssignLeadsModal
           onClose={() => setShowAssign(false)}
           dialer={dialerType}
-          filteredLeads={filteredSales}
+          filteredLeads={filteredSales.filter(l => !qaMetadata[l.lead_id]?.is_assigned)}
           onComplete={fetchSales}
         />
       )}
@@ -695,6 +695,11 @@ export default function DialerSalesPage() {
                         currentStatus={qaMetadata[lead.lead_id]?.qa_status || 'Pending'}
                         onStatusChange={handleStatusChange}
                       />
+                      {qaMetadata[lead.lead_id]?.is_assigned && (
+                        <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-900/40 text-blue-400 border border-blue-500/20">
+                          Assigned to: {qaMetadata[lead.lead_id].assigned_qa_name}
+                        </div>
+                      )}
                     </td>
                     <td className="px-4 py-2.5 font-mono text-slate-300">
                       {lead.phone}

@@ -159,7 +159,7 @@ const EvaluationListPage = () => {
       </div>
 
       {/* Main Filters */}
-      <div className="card p-4 mb-8">
+      <div className="card p-4 mb-8 !overflow-visible z-50">
         <div className="flex flex-wrap gap-3 items-center">
           <div className="relative flex-1 min-w-[200px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />

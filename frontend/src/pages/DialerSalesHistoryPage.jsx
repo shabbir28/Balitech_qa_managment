@@ -9,6 +9,7 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
 import { getEstDateString, fmtLocal } from '../utils/dateUtils';
+import { RefreshCw } from 'lucide-react';
 
 // ─── StatusCell & QaStatusCell Components ─────────────────────────────────────
 function StatusCell({ row, dialerType, onOverrideChange }) {
@@ -326,6 +327,7 @@ export default function DialerSalesHistoryPage() {
   const [notASaleCount, setNotASaleCount] = useState(0);
   const [error, setError]               = useState('');
   const [showAssign, setShowAssign]     = useState(false);
+  const [syncing, setSyncing]           = useState(false);
 
   const [filterStatus, setFilterStatus] = useState('All');
   const [filterQaStatus, setFilterQaStatus] = useState(initQaStatus === 'All' ? 'All' : initQaStatus);
@@ -388,6 +390,31 @@ export default function DialerSalesHistoryPage() {
   const handleStatusChange = useCallback((lead_id, qa_status) => {
     setSales(prev => prev.map(r => r.lead_id === lead_id ? { ...r, qa_status } : r));
   }, []);
+
+  const handleSyncDialer = async () => {
+    if (!startDate || !endDate) { toast.error('Please select a date range.'); return; }
+    setSyncing(true);
+    toast.loading('Syncing with dialer. This might take a minute...', { id: 'sync' });
+    try {
+      const res = await api.post('/dialer-sales/backfill', {
+        dialer: dialerType,
+        startDate: startDate,
+        endDate: endDate
+      });
+      if (res.data.success) {
+        toast.success(`Synced ${res.data.saved} records successfully!`, { id: 'sync' });
+        // Refresh local history
+        fetchHistory(startDate, endDate);
+      } else {
+        toast.error(res.data.message || 'Sync failed', { id: 'sync' });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error('Failed to connect to server for sync.', { id: 'sync' });
+    } finally {
+      setSyncing(false);
+    }
+  };
 
   // Automatically fetch on mount if coming from dashboard with dates
   useEffect(() => {
@@ -474,11 +501,22 @@ export default function DialerSalesHistoryPage() {
           {/* View Button */}
           <button
             onClick={() => fetchHistory()}
-            disabled={loading}
+            disabled={loading || syncing}
             className="flex items-center gap-2 px-4 h-[34px] bg-violet-600 hover:bg-violet-500 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
             {loading ? 'Loading...' : 'View Sales'}
+          </button>
+
+          {/* Sync Button */}
+          <button
+            onClick={handleSyncDialer}
+            disabled={loading || syncing}
+            className="flex items-center gap-2 px-4 h-[34px] bg-slate-700 hover:bg-slate-600 text-white rounded-lg text-sm font-semibold transition-colors disabled:opacity-50"
+            title="Fetch missing records directly from Vicidial for this date range"
+          >
+            <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+            {syncing ? 'Syncing...' : 'Sync Dialer'}
           </button>
 
           <button
