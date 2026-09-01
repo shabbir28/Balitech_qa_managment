@@ -126,7 +126,7 @@ const getAvailableUsers = async (req, res, next) => {
 
 /**
  * GET /api/assignments
- * Manager sees assignments they created; QA member sees their own
+ * Manager sees assignments; QA member sees their own
  */
 const getAssignments = async (req, res, next) => {
   try {
@@ -147,11 +147,13 @@ const getAssignments = async (req, res, next) => {
         params.push(req.user.campaign_id);
       }
     } else {
-      conditions.push(`la.assigned_by = $${paramCount++}`);
-      params.push(req.user.id);
+      // For Admins/Managers:
       if (user_id) {
         conditions.push(`la.assigned_to = $${paramCount++}`);
         params.push(user_id);
+      } else if (req.query.my_assigned === 'true') {
+        conditions.push(`la.assigned_by = $${paramCount++}`);
+        params.push(req.user.id);
       }
     }
     
@@ -162,17 +164,23 @@ const getAssignments = async (req, res, next) => {
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-    // For User role with campaign filter we need to join call_leads in count query
+    // Join call_leads in count query if filtering by campaign
     const countJoin = (!['Super Admin', 'QA Admin'].includes(role) && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
     const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Build stats params independently (simpler base filter)
-    const statsParams = !['Super Admin', 'QA Admin'].includes(role) ? [req.user.id] : [req.user.id];
-    let statsWhere = !['Super Admin', 'QA Admin'].includes(role) ? 'WHERE la.assigned_to = $1' : 'WHERE la.assigned_by = $1';
-    if (['Super Admin', 'QA Admin'].includes(role) && user_id) {
-      statsWhere += ' AND la.assigned_to = $2';
-      statsParams.push(user_id);
+    // Build stats params accurately
+    let statsWhere = '';
+    let statsParams = [];
+    if (!['Super Admin', 'QA Admin'].includes(role)) {
+      statsWhere = 'WHERE la.assigned_to = $1';
+      statsParams = [req.user.id];
+    } else if (user_id) {
+      statsWhere = 'WHERE la.assigned_to = $1';
+      statsParams = [user_id];
+    } else if (req.query.my_assigned === 'true') {
+      statsWhere = 'WHERE la.assigned_by = $1';
+      statsParams = [req.user.id];
     }
 
     const statsResult = await query(`
@@ -188,7 +196,6 @@ const getAssignments = async (req, res, next) => {
       LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
       ${statsWhere}
     `, statsParams);
-
 
     params.push(parseInt(limit));
     params.push(offset);
@@ -357,7 +364,11 @@ const completeAssignment = async (req, res, next) => {
  */
 const deleteAssignment = async (req, res, next) => {
   try {
-    await query('DELETE FROM lead_assignments WHERE id = $1 AND assigned_by = $2', [req.params.id, req.user.id]);
+    if (req.user.role === 'Super Admin') {
+      await query('DELETE FROM lead_assignments WHERE id = $1', [req.params.id]);
+    } else {
+      await query('DELETE FROM lead_assignments WHERE id = $1 AND assigned_by = $2', [req.params.id, req.user.id]);
+    }
     res.json({ success: true, message: 'Assignment deleted.' });
   } catch (err) { next(err); }
 };

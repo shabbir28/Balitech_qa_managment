@@ -857,9 +857,12 @@ exports.assignSales = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required parameters (dialer, assigned_to, leads)' });
     }
 
-    // Verify campaign
+    // Verify campaign (case-insensitive search)
     const campaignName = dialer === 'medicare' ? 'Medicare' : 'Pharmacy';
-    let campRes = await query('SELECT id FROM campaigns WHERE name = $1 LIMIT 1', [campaignName]);
+    let campRes = await query(
+      'SELECT id, name FROM campaigns WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) OR LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1',
+      [campaignName, `${campaignName} Dialer`]
+    );
     let campaignId = null;
     if (campRes.rows[0]) {
       campaignId = campRes.rows[0].id;
@@ -947,7 +950,6 @@ exports.saveCompareHistory = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required parameters' });
     }
 
-    const { query } = require('../config/database');
     const result = await query(
       `INSERT INTO compare_history 
         (user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data)

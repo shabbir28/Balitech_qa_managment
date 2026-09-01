@@ -128,8 +128,11 @@ const getFeedbackById = async (req, res, next) => {
     const feedback = result.rows[0];
 
     // QA Agents may only read their own feedback; admins may read any.
-    if (req.user.role === 'QA Agent' && feedback.agent_user_id !== req.user.id) {
-      return res.status(403).json({ success: false, message: 'You do not have access to this feedback.' });
+    if (req.user.role === 'QA Agent') {
+      const isOwner = feedback.agent_user_id === req.user.id || (req.user.agent_id && feedback.agent_id === req.user.agent_id);
+      if (!isOwner) {
+        return res.status(403).json({ success: false, message: 'You do not have access to this feedback.' });
+      }
     }
 
     // Get critical errors for this evaluation

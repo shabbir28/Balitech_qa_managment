@@ -32,6 +32,7 @@ const getDashboardStats = async (req, res, next) => {
       acknowledgedFeedback,
       dialerStatsData,
       assignedSalesData,
+      totalAgentsData,
     ] = await Promise.all([
       query(callLeadsQuery, params),
       query(`SELECT COUNT(*) FROM qa_evaluations ${baseWhere}`, params),
@@ -71,7 +72,8 @@ const getDashboardStats = async (req, res, next) => {
         JOIN lead_assignments la ON cl.id = la.call_lead_id
         WHERE cl.notes LIKE 'Assigned from Dialer Sales page%'
         AND DATE(la.assigned_at AT TIME ZONE 'America/New_York') BETWEEN $1::date AND $2::date
-      `, params)
+      `, params),
+      query(`SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_active = TRUE AND role_id IN (SELECT id FROM roles WHERE name = 'QA Agent')`)
     ]);
 
     res.json({
@@ -85,6 +87,7 @@ const getDashboardStats = async (req, res, next) => {
         criticalErrors: parseInt(criticalErrors.rows[0].count),
         pendingFeedback: parseInt(pendingFeedback.rows[0].count),
         acknowledgedFeedback: parseInt(acknowledgedFeedback.rows[0].count),
+        totalAgents: parseInt(totalAgentsData?.rows?.[0]?.count || 0),
         dialerStats: {
           total: parseInt(dialerStatsData?.rows?.[0]?.total_sales || 0),
           accepted: parseInt(dialerStatsData?.rows?.[0]?.accepted || 0),
@@ -107,9 +110,29 @@ const getDashboardCharts = async (req, res, next) => {
   try {
     const isUser = req.user.role === 'QA Agent';
     const userId = req.user.id;
+
+    const startDate = req.query.startDate;
+    const endDate = req.query.endDate;
+
+    let dateCond = '';
+    let evalParams = [];
+    let pIdx = 1;
+
+    if (isUser) {
+      evalParams.push(userId);
+      pIdx++;
+    }
+
+    if (startDate && endDate) {
+      dateCond = ` AND DATE(evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $${pIdx} AND $${pIdx + 1}`;
+      evalParams.push(startDate, endDate);
+      pIdx += 2;
+    }
+
     // For Users: filter evaluations by who performed them (evaluated_by)
-    const baseWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1` : `WHERE is_deleted = FALSE`;
-    const params = isUser ? [userId] : [];
+    const baseWhere = isUser
+      ? `WHERE is_deleted = FALSE AND evaluated_by = $1${dateCond}`
+      : `WHERE is_deleted = FALSE${dateCond ? dateCond.replace(/^ AND /, ' AND ') : ''}`;
 
     // Agent-wise QA Score (top 10) - Only relevant for Managers
     let agentScores = { rows: [] };
@@ -121,10 +144,11 @@ const getDashboardCharts = async (req, res, next) => {
                 COUNT(CASE WHEN status = 'Pass' THEN 1 END) as passed,
                 COUNT(CASE WHEN status = 'Fail' THEN 1 END) as failed
          FROM qa_evaluations
-         WHERE is_deleted = FALSE
+         ${baseWhere}
          GROUP BY agent_name, agent_id
          ORDER BY avg_score DESC
-         LIMIT 10`
+         LIMIT 10`,
+        evalParams
       );
     }
 
@@ -138,7 +162,8 @@ const getDashboardCharts = async (req, res, next) => {
        FROM qa_evaluations
        ${baseWhere}
        GROUP BY campaign_name
-       ORDER BY avg_score DESC`, params
+       ORDER BY avg_score DESC`,
+      evalParams
     );
 
     // Critical Error Summary
@@ -146,20 +171,28 @@ const getDashboardCharts = async (req, res, next) => {
       ? `SELECT ece.error_type, ece.severity, COUNT(*) as count
          FROM evaluation_critical_errors ece
          JOIN qa_evaluations qe ON ece.evaluation_id = qe.id
-         WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE
+         WHERE qe.evaluated_by = $1 AND qe.is_deleted = FALSE ${startDate && endDate ? `AND DATE(qe.evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $2 AND $3` : ''}
          GROUP BY ece.error_type, ece.severity
          ORDER BY count DESC
          LIMIT 10`
-      : `SELECT error_type, severity, COUNT(*) as count
-         FROM evaluation_critical_errors
-         GROUP BY error_type, severity
+      : `SELECT ece.error_type, ece.severity, COUNT(*) as count
+         FROM evaluation_critical_errors ece
+         JOIN qa_evaluations qe ON ece.evaluation_id = qe.id
+         WHERE qe.is_deleted = FALSE ${startDate && endDate ? `AND DATE(qe.evaluation_date AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2` : ''}
+         GROUP BY ece.error_type, ece.severity
          ORDER BY count DESC
          LIMIT 10`;
+
+    const critParams = isUser
+      ? (startDate && endDate ? [userId, startDate, endDate] : [userId])
+      : (startDate && endDate ? [startDate, endDate] : []);
          
-    const criticalErrorSummary = await query(criticalErrorSummaryQuery, params);
+    const criticalErrorSummary = await query(criticalErrorSummaryQuery, critParams);
 
     // Monthly QA Performance (last 6 months)
-    const monthlyWhere = isUser ? `WHERE is_deleted = FALSE AND evaluated_by = $1 AND evaluation_date >= NOW() - INTERVAL '6 months'` : `WHERE is_deleted = FALSE AND evaluation_date >= NOW() - INTERVAL '6 months'`;
+    const monthlyWhere = isUser
+      ? `WHERE is_deleted = FALSE AND evaluated_by = $1 AND evaluation_date >= NOW() - INTERVAL '6 months'`
+      : `WHERE is_deleted = FALSE AND evaluation_date >= NOW() - INTERVAL '6 months'`;
     const monthlyPerformance = await query(
       `SELECT TO_CHAR(evaluation_date, 'YYYY-MM') as month,
               ROUND(AVG(total_score)::numeric, 2) as avg_score,
@@ -169,14 +202,19 @@ const getDashboardCharts = async (req, res, next) => {
        FROM qa_evaluations
        ${monthlyWhere}
        GROUP BY TO_CHAR(evaluation_date, 'YYYY-MM')
-       ORDER BY month ASC`, params
+       ORDER BY month ASC`,
+      isUser ? [userId] : []
     );
 
     // Feedback status distribution
+    const fbDateCond = (startDate && endDate) ? ` AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $${isUser ? 2 : 1} AND $${isUser ? 3 : 2}` : '';
     const feedbackStatusQuery = isUser
-      ? `SELECT feedback_status, COUNT(*) as count FROM feedback WHERE agent_user_id = $1 GROUP BY feedback_status ORDER BY count DESC`
-      : `SELECT feedback_status, COUNT(*) as count FROM feedback GROUP BY feedback_status ORDER BY count DESC`;
-    const feedbackStatus = await query(feedbackStatusQuery, params);
+      ? `SELECT feedback_status, COUNT(*) as count FROM feedback WHERE agent_user_id = $1${fbDateCond} GROUP BY feedback_status ORDER BY count DESC`
+      : `SELECT feedback_status, COUNT(*) as count FROM feedback WHERE 1=1${fbDateCond} GROUP BY feedback_status ORDER BY count DESC`;
+    const fbParams = isUser
+      ? (startDate && endDate ? [userId, startDate, endDate] : [userId])
+      : (startDate && endDate ? [startDate, endDate] : []);
+    const feedbackStatus = await query(feedbackStatusQuery, fbParams);
 
     res.json({
       success: true,
