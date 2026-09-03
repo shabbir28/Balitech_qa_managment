@@ -31,27 +31,35 @@ if (!process.env.JWT_SECRET) {
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+const NODE_ENV = process.env.NODE_ENV || 'production';
+
+// ── Trust Proxy (required for rate-limit behind Nginx/load balancer) ──
+app.set('trust proxy', 1);
 
 // ── Security Middleware ──────────────────────────────────────────────
 app.use(helmet({
   crossOriginResourcePolicy: { policy: 'cross-origin' },
 }));
 
-// Rate limiting
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 500,
-  message: { success: false, message: 'Too many requests, please try again later.' },
-});
-app.use('/api', limiter);
-
-// Auth rate limiting (stricter)
+// ── Auth rate limiting (stricter — MUST be registered BEFORE general limiter) ──
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 20,                   // 20 login attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { success: false, message: 'Too many login attempts. Please try again later.' },
 });
 app.use('/api/auth/login', authLimiter);
+
+// ── General API rate limiting ─────────────────────────────────────────
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 500,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { success: false, message: 'Too many requests, please try again later.' },
+});
+app.use('/api', limiter);
 
 // ── CORS ─────────────────────────────────────────────────────────────
 app.use(cors({
@@ -66,8 +74,11 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // ── Logging ───────────────────────────────────────────────────────────
-if (process.env.NODE_ENV === 'development') {
+if (NODE_ENV === 'development') {
   app.use(morgan('dev'));
+} else {
+  // Use combined format in production for proper access log monitoring
+  app.use(morgan('combined'));
 }
 
 // ── Static Uploads ────────────────────────────────────────────────────
@@ -104,7 +115,7 @@ initSalesSyncCron();
 app.listen(PORT, () => {
   console.log(`\n🚀 BPO QA Management System API`);
   console.log(`   Server running on http://localhost:${PORT}`);
-  console.log(`   Environment: ${process.env.NODE_ENV}`);
+  console.log(`   Environment: ${NODE_ENV}`);
   console.log(`   Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}\n`);
 });
 

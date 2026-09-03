@@ -364,10 +364,20 @@ const completeAssignment = async (req, res, next) => {
  */
 const deleteAssignment = async (req, res, next) => {
   try {
+    let result;
     if (req.user.role === 'Super Admin') {
-      await query('DELETE FROM lead_assignments WHERE id = $1', [req.params.id]);
+      result = await query(
+        'DELETE FROM lead_assignments WHERE id = $1 RETURNING id',
+        [req.params.id]
+      );
     } else {
-      await query('DELETE FROM lead_assignments WHERE id = $1 AND assigned_by = $2', [req.params.id, req.user.id]);
+      result = await query(
+        'DELETE FROM lead_assignments WHERE id = $1 AND assigned_by = $2 RETURNING id',
+        [req.params.id, req.user.id]
+      );
+    }
+    if (!result.rows.length) {
+      return res.status(404).json({ success: false, message: 'Assignment not found or you do not have permission to delete it.' });
     }
     res.json({ success: true, message: 'Assignment deleted.' });
   } catch (err) { next(err); }
@@ -385,15 +395,44 @@ const createManagedUser = async (req, res, next) => {
     if (!name || !email || !password || !role_id)
       return res.status(400).json({ success: false, message: 'name, email, password, and role_id are required.' });
 
-    const existing = await query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email]);
+    // Name length validation
+    if (name.trim().length < 2 || name.trim().length > 100) {
+      return res.status(400).json({ success: false, message: 'Name must be between 2 and 100 characters.' });
+    }
+
+    // Password strength validation
+    if (password.length < 8 || !/[a-zA-Z]/.test(password) || !/[0-9]/.test(password)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password must be at least 8 characters and contain at least one letter and one number.',
+      });
+    }
+
+    // Validate role_id
+    const parsedRoleId = parseInt(role_id, 10);
+    if (isNaN(parsedRoleId) || parsedRoleId < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid role_id.' });
+    }
+
+    // Normalize email
+    const normalizedEmail = email.toLowerCase().trim();
+
+    const existing = await query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [normalizedEmail]);
     if (existing.rows.length) return res.status(409).json({ success: false, message: 'Email already in use.' });
 
-    const hashed = await bcrypt.hash(password, 10);
+    const hashed = await bcrypt.hash(password, 12);
     const result = await query(
       `INSERT INTO users (name, email, password, role_id, department, campaign_id)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, name, email, role_id, department, campaign_id`,
-      [name, email, hashed, role_id, department || '', campaign_id || null]
+      [
+        name.trim().substring(0, 100),
+        normalizedEmail,
+        hashed,
+        parsedRoleId,
+        department ? String(department).trim().substring(0, 100) : '',
+        campaign_id || null,
+      ]
     );
     res.status(201).json({ success: true, data: result.rows[0], message: 'User created successfully.' });
   } catch (err) { next(err); }

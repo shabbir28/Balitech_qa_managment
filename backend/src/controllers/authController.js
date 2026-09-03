@@ -3,6 +3,31 @@ const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
 
 /**
+ * Validate password strength
+ * Min 8 chars, must have at least 1 letter and 1 number
+ */
+const validatePassword = (password) => {
+  if (!password || password.length < 8) {
+    return 'Password must be at least 8 characters long.';
+  }
+  if (!/[a-zA-Z]/.test(password)) {
+    return 'Password must contain at least one letter.';
+  }
+  if (!/[0-9]/.test(password)) {
+    return 'Password must contain at least one number.';
+  }
+  return null; // null = valid
+};
+
+/**
+ * Validate email format
+ */
+const validateEmail = (email) => {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return emailRegex.test(email);
+};
+
+/**
  * POST /api/auth/login
  */
 const login = async (req, res, next) => {
@@ -78,26 +103,57 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Name, email, password, and role are required.' });
     }
 
+    // Name length validation
+    if (name.trim().length < 2 || name.trim().length > 100) {
+      return res.status(400).json({ success: false, message: 'Name must be between 2 and 100 characters.' });
+    }
+
+    // Email format validation
+    if (!validateEmail(email)) {
+      return res.status(400).json({ success: false, message: 'Invalid email address format.' });
+    }
+
+    // Password strength validation
+    const passwordError = validatePassword(password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    // role_id must be a positive integer
+    const parsedRoleId = parseInt(role_id, 10);
+    if (isNaN(parsedRoleId) || parsedRoleId < 1) {
+      return res.status(400).json({ success: false, message: 'Invalid role_id.' });
+    }
+
     // Check if email exists
-    const existing = await query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email.toLowerCase()]);
+    const existing = await query('SELECT id FROM users WHERE email = $1 AND deleted_at IS NULL', [email.toLowerCase().trim()]);
     if (existing.rows.length > 0) {
       return res.status(409).json({ success: false, message: 'Email already registered.' });
     }
 
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(password, 12); // increased from 10 to 12 rounds
 
     const result = await query(
       `INSERT INTO users (name, email, password, role_id, agent_id, department, phone, campaign_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING id, name, email, role_id, agent_id, department, campaign_id, created_at`,
-      [name.trim(), email.toLowerCase().trim(), hashedPassword, role_id, agent_id || null, department || null, phone || null, campaign_id || null]
+      [
+        name.trim().substring(0, 100),
+        email.toLowerCase().trim(),
+        hashedPassword,
+        parsedRoleId,
+        agent_id ? String(agent_id).trim().substring(0, 50) : null,
+        department ? String(department).trim().substring(0, 100) : null,
+        phone ? String(phone).trim().substring(0, 20) : null,
+        campaign_id || null,
+      ]
     );
 
     // If agent role, create agent record
-    if (parseInt(role_id) === 4 && agent_id) {
+    if (parsedRoleId === 4 && agent_id) {
       await query(
         'INSERT INTO agents (name, agent_id, user_id, email, department) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (agent_id) DO NOTHING',
-        [name.trim(), agent_id, result.rows[0].id, email.toLowerCase(), department || null]
+        [name.trim(), agent_id, result.rows[0].id, email.toLowerCase().trim(), department || null]
       );
     }
 
@@ -125,6 +181,10 @@ const getMe = async (req, res, next) => {
       [req.user.id]
     );
 
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
     res.json({ success: true, user: result.rows[0] });
   } catch (error) {
     next(error);
@@ -137,10 +197,21 @@ const getMe = async (req, res, next) => {
 const updateProfile = async (req, res, next) => {
   try {
     const { name, department, phone } = req.body;
+
+    // Validate name length if provided
+    if (name !== undefined && (name.trim().length < 2 || name.trim().length > 100)) {
+      return res.status(400).json({ success: false, message: 'Name must be between 2 and 100 characters.' });
+    }
+
     const result = await query(
       `UPDATE users SET name = COALESCE($1, name), department = COALESCE($2, department), phone = COALESCE($3, phone), updated_at = NOW()
        WHERE id = $4 RETURNING id, name, email, role_id, agent_id, department, phone`,
-      [name, department, phone, req.user.id]
+      [
+        name ? name.trim().substring(0, 100) : null,
+        department ? String(department).trim().substring(0, 100) : null,
+        phone ? String(phone).trim().substring(0, 20) : null,
+        req.user.id,
+      ]
     );
     res.json({ success: true, message: 'Profile updated.', user: result.rows[0] });
   } catch (error) {
@@ -158,13 +229,28 @@ const changePassword = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Current and new password required.' });
     }
 
+    // Validate new password strength
+    const passwordError = validatePassword(new_password);
+    if (passwordError) {
+      return res.status(400).json({ success: false, message: passwordError });
+    }
+
+    // Prevent reusing the same password
+    if (current_password === new_password) {
+      return res.status(400).json({ success: false, message: 'New password must be different from your current password.' });
+    }
+
     const result = await query('SELECT password FROM users WHERE id = $1', [req.user.id]);
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
     const valid = await bcrypt.compare(current_password, result.rows[0].password);
     if (!valid) {
       return res.status(400).json({ success: false, message: 'Current password is incorrect.' });
     }
 
-    const hashed = await bcrypt.hash(new_password, 10);
+    const hashed = await bcrypt.hash(new_password, 12); // 12 rounds
     await query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashed, req.user.id]);
 
     res.json({ success: true, message: 'Password changed successfully.' });
@@ -174,3 +260,4 @@ const changePassword = async (req, res, next) => {
 };
 
 module.exports = { login, register, getMe, updateProfile, changePassword };
+

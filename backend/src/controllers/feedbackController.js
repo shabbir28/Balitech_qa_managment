@@ -203,6 +203,11 @@ const addCoachingComment = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Comment is required.' });
     }
 
+    // Limit comment length to prevent abuse
+    if (comment.trim().length > 2000) {
+      return res.status(400).json({ success: false, message: 'Comment must not exceed 2000 characters.' });
+    }
+
     // Mark as coaching required
     await query(
       `UPDATE feedback SET feedback_status = 'Coaching Required', coaching_required = TRUE, updated_at = NOW() WHERE id = $1`,
@@ -225,7 +230,18 @@ const addCoachingComment = async (req, res, next) => {
  */
 const updateImprovementSuggestions = async (req, res, next) => {
   try {
+    // Only admins and QA Admin can update improvement suggestions
+    if (!['Super Admin', 'QA Admin'].includes(req.user.role)) {
+      return res.status(403).json({ success: false, message: 'Access denied. Only administrators can update improvement suggestions.' });
+    }
+
     const { improvement_suggestions } = req.body;
+
+    // Length limit
+    if (improvement_suggestions && String(improvement_suggestions).length > 5000) {
+      return res.status(400).json({ success: false, message: 'Improvement suggestions must not exceed 5000 characters.' });
+    }
+
     const result = await query(
       'UPDATE feedback SET improvement_suggestions = $1, updated_at = NOW() WHERE id = $2 RETURNING *',
       [improvement_suggestions, req.params.id]

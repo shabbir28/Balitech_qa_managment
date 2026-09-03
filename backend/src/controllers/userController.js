@@ -6,8 +6,11 @@ const { query } = require('../config/database');
  */
 const getUsers = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, search, role_id } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { page = 1, search, role_id } = req.query;
+    // Cap limit to max 100 to prevent massive queries
+    const limit = Math.min(parseInt(req.query.limit, 10) || 20, 100);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+    const offset = (parsedPage - 1) * limit;
 
     const conditions = ['u.deleted_at IS NULL'];
     const params = [];
@@ -19,16 +22,19 @@ const getUsers = async (req, res, next) => {
       pc++;
     }
     if (role_id) {
-      conditions.push(`u.role_id = $${pc}`);
-      params.push(role_id);
-      pc++;
+      const parsedRoleId = parseInt(role_id, 10);
+      if (!isNaN(parsedRoleId) && parsedRoleId > 0) {
+        conditions.push(`u.role_id = $${pc}`);
+        params.push(parsedRoleId);
+        pc++;
+      }
     }
 
     const where = 'WHERE ' + conditions.join(' AND ');
     const countResult = await query(`SELECT COUNT(*) FROM users u ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    params.push(parseInt(limit)); params.push(offset);
+    params.push(limit); params.push(offset);
 
     const result = await query(
       `SELECT u.id, u.name, u.email, u.role_id, u.agent_id, u.department, u.phone, u.is_active, u.last_login, u.created_at, u.campaign_id,
@@ -44,7 +50,7 @@ const getUsers = async (req, res, next) => {
     res.json({
       success: true,
       data: result.rows,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page: parsedPage, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     next(error);
@@ -57,6 +63,13 @@ const getUsers = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const { name, role_id, department, phone, is_active, agent_id, campaign_id } = req.body;
+
+    // Validate role_id if provided
+    const parsedRoleId = role_id !== undefined ? parseInt(role_id, 10) : undefined;
+    if (role_id !== undefined && (isNaN(parsedRoleId) || parsedRoleId < 1)) {
+      return res.status(400).json({ success: false, message: 'Invalid role_id.' });
+    }
+
     const result = await query(
       `UPDATE users SET
         name = COALESCE($1, name),
@@ -69,7 +82,16 @@ const updateUser = async (req, res, next) => {
         updated_at = NOW()
        WHERE id = $8 AND deleted_at IS NULL
        RETURNING id, name, email, role_id, agent_id, department, phone, is_active, campaign_id`,
-      [name, role_id, department, phone, is_active, agent_id, campaign_id ?? null, req.params.id]
+      [
+        name ? String(name).trim().substring(0, 100) : null,
+        parsedRoleId || null,
+        department ? String(department).trim().substring(0, 100) : null,
+        phone ? String(phone).trim().substring(0, 20) : null,
+        is_active,
+        agent_id ? String(agent_id).trim().substring(0, 50) : null,
+        campaign_id ?? null,
+        req.params.id,
+      ]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'User not found.' });
@@ -111,8 +133,25 @@ const resetPassword = async (req, res, next) => {
     if (!new_password) {
       return res.status(400).json({ success: false, message: 'new_password is required.' });
     }
-    const hashed = await bcrypt.hash(new_password, 10);
-    await query('UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2', [hashed, req.params.id]);
+
+    // Validate password strength
+    if (new_password.length < 8) {
+      return res.status(400).json({ success: false, message: 'Password must be at least 8 characters long.' });
+    }
+    if (!/[a-zA-Z]/.test(new_password) || !/[0-9]/.test(new_password)) {
+      return res.status(400).json({ success: false, message: 'Password must contain at least one letter and one number.' });
+    }
+
+    const hashed = await bcrypt.hash(new_password, 12);
+    const result = await query(
+      'UPDATE users SET password = $1, updated_at = NOW() WHERE id = $2 AND deleted_at IS NULL RETURNING id',
+      [hashed, req.params.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ success: false, message: 'User not found.' });
+    }
+
     res.json({ success: true, message: 'Password reset successfully.' });
   } catch (error) {
     next(error);

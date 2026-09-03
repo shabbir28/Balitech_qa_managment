@@ -17,6 +17,40 @@ const calculateTotalScore = (scores) => {
 };
 
 /**
+ * Validate that a score is between 0 and 100
+ */
+const validateScore = (value, fieldName) => {
+  const parsed = parseFloat(value);
+  if (value !== undefined && value !== null && value !== '') {
+    if (isNaN(parsed) || parsed < 0 || parsed > 100) {
+      return `${fieldName} must be a number between 0 and 100.`;
+    }
+  }
+  return null;
+};
+
+/**
+ * Validate all evaluation scores
+ */
+const validateAllScores = (body) => {
+  const scoreFields = [
+    ['opening_script_score', 'Opening Script Score'],
+    ['verification_score', 'Verification Score'],
+    ['product_knowledge_score', 'Product Knowledge Score'],
+    ['compliance_score', 'Compliance Score'],
+    ['communication_score', 'Communication Score'],
+    ['closing_score', 'Closing Score'],
+    ['call_handling_score', 'Call Handling Score'],
+  ];
+  for (const [field, label] of scoreFields) {
+    const err = validateScore(body[field], label);
+    if (err) return err;
+  }
+  return null;
+};
+
+
+/**
  * POST /api/evaluations
  */
 const createEvaluation = async (req, res, next) => {
@@ -31,6 +65,17 @@ const createEvaluation = async (req, res, next) => {
 
     if (!call_lead_id) {
       return res.status(400).json({ success: false, message: 'call_lead_id is required.' });
+    }
+
+    // Validate all score ranges (0-100)
+    const scoreError = validateAllScores(req.body);
+    if (scoreError) {
+      return res.status(400).json({ success: false, message: scoreError });
+    }
+
+    // qa_remarks length limit
+    if (qa_remarks && String(qa_remarks).length > 3000) {
+      return res.status(400).json({ success: false, message: 'QA remarks must not exceed 3000 characters.' });
     }
 
     // Fetch call lead
@@ -267,6 +312,17 @@ const updateEvaluation = async (req, res, next) => {
       compliance_score, communication_score, closing_score, call_handling_score,
       qa_remarks, evaluation_date,
     } = req.body;
+
+    // Validate all score ranges (0-100)
+    const scoreError = validateAllScores(req.body);
+    if (scoreError) {
+      return res.status(400).json({ success: false, message: scoreError });
+    }
+
+    // qa_remarks length limit
+    if (qa_remarks && String(qa_remarks).length > 3000) {
+      return res.status(400).json({ success: false, message: 'QA remarks must not exceed 3000 characters.' });
+    }
 
     const total_score = calculateTotalScore({
       opening_script_score, verification_score, product_knowledge_score,
