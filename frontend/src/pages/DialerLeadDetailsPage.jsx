@@ -58,13 +58,16 @@ export default function DialerLeadDetailsPage() {
       if (assignmentId) {
         const toastId = toast.loading('Attaching recording to existing assignment...');
         const response = await api.put(`/calls/${assignmentId}/recording`, {
-          recording_url: recording.location
+          recording_url: recording.location,
+          recordings: recordings
         });
         toast.dismiss(toastId);
         
         if (response.data.success) {
           toast.success('Ready to evaluate!');
-          navigate(`/evaluations/new?call_id=${assignmentId}`);
+          navigate(`/evaluations/new?call_id=${assignmentId}&lead_id=${leadId}&dialer=${encodeURIComponent(dialerParam)}`, {
+            state: { recordings, initialRecordingUrl: recording.location }
+          });
         }
       } else {
         const toastId = toast.loading('Importing lead for evaluation...');
@@ -72,13 +75,16 @@ export default function DialerLeadDetailsPage() {
           lead_id: leadId,
           recording_url: recording.location,
           agent_name: agentNameParam,
-          dialer: dialerParam
+          dialer: dialerParam,
+          recordings: recordings
         });
         toast.dismiss(toastId);
         
         if (response.data.success) {
           toast.success('Ready to evaluate!');
-          navigate(`/evaluations/new?call_id=${response.data.call_id}${teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''}`);
+          navigate(`/evaluations/new?call_id=${response.data.call_id}&lead_id=${leadId}&dialer=${encodeURIComponent(dialerParam)}${teamParam ? `&team=${encodeURIComponent(teamParam)}` : ''}`, {
+            state: { recordings, initialRecordingUrl: recording.location }
+          });
         }
       }
     } catch (error) {

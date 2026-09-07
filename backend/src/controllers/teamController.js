@@ -138,7 +138,9 @@ const getAssignments = async (req, res, next) => {
     let params = [];
     let paramCount = 1;
 
-    if (!['Super Admin', 'QA Admin'].includes(role)) {
+    const isLeadership = ['Super Admin', 'QA Admin', 'Manager'].includes(role);
+
+    if (!isLeadership) {
       conditions.push(`la.assigned_to = $${paramCount++}`);
       params.push(req.user.id);
       // If the user has an assigned campaign, filter leads to that campaign only
@@ -151,7 +153,7 @@ const getAssignments = async (req, res, next) => {
       if (user_id) {
         conditions.push(`la.assigned_to = $${paramCount++}`);
         params.push(user_id);
-      } else if (req.query.my_assigned === 'true') {
+      } else if (role === 'Manager' || req.query.my_assigned === 'true') {
         conditions.push(`la.assigned_by = $${paramCount++}`);
         params.push(req.user.id);
       }
@@ -165,20 +167,20 @@ const getAssignments = async (req, res, next) => {
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     // Join call_leads in count query if filtering by campaign
-    const countJoin = (!['Super Admin', 'QA Admin'].includes(role) && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
+    const countJoin = (!isLeadership && req.user.campaign_id) ? 'JOIN call_leads cl ON la.call_lead_id = cl.id' : '';
     const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
     // Build stats params accurately
     let statsWhere = '';
     let statsParams = [];
-    if (!['Super Admin', 'QA Admin'].includes(role)) {
+    if (!isLeadership) {
       statsWhere = 'WHERE la.assigned_to = $1';
       statsParams = [req.user.id];
     } else if (user_id) {
       statsWhere = 'WHERE la.assigned_to = $1';
       statsParams = [user_id];
-    } else if (req.query.my_assigned === 'true') {
+    } else if (role === 'Manager' || req.query.my_assigned === 'true') {
       statsWhere = 'WHERE la.assigned_by = $1';
       statsParams = [req.user.id];
     }
@@ -190,8 +192,11 @@ const getAssignments = async (req, res, next) => {
         COUNT(CASE WHEN la.status = 'accepted' THEN 1 END) as accepted,
         COUNT(CASE WHEN la.status = 'rejected' THEN 1 END) as rejected,
         COUNT(CASE WHEN la.status = 'completed' THEN 1 END) as completed,
-        COUNT(CASE WHEN e.status = 'Pass' THEN 1 END) as eval_accepted,
-        COUNT(CASE WHEN e.status = 'Fail' THEN 1 END) as eval_rejected
+        COUNT(CASE WHEN e.status IN ('Accepted', 'Pass') THEN 1 END) as eval_accepted,
+        COUNT(CASE WHEN e.status IN ('Rejected', 'Fail') THEN 1 END) as eval_rejected,
+        COUNT(CASE WHEN e.status = 'Decline' THEN 1 END) as eval_decline,
+        COUNT(CASE WHEN e.status IN ('Not Billable', 'Not Bilable') THEN 1 END) as eval_not_billable,
+        COUNT(CASE WHEN e.status = 'Flagged' THEN 1 END) as eval_flagged
       FROM lead_assignments la
       LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
       ${statsWhere}
@@ -202,7 +207,7 @@ const getAssignments = async (req, res, next) => {
 
     const result = await query(
       `SELECT la.*,
-        cl.customer_phone, cl.agent_name, cl.campaign_name, cl.call_date, cl.call_duration, cl.recording_url, cl.disposition,
+        cl.customer_phone, cl.agent_name, cl.campaign_name, cl.call_date, cl.call_duration, cl.recording_url, cl.recordings, cl.disposition,
         c.name as dialer_campaign,
         u1.name as assigned_to_name, u1.email as assigned_to_email,
         u2.name as assigned_by_name,
@@ -214,7 +219,7 @@ const getAssignments = async (req, res, next) => {
        LEFT JOIN upload_batches ub ON cl.batch_id = ub.id
        JOIN users u1 ON la.assigned_to = u1.id
        JOIN users u2 ON la.assigned_by = u2.id
-       LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.evaluated_by = la.assigned_to
+       LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.is_deleted = FALSE
        ${where}
        ORDER BY la.assigned_at DESC
        LIMIT $${paramCount++} OFFSET $${paramCount++}`,
@@ -365,7 +370,7 @@ const completeAssignment = async (req, res, next) => {
 const deleteAssignment = async (req, res, next) => {
   try {
     let result;
-    if (req.user.role === 'Super Admin') {
+    if (['Super Admin', 'QA Admin'].includes(req.user.role)) {
       result = await query(
         'DELETE FROM lead_assignments WHERE id = $1 RETURNING id',
         [req.params.id]

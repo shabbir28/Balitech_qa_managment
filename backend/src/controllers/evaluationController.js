@@ -1,7 +1,7 @@
 const { query, getClient } = require('../config/database');
 
 // Must stay in sync with the qa_evaluations_status_check constraint.
-const VALID_STATUSES = ['Pass', 'Fail', 'Flagged'];
+const VALID_STATUSES = ['Pass', 'Fail', 'Flagged', 'Accepted', 'Rejected', 'Decline', 'Not Billable', 'Not Bilable'];
 
 /**
  * Calculate total score from individual scores
@@ -60,7 +60,7 @@ const createEvaluation = async (req, res, next) => {
       call_lead_id,
       opening_script_score, verification_score, product_knowledge_score,
       compliance_score, communication_score, closing_score, call_handling_score,
-      qa_remarks, evaluation_date, critical_errors = [],
+      qa_remarks, evaluation_date, critical_errors = [], metadata = {}, recordings = []
     } = req.body;
 
     if (!call_lead_id) {
@@ -90,15 +90,13 @@ const createEvaluation = async (req, res, next) => {
 
     const call = callResult.rows[0];
 
-    // Check already evaluated by phone number to prevent evaluating the same number twice
-    const alreadyEval = await query(
-      `SELECT q.id FROM qa_evaluations q 
-       JOIN call_leads cl ON q.call_lead_id = cl.id 
-       WHERE cl.customer_phone = $1 AND q.is_deleted = FALSE`,
-      [call.customer_phone]
+    // Check already evaluated for THIS call
+    const alreadyEvalCall = await query(
+      `SELECT q.id FROM qa_evaluations q WHERE q.call_lead_id = $1 AND q.is_deleted = FALSE`,
+      [call_lead_id]
     );
-    if (alreadyEval.rows.length > 0) {
-      return res.status(409).json({ success: false, message: 'This phone number has already been evaluated.' });
+    if (alreadyEvalCall.rows.length > 0) {
+      return res.status(409).json({ success: false, message: 'This call has already been evaluated.' });
     }
 
     const total_score = calculateTotalScore({
@@ -121,6 +119,10 @@ const createEvaluation = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'QA remarks are required when critical errors are selected.' });
     }
 
+    const recsToSave = (call.recordings && Array.isArray(call.recordings) && call.recordings.length > 0)
+      ? call.recordings
+      : (recordings.length > 0 ? recordings : (metadata?.recordings || []));
+
     await client.query('BEGIN');
 
     const evalResult = await client.query(
@@ -129,8 +131,8 @@ const createEvaluation = async (req, res, next) => {
         opening_script_score, verification_score, product_knowledge_score,
         compliance_score, communication_score, closing_score, call_handling_score,
         total_score, passing_score, status, has_critical_error, qa_remarks,
-        evaluation_date, evaluated_by, metadata
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+        evaluation_date, evaluated_by, metadata, recordings
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
       RETURNING *`,
       [
         call_lead_id, call.agent_name, call.agent_id, call.campaign_name, call.campaign_id,
@@ -142,12 +144,27 @@ const createEvaluation = async (req, res, next) => {
         parseFloat(communication_score) || 0,
         parseFloat(closing_score) || 0,
         parseFloat(call_handling_score) || 0,
-        total_score, passing_score, finalStatus, has_critical_error, qa_remarks,
+        total_score,
+        passing_score,
+        finalStatus,
+        has_critical_error,
+        qa_remarks || '',
         evaluation_date || new Date().toISOString().split('T')[0],
         req.user.id,
-        req.body.metadata ? JSON.stringify(req.body.metadata) : null
+        JSON.stringify(metadata || {}),
+        JSON.stringify(recsToSave || [])
       ]
     );
+
+    // If talkTime is provided in metadata, update call_duration in call_leads
+    if (metadata?.talkTime) {
+      await client.query('UPDATE call_leads SET call_duration = $1 WHERE id = $2', [metadata.talkTime, call_lead_id]);
+    }
+
+    // If call_leads does not have recordings cached, cache recsToSave
+    if (recsToSave.length > 0 && (!call.recordings || (Array.isArray(call.recordings) && call.recordings.length === 0))) {
+      await client.query('UPDATE call_leads SET recordings = $1::jsonb WHERE id = $2', [JSON.stringify(recsToSave), call_lead_id]);
+    }
 
     const evaluation = evalResult.rows[0];
 
@@ -350,20 +367,41 @@ const updateEvaluation = async (req, res, next) => {
     const passing_score = existing.rows[0].passing_score;
     const status = req.body.status || (total_score < passing_score ? 'Fail' : 'Pass');
 
+    const recsToUpdate = req.body.recordings || req.body.metadata?.recordings || null;
+    const recsJson = recsToUpdate && Array.isArray(recsToUpdate) ? JSON.stringify(recsToUpdate) : null;
+
     const result = await query(
       `UPDATE qa_evaluations SET
         opening_script_score=$1, verification_score=$2, product_knowledge_score=$3,
         compliance_score=$4, communication_score=$5, closing_score=$6, call_handling_score=$7,
-        total_score=$8, status=$9, qa_remarks=$10, evaluation_date=$11, metadata=$12, updated_at=NOW()
-       WHERE id=$13 AND is_deleted=FALSE RETURNING *`,
+        total_score=$8, status=$9, qa_remarks=$10, evaluation_date=$11, metadata=$12,
+        recordings=COALESCE($13::jsonb, recordings), updated_at=NOW()
+       WHERE id=$14 AND is_deleted=FALSE RETURNING *`,
       [
         parseFloat(opening_script_score) || 0, parseFloat(verification_score) || 0,
         parseFloat(product_knowledge_score) || 0, parseFloat(compliance_score) || 0,
         parseFloat(communication_score) || 0, parseFloat(closing_score) || 0,
         parseFloat(call_handling_score) || 0, total_score, status, qa_remarks,
-        evaluation_date, req.body.metadata ? JSON.stringify(req.body.metadata) : null, req.params.id,
+        evaluation_date, req.body.metadata ? JSON.stringify(req.body.metadata) : null,
+        recsJson, req.params.id,
       ]
     );
+
+    // If talkTime is provided in metadata, update call_duration in call_leads
+    if (req.body.metadata?.talkTime) {
+      await query(
+        'UPDATE call_leads SET call_duration = $1 WHERE id = (SELECT call_lead_id FROM qa_evaluations WHERE id = $2)',
+        [req.body.metadata.talkTime, req.params.id]
+      );
+    }
+
+    // If recordings are provided, sync to call_leads
+    if (recsJson) {
+      await query(
+        'UPDATE call_leads SET recordings = $1::jsonb WHERE id = (SELECT call_lead_id FROM qa_evaluations WHERE id = $2)',
+        [recsJson, req.params.id]
+      );
+    }
 
     res.json({ success: true, message: 'Evaluation updated.', data: result.rows[0] });
   } catch (error) {

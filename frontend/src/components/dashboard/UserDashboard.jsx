@@ -85,7 +85,6 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
     { title: 'Dialer Sales',    desc: 'Live sales by disposition',    icon: Database,       color: 'indigo',  path: '/dialer-sales' },
     { title: 'Compare Sales',   desc: 'Match client approval files',  icon: ListChecks,     color: 'teal',    path: '/dialer-sales/compare' },
     { title: 'My Assignments',  desc: 'Leads assigned to me',         icon: ClipboardCheck, color: 'violet',  path: '/my-assignments' },
-    { title: 'Transfer QA',     desc: 'QA handoff & transfer',        icon: Activity,       color: 'amber',   path: '/transfer-qa' },
   ];
 
   return (

@@ -122,8 +122,10 @@ const EvaluationListPage = () => {
       const enriched = res.data.data.map(a => {
         let displayStatus = 'pending';
         if (a.status === 'completed' || a.evaluation_status) {
-            if (a.evaluation_status === 'Pass') displayStatus = 'accepted';
-            else if (a.evaluation_status === 'Fail') displayStatus = 'rejected';
+            if (a.evaluation_status === 'Pass' || a.evaluation_status === 'Accepted') displayStatus = 'accepted';
+            else if (a.evaluation_status === 'Fail' || a.evaluation_status === 'Rejected') displayStatus = 'rejected';
+            else if (a.evaluation_status === 'Decline') displayStatus = 'decline';
+            else if (a.evaluation_status === 'Not Billable' || a.evaluation_status === 'Not Bilable') displayStatus = 'not_billable';
             else displayStatus = 'completed';
         } else if (a.status === 'rejected') {
             displayStatus = 'rejected (declined task)'; 
@@ -140,13 +142,14 @@ const EvaluationListPage = () => {
 
 
 
-  if (!hasRole('Super Admin', 'QA Admin')) {
+  if (!hasRole('Super Admin', 'QA Admin', 'Manager')) {
     return <div className="p-10 text-center text-slate-500">You do not have access to this page.</div>;
   }
 
   const filteredAssignments = userAssignments.filter(a => {
     if (assignmentFilter === 'all') return true;
-    return a.displayStatus === assignmentFilter || (assignmentFilter === 'rejected' && a.displayStatus === 'rejected (declined task)');
+    if (assignmentFilter === 'rejected') return a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)' || a.displayStatus === 'decline' || a.displayStatus === 'not_billable';
+    return a.displayStatus === assignmentFilter;
   });
 
   return (
@@ -313,10 +316,12 @@ const EvaluationListPage = () => {
                               <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
                                 a.displayStatus === 'accepted' ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30' :
                                 a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
-                                a.displayStatus === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                a.displayStatus === 'decline' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                a.displayStatus === 'not_billable' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
+                                a.displayStatus === 'pending' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/30' :
                                 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
                               }`}>
-                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'pending' ? 'Pending' : 'Completed'}
+                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : 'Completed'}
                               </span>
                             </td>
                             <td className="td">
@@ -329,7 +334,7 @@ const EvaluationListPage = () => {
                                     <Eye className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> View Form
                                   </button>
                                 )}
-                                {a.recording_url && (a.displayStatus === 'accepted' || a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)') && (
+                                {a.recording_url && a.displayStatus !== 'pending' && (
                                   <button
                                     onClick={() => setAudioAssignment(a)}
                                     className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 hover:bg-indigo-500/20 border border-indigo-500/30 text-indigo-400 rounded-lg text-xs font-semibold transition-all group"

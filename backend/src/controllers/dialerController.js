@@ -196,18 +196,38 @@ exports.getLeadInfo = async (req, res, next) => {
 
 exports.importLeadForEval = async (req, res, next) => {
   try {
-    const { lead_id, recording_url, agent_name, dialer = 'pharmacy' } = req.body;
+    const { lead_id, recording_url, agent_name, dialer = 'pharmacy', recordings = [] } = req.body;
     if (!lead_id || !recording_url) {
       return res.status(400).json({ success: false, message: 'lead_id and recording_url are required' });
     }
 
-    // Check if already imported by recording_url
-    const existing = await query('SELECT id, campaign_name FROM call_leads WHERE recording_url = $1 AND is_deleted = FALSE LIMIT 1', [recording_url]);
+    // Format recordings JSON
+    let recsJson = JSON.stringify(Array.isArray(recordings) ? recordings : []);
+
+    // Check if already imported by recording_url OR lead assignment
+    const existing = await query(
+      `SELECT id, campaign_name, recordings FROM call_leads 
+       WHERE (
+         recording_url = $1 
+         OR (notes LIKE $2 AND is_evaluated = FALSE)
+         OR (notes LIKE $3 AND is_evaluated = FALSE)
+         OR (notes LIKE $4 AND is_evaluated = FALSE)
+       ) AND is_deleted = FALSE LIMIT 1`,
+      [recording_url, `%VICI_LEAD:${lead_id}%`, `%Lead ID: ${lead_id}%`, `%Lead ID:${lead_id}%`]
+    );
     if (existing.rows.length > 0) {
       const existingId = existing.rows[0].id;
-      if (agent_name) {
-        await query('UPDATE call_leads SET agent_name = $1 WHERE id = $2', [agent_name, existingId]);
-      }
+      
+      // Update agent_name, recording_url and merge/update recordings
+      await query(
+        `UPDATE call_leads 
+         SET agent_name = COALESCE($1, agent_name),
+             recording_url = $2,
+             recordings = CASE WHEN $3::jsonb != '[]'::jsonb THEN $3::jsonb ELSE recordings END,
+             updated_at = NOW()
+         WHERE id = $4`,
+        [agent_name || null, recording_url, recsJson, existingId]
+      );
       
       // Auto-assign to self so it appears in the evaluations list
       await query(
@@ -230,8 +250,8 @@ exports.importLeadForEval = async (req, res, next) => {
     const campaignName = dialer === 'medicare' ? 'Medicare Dialer' : 'Pharmacy Dialer';
 
     const insertRes = await query(
-      `INSERT INTO call_leads (agent_name, agent_id, campaign_name, customer_name, customer_phone, call_date, recording_url, disposition) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING id`,
+      `INSERT INTO call_leads (agent_name, agent_id, campaign_name, customer_name, customer_phone, call_date, recording_url, disposition, recordings, notes) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
       [
         agent_name || lead.user || 'Unknown', 
         lead.user || 'Unknown', 
@@ -240,7 +260,9 @@ exports.importLeadForEval = async (req, res, next) => {
         lead.phone || 'Unknown', 
         callDate.toISOString(), 
         recording_url, 
-        lead.status || 'NEW'
+        lead.status || 'NEW',
+        recsJson,
+        `VICI_LEAD:${lead_id}`
       ]
     );
 

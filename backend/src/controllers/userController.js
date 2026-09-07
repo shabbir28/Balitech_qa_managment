@@ -70,6 +70,7 @@ const updateUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid role_id.' });
     }
 
+    const hasCampaignId = campaign_id !== undefined;
     const result = await query(
       `UPDATE users SET
         name = COALESCE($1, name),
@@ -78,9 +79,9 @@ const updateUser = async (req, res, next) => {
         phone = COALESCE($4, phone),
         is_active = COALESCE($5, is_active),
         agent_id = COALESCE($6, agent_id),
-        campaign_id = $7,
+        campaign_id = CASE WHEN $7::boolean THEN $8::integer ELSE campaign_id END,
         updated_at = NOW()
-       WHERE id = $8 AND deleted_at IS NULL
+       WHERE id = $9 AND deleted_at IS NULL
        RETURNING id, name, email, role_id, agent_id, department, phone, is_active, campaign_id`,
       [
         name ? String(name).trim().substring(0, 100) : null,
@@ -89,7 +90,8 @@ const updateUser = async (req, res, next) => {
         phone ? String(phone).trim().substring(0, 20) : null,
         is_active,
         agent_id ? String(agent_id).trim().substring(0, 50) : null,
-        campaign_id ?? null,
+        hasCampaignId,
+        campaign_id ? parseInt(campaign_id, 10) : null,
         req.params.id,
       ]
     );
@@ -207,10 +209,15 @@ const getManagedUsersStats = async (req, res, next) => {
     const { campaign, from_date, to_date, search } = req.query;
     
     let whereClause = "u.deleted_at IS NULL AND (r.name = 'QA Agent' OR u.id IN (SELECT evaluated_by FROM qa_evaluations WHERE is_deleted = FALSE))";
-    let params = [req.user.id];
-    let paramIdx = 2;
+    let params = [];
+    let paramIdx = 1;
 
-    let laConditions = "la.assigned_to = u.id AND la.assigned_by = $1";
+    const isManager = req.user.role === 'Manager';
+    let laConditions = 'la.assigned_to = u.id';
+    if (isManager) {
+      laConditions += ` AND la.assigned_by = $${paramIdx++}`;
+      params.push(req.user.id);
+    }
 
     if (campaign) {
       whereClause += ` AND c.name ILIKE $${paramIdx++}`;
@@ -234,8 +241,11 @@ const getManagedUsersStats = async (req, res, next) => {
       SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id, c.name as user_campaign_name,
         COUNT(DISTINCT la.id) as total_assigned,
         COUNT(DISTINCT CASE WHEN (la.status = 'pending' OR la.status = 'accepted') AND e.id IS NULL THEN la.id END) as pending,
-        COUNT(DISTINCT CASE WHEN e.status = 'Pass' THEN e.id END) as accepted,
-        COUNT(DISTINCT CASE WHEN e.status = 'Fail' THEN e.id END) as rejected,
+        COUNT(DISTINCT CASE WHEN e.status IN ('Accepted', 'Pass') THEN e.id END) as accepted,
+        COUNT(DISTINCT CASE WHEN e.status IN ('Rejected', 'Fail') THEN e.id END) as rejected,
+        COUNT(DISTINCT CASE WHEN e.status = 'Decline' THEN e.id END) as decline,
+        COUNT(DISTINCT CASE WHEN e.status IN ('Not Billable', 'Not Bilable') THEN e.id END) as not_billable,
+        COUNT(DISTINCT CASE WHEN e.status = 'Flagged' THEN e.id END) as flagged,
         COUNT(DISTINCT CASE WHEN la.status = 'completed' AND e.id IS NULL THEN la.id END) as completed,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Under Buffer' THEN e.id END) as under_buffer,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Fake Sale' THEN e.id END) as fake_sale
@@ -246,7 +256,7 @@ const getManagedUsersStats = async (req, res, next) => {
           lead_assignments la 
           JOIN call_leads cl ON la.call_lead_id = cl.id
       ) ON ${laConditions}
-      LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.evaluated_by = u.id
+      LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.is_deleted = FALSE
       WHERE ${whereClause}
       GROUP BY u.id, r.name, c.name
       ORDER BY u.name

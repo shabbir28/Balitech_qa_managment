@@ -52,7 +52,7 @@ export default function DashboardPage() {
 
   return (
     <>
-      {['Super Admin', 'QA Admin'].includes(user?.role) ? (
+      {['Super Admin', 'QA Admin', 'Manager'].includes(user?.role) ? (
         <ManagerDashboard 
           stats={stats} 
           charts={charts} 

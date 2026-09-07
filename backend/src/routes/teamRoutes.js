@@ -8,7 +8,7 @@ const {
 } = require('../controllers/teamController');
 const { authenticate, authorize } = require('../middleware/auth');
 
-const managerOrAdmin = authorize('Super Admin', 'QA Admin');
+const managerOrAdmin = authorize('Super Admin', 'QA Admin', 'Manager');
 
 // Teams
 router.get('/', authenticate, managerOrAdmin, getTeams);

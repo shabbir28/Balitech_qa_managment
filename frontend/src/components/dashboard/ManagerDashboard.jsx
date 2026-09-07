@@ -98,7 +98,7 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
     { title: 'Dialer Sales',   desc: 'Live sales by disposition',     icon: Database,      color: 'indigo',  path: '/dialer-sales' },
     { title: 'Compare Sales',  desc: 'Match client approval files',   icon: ListChecks,    color: 'teal',    path: '/dialer-sales/compare' },
     { title: 'Evaluations',    desc: 'QA evaluation records',         icon: ClipboardCheck,color: 'violet',  path: '/evaluations' },
-    { title: 'Transfer QA',    desc: 'QA handoff & transfer',         icon: Activity,      color: 'amber',   path: '/transfer-qa' },
+    { title: 'Teams',          desc: 'Manage teams & members',        icon: Users,         color: 'amber',   path: '/teams' },
     { title: 'Assign Leads',   desc: 'Assign leads to QA agents',     icon: Send,          color: 'rose',    path: '/assign-leads' },
     { title: 'Campaigns',      desc: 'Manage active campaigns',       icon: Target,        color: 'sky',     path: '/campaigns' },
     { title: 'My Team',        desc: 'Manage users & agents',         icon: Users,         color: 'fuchsia', path: '/users' },

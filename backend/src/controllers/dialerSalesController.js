@@ -776,7 +776,7 @@ exports.setQaStatus = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Invalid dialer type' });
     }
 
-    const validStatuses = ['Pending', 'Accepted', 'Rejected', 'Flagged'];
+    const validStatuses = ['Pending', 'Accepted', 'Rejected', 'Flagged', 'Decline', 'Not Billable', 'Pass', 'Fail'];
     if (!validStatuses.includes(qa_status)) {
       return res.status(400).json({ success: false, message: 'Invalid qa_status value' });
     }

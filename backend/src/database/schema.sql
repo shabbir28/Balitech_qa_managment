@@ -9,6 +9,12 @@ DROP TABLE IF EXISTS evaluation_critical_errors CASCADE;
 DROP TABLE IF EXISTS critical_errors CASCADE;
 DROP TABLE IF EXISTS qa_evaluation_scores CASCADE;
 DROP TABLE IF EXISTS qa_evaluations CASCADE;
+DROP TABLE IF EXISTS lead_assignments CASCADE;
+DROP TABLE IF EXISTS team_members CASCADE;
+DROP TABLE IF EXISTS teams CASCADE;
+DROP TABLE IF EXISTS compare_history CASCADE;
+DROP TABLE IF EXISTS transfer_assignments CASCADE;
+DROP TABLE IF EXISTS dialer_sales_history CASCADE;
 DROP TABLE IF EXISTS call_leads CASCADE;
 DROP TABLE IF EXISTS upload_batches CASCADE;
 DROP TABLE IF EXISTS campaigns CASCADE;
@@ -28,6 +34,23 @@ CREATE TABLE roles (
 );
 
 -- =============================================
+-- CAMPAIGNS TABLE (defined early for foreign keys)
+-- =============================================
+CREATE TABLE campaigns (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(150) UNIQUE NOT NULL,
+  description TEXT,
+  client_name VARCHAR(100),
+  passing_score NUMERIC(5,2) DEFAULT 75.00,
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW(),
+  deleted_at TIMESTAMP
+);
+
+CREATE INDEX idx_campaigns_name ON campaigns(name);
+
+-- =============================================
 -- USERS TABLE
 -- =============================================
 CREATE TABLE users (
@@ -41,6 +64,7 @@ CREATE TABLE users (
   phone VARCHAR(20),
   is_active BOOLEAN DEFAULT TRUE,
   last_login TIMESTAMP,
+  campaign_id INTEGER REFERENCES campaigns(id),
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW(),
   deleted_at TIMESTAMP
@@ -49,6 +73,7 @@ CREATE TABLE users (
 CREATE INDEX idx_users_email ON users(email);
 CREATE INDEX idx_users_role_id ON users(role_id);
 CREATE INDEX idx_users_agent_id ON users(agent_id);
+CREATE INDEX idx_users_campaign_id ON users(campaign_id);
 
 -- =============================================
 -- AGENTS TABLE (separate agent registry)
@@ -69,23 +94,6 @@ CREATE TABLE agents (
 
 CREATE INDEX idx_agents_agent_id ON agents(agent_id);
 CREATE INDEX idx_agents_user_id ON agents(user_id);
-
--- =============================================
--- CAMPAIGNS TABLE
--- =============================================
-CREATE TABLE campaigns (
-  id SERIAL PRIMARY KEY,
-  name VARCHAR(150) UNIQUE NOT NULL,
-  description TEXT,
-  client_name VARCHAR(100),
-  passing_score NUMERIC(5,2) DEFAULT 75.00,
-  is_active BOOLEAN DEFAULT TRUE,
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  deleted_at TIMESTAMP
-);
-
-CREATE INDEX idx_campaigns_name ON campaigns(name);
 
 -- =============================================
 -- UPLOAD BATCHES TABLE
@@ -124,6 +132,7 @@ CREATE TABLE call_leads (
   call_date DATE,
   call_duration VARCHAR(20),
   recording_url TEXT,
+  recordings JSONB DEFAULT '[]'::jsonb,
   disposition VARCHAR(100),
   notes TEXT,
   is_evaluated BOOLEAN DEFAULT FALSE,
@@ -151,6 +160,7 @@ CREATE TABLE qa_evaluations (
   campaign_name VARCHAR(150) NOT NULL,
   campaign_id INTEGER REFERENCES campaigns(id),
   recording_url TEXT,
+  recordings JSONB DEFAULT '[]'::jsonb,
   opening_script_score NUMERIC(5,2) DEFAULT 0,
   verification_score NUMERIC(5,2) DEFAULT 0,
   product_knowledge_score NUMERIC(5,2) DEFAULT 0,
@@ -160,7 +170,7 @@ CREATE TABLE qa_evaluations (
   call_handling_score NUMERIC(5,2) DEFAULT 0,
   total_score NUMERIC(5,2) DEFAULT 0,
   passing_score NUMERIC(5,2) DEFAULT 75.00,
-  status VARCHAR(20) DEFAULT 'Pass' CHECK (status IN ('Pass', 'Fail', 'Flagged')),
+  status VARCHAR(30) DEFAULT 'Pass' CHECK (status IN ('Pass', 'Fail', 'Flagged', 'Accepted', 'Rejected', 'Decline', 'Not Billable', 'Not Bilable')),
   has_critical_error BOOLEAN DEFAULT FALSE,
   qa_remarks TEXT,
   metadata JSONB,
@@ -272,6 +282,112 @@ CREATE INDEX idx_audit_logs_action ON audit_logs(action);
 CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 
 -- =============================================
+-- DIALER SALES HISTORY (Live Sync & Compare)
+-- =============================================
+CREATE TABLE dialer_sales_history (
+  id SERIAL PRIMARY KEY,
+  lead_id VARCHAR(50) NOT NULL,
+  phone VARCHAR(20),
+  status VARCHAR(50),
+  agent VARCHAR(100),
+  sale_date DATE NOT NULL,
+  dialer VARCHAR(20) NOT NULL,
+  team VARCHAR(100),
+  qa_override VARCHAR(50) DEFAULT NULL,
+  qa_status VARCHAR(50) DEFAULT 'Pending',
+  is_assigned BOOLEAN DEFAULT FALSE,
+  assigned_qa_name VARCHAR(100),
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (lead_id, dialer)
+);
+
+CREATE INDEX idx_dialer_sales_sale_date ON dialer_sales_history(sale_date);
+CREATE INDEX idx_dialer_sales_dialer ON dialer_sales_history(dialer);
+CREATE INDEX idx_dialer_sales_qa_status ON dialer_sales_history(dialer, sale_date, qa_status);
+CREATE INDEX idx_dialer_sales_qa_override ON dialer_sales_history(dialer, sale_date, qa_override);
+
+-- =============================================
+-- TEAMS TABLE
+-- =============================================
+CREATE TABLE teams (
+  id SERIAL PRIMARY KEY,
+  name VARCHAR(150) NOT NULL,
+  description TEXT,
+  manager_id INTEGER NOT NULL REFERENCES users(id),
+  is_active BOOLEAN DEFAULT TRUE,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_teams_manager_id ON teams(manager_id);
+
+-- =============================================
+-- TEAM MEMBERS JUNCTION TABLE
+-- =============================================
+CREATE TABLE team_members (
+  id SERIAL PRIMARY KEY,
+  team_id INTEGER NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  added_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE(team_id, user_id)
+);
+
+CREATE INDEX idx_team_members_team_id ON team_members(team_id);
+CREATE INDEX idx_team_members_user_id ON team_members(user_id);
+
+-- =============================================
+-- LEAD ASSIGNMENTS TABLE
+-- =============================================
+CREATE TABLE lead_assignments (
+  id SERIAL PRIMARY KEY,
+  call_lead_id INTEGER NOT NULL REFERENCES call_leads(id) ON DELETE CASCADE,
+  assigned_to INTEGER NOT NULL REFERENCES users(id),
+  assigned_by INTEGER NOT NULL REFERENCES users(id),
+  campaign_name VARCHAR(150),
+  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected')),
+  notes TEXT,
+  assigned_at TIMESTAMP DEFAULT NOW(),
+  accepted_at TIMESTAMP,
+  completed_at TIMESTAMP
+);
+
+CREATE INDEX idx_lead_assignments_assigned_to ON lead_assignments(assigned_to);
+CREATE INDEX idx_lead_assignments_call_lead_id ON lead_assignments(call_lead_id);
+CREATE INDEX idx_lead_assignments_status ON lead_assignments(status);
+
+-- =============================================
+-- COMPARE HISTORY TABLE
+-- =============================================
+CREATE TABLE compare_history (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id),
+  file_name VARCHAR(255),
+  dialer_type VARCHAR(50),
+  compare_date DATE,
+  total_uploaded INTEGER DEFAULT 0,
+  total_found INTEGER DEFAULT 0,
+  not_found INTEGER DEFAULT 0,
+  uploaded_data JSONB,
+  result_data JSONB,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE INDEX idx_compare_history_user_id ON compare_history(user_id);
+CREATE INDEX idx_compare_history_compare_date ON compare_history(compare_date);
+
+-- =============================================
+-- TRANSFER ASSIGNMENTS TABLE
+-- =============================================
+CREATE TABLE transfer_assignments (
+  transfer_id VARCHAR(100) PRIMARY KEY,
+  assigned_to INTEGER REFERENCES users(id),
+  assigned_by INTEGER REFERENCES users(id),
+  assigned_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_transfer_assignments_assigned_to ON transfer_assignments(assigned_to);
+
+-- =============================================
 -- SEED DATA
 -- =============================================
 
@@ -279,23 +395,29 @@ CREATE INDEX idx_audit_logs_created_at ON audit_logs(created_at);
 INSERT INTO roles (name, description) VALUES
   ('Super Admin', 'Full system access - manage everything'),
   ('QA Agent', 'View own data and perform basic tasks'),
-  ('QA Admin', 'System access but cannot add/manage users');
+  ('QA Admin', 'System access but cannot add/manage users'),
+  ('Manager', 'Create teams, assign leads, manage QA members')
+ON CONFLICT (name) DO NOTHING;
 
 -- Insert Manager (password: Admin@123)
 INSERT INTO users (name, email, password, role_id, department) VALUES
-  ('System Manager', 'manager@bpoqa.com', '$2b$10$IIHZLNSEmiHj7INiLVDWPeJu6G/gw1aT4X5saGjDAygigtumrxIiO', 1, 'Administration');
+  ('System Manager', 'manager@bpoqa.com', '$2b$10$IIHZLNSEmiHj7INiLVDWPeJu6G/gw1aT4X5saGjDAygigtumrxIiO', 1, 'Administration')
+ON CONFLICT (email) DO NOTHING;
 
 -- Insert User (password: Admin@123)
 INSERT INTO users (name, email, password, role_id, agent_id, department) VALUES
-  ('Agent User', 'user@bpoqa.com', '$2b$10$IIHZLNSEmiHj7INiLVDWPeJu6G/gw1aT4X5saGjDAygigtumrxIiO', 2, 'AGT001', 'Operations');
-
+  ('Agent User', 'user@bpoqa.com', '$2b$10$IIHZLNSEmiHj7INiLVDWPeJu6G/gw1aT4X5saGjDAygigtumrxIiO', 2, 'AGT001', 'Operations')
+ON CONFLICT (email) DO NOTHING;
 
 -- Insert Sample Campaigns
 INSERT INTO campaigns (name, description, client_name, passing_score) VALUES
   ('Sales Campaign A', 'Primary sales campaign for Q1', 'ABC Corp', 75.00),
   ('Customer Retention', 'Customer retention and upsell campaign', 'XYZ Ltd', 80.00),
   ('Collections Campaign', 'Debt collection campaign', 'Finance Co', 70.00),
-  ('Tech Support', 'Technical support and troubleshooting', 'TechGiant', 78.00);
+  ('Tech Support', 'Technical support and troubleshooting', 'TechGiant', 78.00),
+  ('ACA Medicare FE', 'ACA Medicare Front End campaign', 'ACA', 75.00),
+  ('Med Alert', 'Med Alert outbound campaign', 'Med Alert', 75.00)
+ON CONFLICT (name) DO NOTHING;
 
 -- Insert Critical Error Types
 INSERT INTO critical_errors (error_type, description, severity) VALUES
@@ -308,14 +430,14 @@ INSERT INTO critical_errors (error_type, description, severity) VALUES
   ('Misleading Customer', 'Agent deliberately misled customer about terms, pricing, or product features', 'Critical'),
   ('Call Script Not Followed', 'Agent deviated significantly from required call script', 'High'),
   ('Unprofessional Behavior', 'Agent displayed unprofessional behavior during customer interaction', 'High'),
-  ('Data Privacy Breach', 'Agent disclosed sensitive customer data inappropriately', 'Critical');
+  ('Data Privacy Breach', 'Agent disclosed sensitive customer data inappropriately', 'Critical')
+ON CONFLICT DO NOTHING;
 
 -- Insert Sample Agent
 INSERT INTO agents (name, agent_id, email, department) VALUES
   ('Mike Agent', 'AGT001', 'agent@bpoqa.com', 'Sales'),
   ('Lisa Brown', 'AGT002', 'lisa@bpoqa.com', 'Sales'),
-  ('Tom Johnson', 'AGT003', 'tom@bpoqa.com', 'Support');
+  ('Tom Johnson', 'AGT003', 'tom@bpoqa.com', 'Support')
+ON CONFLICT (agent_id) DO NOTHING;
 
 COMMIT;
-\ n - -   = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \ n - -   D I A L E R   S A L E S   H I S T O R Y   ( L i v e   S y n c   B a c k u p ) \ n - -   = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = = \ n C R E A T E   T A B L E   d i a l e r _ s a l e s _ h i s t o r y   ( \ n     i d   S E R I A L   P R I M A R Y   K E Y , \ n     l e a d _ i d   V A R C H A R ( 5 0 )   N O T   N U L L , \ n     p h o n e   V A R C H A R ( 2 0 ) , \ n     s t a t u s   V A R C H A R ( 5 0 ) , \ n     a g e n t   V A R C H A R ( 1 0 0 ) , \ n     s a l e _ d a t e   D A T E   N O T   N U L L , \ n     d i a l e r   V A R C H A R ( 2 0 )   N O T   N U L L , \ n     c r e a t e d _ a t   T I M E S T A M P   D E F A U L T   N O W ( ) , \ n     U N I Q U E   ( l e a d _ i d ,   d i a l e r ) \ n ) ;  
- 

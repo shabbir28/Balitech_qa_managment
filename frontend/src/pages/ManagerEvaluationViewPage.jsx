@@ -22,6 +22,120 @@ const CHECKBOX_FIELDS = [
   { key: 'dis', label: 'Dis' },
 ];
 
+function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnded }) {
+  const audioRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(rec.length ? parseFloat(rec.length) : 0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.play().catch(e => console.error('Audio play error:', e));
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  const formatTime = (sec) => {
+    if (!sec || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleRateChange = (newRate) => {
+    setPlaybackRate(newRate);
+    if (audioRef.current) audioRef.current.playbackRate = newRate;
+  };
+
+  return (
+    <div className={`bg-slate-900/90 backdrop-blur-md border rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative overflow-hidden transition-all ${
+      isPlaying ? 'border-indigo-500/60 ring-1 ring-indigo-500/30 bg-slate-900' : 'border-slate-800 hover:border-slate-750'
+    }`}>
+      <div className={`absolute top-0 left-0 w-1.5 h-full ${
+        index === 0 ? 'bg-gradient-to-b from-indigo-500 to-purple-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'
+      }`} />
+      
+      <button 
+        type="button"
+        onClick={() => onTogglePlay(index)} 
+        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg transition-all hover:scale-105 active:scale-95 ${
+          index === 0
+            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/30'
+            : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30'
+        }`}
+      >
+        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+      </button>
+
+      <div className="flex-1 min-w-0 w-full">
+        <audio
+          ref={audioRef}
+          src={rec.location}
+          onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+          onLoadedMetadata={() => setDuration(audioRef.current?.duration || (rec.length ? parseFloat(rec.length) : 0))}
+          onEnded={() => onEnded(index)}
+          preload="metadata"
+        />
+        
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+              index === 0 ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'
+            }`}>
+              Recording {index + 1}{total > 1 ? ` of ${total}` : ''}
+            </span>
+            <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[450px]" title={rec.filename}>
+              {rec.filename || `Recording ${index + 1}`}
+            </span>
+            {rec.date && <span className="text-[10px] text-slate-500">({rec.date})</span>}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(currentTime)}</span>
+            <span className="text-xs text-slate-500">/</span>
+            <span className="text-xs font-mono text-slate-400">{formatTime(duration)}</span>
+            
+            <select
+              value={playbackRate}
+              onChange={e => handleRateChange(parseFloat(e.target.value))}
+              className="bg-slate-800 text-white text-[10px] rounded px-2 py-1 outline-none border border-slate-700 ml-1 cursor-pointer"
+            >
+              <option value={0.5}>0.5x</option>
+              <option value={1}>1x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2x</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="relative w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div 
+            className={`absolute top-0 left-0 h-full transition-all duration-100 ease-linear ${
+              index === 0 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+            }`}
+            style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step="0.1"
+            value={currentTime}
+            onChange={e => {
+              const t = parseFloat(e.target.value);
+              setCurrentTime(t);
+              if (audioRef.current) audioRef.current.currentTime = t;
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const ManagerEvaluationViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -31,12 +145,8 @@ const ManagerEvaluationViewPage = () => {
   const [metadata, setMetadata] = useState({});
   const [qaStatus, setQaStatus] = useState('Accepted');
   const [saving, setSaving] = useState(false);
-  
-  // Audio Player State
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const audioRef = useRef(null);
+  const [recordingsList, setRecordingsList] = useState([]);
+  const [playingIndex, setPlayingIndex] = useState(null);
 
   useEffect(() => {
     if (id) {
@@ -44,23 +154,53 @@ const ManagerEvaluationViewPage = () => {
         const data = res.data.data;
         setEvaluation(data);
         setMetadata(data.metadata || {});
-        setQaStatus(data.status === 'Pass' ? 'Accepted' : data.status === 'Flagged' ? 'Flagged' : 'Rejected');
+        const savedStatus = data.metadata?.qa_status || (data.status === 'Pass' ? 'Accepted' : data.status === 'Fail' ? 'Rejected' : data.status);
+        setQaStatus(savedStatus);
+
+        const normalizeRecList = (arr) => {
+          if (!arr) return [];
+          if (typeof arr === 'string') {
+            try { arr = JSON.parse(arr); } catch { return []; }
+          }
+          return Array.isArray(arr) ? arr.filter(r => r && r.location) : [];
+        };
+
+        const mergeUniqueRecs = (...lists) => {
+          const seen = new Set();
+          const merged = [];
+          lists.forEach(list => {
+            normalizeRecList(list).forEach(item => {
+              if (!seen.has(item.location)) {
+                seen.add(item.location);
+                merged.push(item);
+              }
+            });
+          });
+          return merged;
+        };
+
+        let recs = mergeUniqueRecs(
+          data.recordings,
+          data.metadata?.recordings,
+          data.recording_url ? [{ location: data.recording_url, filename: data.recording_url.split('/').pop() || 'Call Recording' }] : []
+        );
+        setRecordingsList(recs);
       }).catch(() => toast.error('Failed to load evaluation details.'));
     }
   }, [id]);
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) audioRef.current.pause();
-    else audioRef.current.play().catch(() => toast.error('Could not play audio.'));
-    setIsPlaying(!isPlaying);
+  const handleTogglePlay = (idx) => {
+    if (playingIndex === idx) {
+      setPlayingIndex(null);
+    } else {
+      setPlayingIndex(idx);
+    }
   };
 
-  const formatTime = (sec) => {
-    if (!sec || isNaN(sec)) return '0:00';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const handleEnded = (idx) => {
+    if (playingIndex === idx) {
+      setPlayingIndex(null);
+    }
   };
 
   const handleMetadataChange = (key, value) => {
@@ -71,10 +211,19 @@ const ManagerEvaluationViewPage = () => {
     if (!evaluation) return;
     setSaving(true);
     try {
+      const finalBackendStatus = 
+        qaStatus === 'Accepted' ? 'Pass' : 
+        qaStatus === 'Rejected' ? 'Fail' : 
+        qaStatus;
+
       await api.put(`/evaluations/${id}`, {
-        status: qaStatus === 'Accepted' ? 'Pass' : qaStatus === 'Flagged' ? 'Flagged' : 'Fail',
+        status: finalBackendStatus,
         qa_remarks: metadata.laSideFeedback || 'Updated via manager sheet',
-        metadata: metadata,
+        metadata: {
+          ...metadata,
+          qa_status: qaStatus,
+          recordings: recordingsList
+        },
         // Send zeroes for legacy scores since we are using spreadsheet layout
         opening_script_score: evaluation.opening_script_score || 0,
         verification_score: evaluation.verification_score || 0,
@@ -118,55 +267,39 @@ const ManagerEvaluationViewPage = () => {
         </div>
       </div>
 
-      {/* Top Panel: Audio Player */}
-      <div className="px-8 mb-8 shrink-0">
-        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-3xl p-6 shadow-2xl flex gap-8 items-center w-full max-w-3xl relative overflow-hidden group">
-          <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-purple-500" />
-          
-          <button 
-            onClick={togglePlay} 
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 shrink-0"
-          >
-            {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
-          </button>
-          
-          <div className="flex-1 min-w-0 pr-4">
-            {evaluation.recording_url ? (
-              <>
-                <audio
-                  ref={audioRef} src={evaluation.recording_url}
-                  onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-                  onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-                  onEnded={() => setIsPlaying(false)} preload="metadata"
-                />
-                <div className="flex justify-between text-xs text-slate-400 font-bold tracking-wide mb-3">
-                  <span className="text-indigo-400">{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-                <div className="relative w-full h-2 bg-slate-800/80 rounded-full overflow-hidden">
-                  <div 
-                    className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-100 ease-linear"
-                    style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                  />
-                  <input
-                    type="range" min={0} max={duration || 100} value={currentTime}
-                    onChange={(e) => {
-                      const t = parseFloat(e.target.value);
-                      setCurrentTime(t);
-                      if (audioRef.current) audioRef.current.currentTime = t;
-                    }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                </div>
-              </>
-            ) : (
-              <div className="flex items-center text-slate-500 text-sm font-medium gap-3">
-                <div className="p-3 bg-slate-800/50 rounded-xl"><Volume2 className="w-6 h-6 opacity-50" /></div>
-                No recording available for this call
-              </div>
-            )}
-          </div>
+      {/* Top Panel: Audio Player(s) */}
+      <div className="px-8 mb-8 shrink-0 space-y-3">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+            <Volume2 className="w-4 h-4 text-indigo-400" />
+            Recordings ({recordingsList.length})
+          </h2>
+          {recordingsList.length > 1 && (
+            <span className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+              All {recordingsList.length} recordings loaded
+            </span>
+          )}
         </div>
+
+        {recordingsList.length === 0 ? (
+          <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-500 text-sm">
+            No recording available for this call
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-3">
+            {recordingsList.map((rec, idx) => (
+              <RecordingPlayerCard
+                key={rec.location || idx}
+                rec={rec}
+                index={idx}
+                total={recordingsList.length}
+                isPlaying={playingIndex === idx}
+                onTogglePlay={handleTogglePlay}
+                onEnded={handleEnded}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Spreadsheet Form (EDITABLE) */}
@@ -240,46 +373,74 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                    <input 
-                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
-                      value={metadata.dup || ''}
-                      onChange={e => handleMetadataChange('dup', e.target.value)}
-                      placeholder="—"
-                    />
+                    <div className="flex flex-col items-center gap-1">
+                      <input 
+                        className={`px-2 py-2 bg-slate-950 border rounded-lg text-sm w-full min-h-[38px] text-center font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all ${
+                          metadata.dup && metadata.dup !== '1' && metadata.dup !== '0'
+                            ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
+                            : 'border-slate-700 text-slate-300'
+                        }`}
+                        value={metadata.dup || ''}
+                        onChange={e => handleMetadataChange('dup', e.target.value)}
+                        placeholder="—"
+                      />
+                      {metadata.dup && metadata.dup !== '1' && metadata.dup !== '0' && (
+                        <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-400/90">
+                          Duplicate
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
                     <input 
-                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] text-center focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50"
+                      list="manager-did-options"
+                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] text-center font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                       value={metadata.dids || ''}
                       onChange={e => handleMetadataChange('dids', e.target.value)}
-                      placeholder="—"
-                      disabled={user?.role === 'QA Agent'}
+                      placeholder="Select or type DID..."
+                    />
+                    <datalist id="manager-did-options">
+                      <option value="D1" />
+                      <option value="D3" />
+                      <option value="D4" />
+                      <option value="D5" />
+                      <option value="D6cpl" />
+                      <option value="Hi" />
+                      <option value="Hi main" />
+                    </datalist>
+                  </td>
+
+                  <td className="p-3 border-r border-slate-800/50 align-top">
+                    <input 
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] text-center font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      value={metadata.talkTime !== undefined ? metadata.talkTime : (evaluation.call_duration || '')}
+                      onChange={e => handleMetadataChange('talkTime', e.target.value)}
+                      placeholder="0"
                     />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-400 text-sm font-medium w-full text-center">
-                      {evaluation.call_duration || '0'}
-                    </div>
-                  </td>
-
-                  <td className="p-3 border-r border-slate-800/50 align-top">
                     <select
-                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 appearance-none cursor-pointer text-center disabled:opacity-50 disabled:cursor-not-allowed ${
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 cursor-pointer text-center ${
                         qaStatus === 'Accepted'
                           ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500'
                           : qaStatus === 'Flagged'
                             ? 'text-amber-400 border-amber-500/30 bg-amber-500/10 focus:ring-amber-500'
-                            : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
+                            : qaStatus === 'Decline'
+                              ? 'text-purple-400 border-purple-500/30 bg-purple-500/10 focus:ring-purple-500'
+                              : qaStatus === 'Not Billable'
+                                ? 'text-cyan-400 border-cyan-500/30 bg-cyan-500/10 focus:ring-cyan-500'
+                                : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
                       }`}
                       value={qaStatus}
                       onChange={e => setQaStatus(e.target.value)}
-                      disabled={user?.role === 'QA Agent'}
                     >
                       <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
-                      <option className="bg-slate-900 text-amber-400" value="Flagged">Flagged</option>
                       <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
+                      <option className="bg-slate-900 text-amber-400" value="Flagged">Flagged</option>
+                      <option className="bg-slate-900 text-purple-400" value="Decline">Decline</option>
+                      <option className="bg-slate-900 text-cyan-400" value="Not Billable">Not Billable</option>
                     </select>
                   </td>
 
@@ -306,8 +467,7 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <input 
                       list="manager-la-side-error-category-options"
-                      disabled={user?.role === 'QA Agent'}
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                       value={metadata.laSideErrorCategory || ''}
                       onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
                       placeholder="Select or type LA Category..."
@@ -318,8 +478,10 @@ const ManagerEvaluationViewPage = () => {
                       <option value="Customer become not intrested" />
                       <option value="call Back arange" />
                       <option value="call ended in no result" />
-                      <option value="Dnq Customer" />
-                      <option value="Dnc Customer" />
+                      <option value="DNQ Customer" />
+                      <option value="DNC Customer" />
+                      <option value="Not billable" />
+                      <option value="Decline" />
                     </datalist>
                   </td>
 

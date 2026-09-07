@@ -319,7 +319,95 @@ const getCallById = async (req, res, next) => {
       return res.status(404).json({ success: false, message: 'Call/lead not found.' });
     }
 
-    res.json({ success: true, data: result.rows[0] });
+    const callData = result.rows[0];
+
+    // Check duplicate phone occurrences (excluding current call)
+    let is_duplicate = false;
+    let duplicate_count = 1;
+
+    if (callData.customer_phone && callData.customer_phone.trim()) {
+      const phoneClean = callData.customer_phone.trim();
+      const [leadsCountRes, evalsCountRes] = await Promise.all([
+        query(
+          'SELECT COUNT(*) FROM call_leads WHERE customer_phone = $1 AND id != $2 AND is_deleted = FALSE',
+          [phoneClean, callData.id]
+        ),
+        query(
+          `SELECT COUNT(*) FROM qa_evaluations qe 
+           JOIN call_leads cl ON qe.call_lead_id = cl.id 
+           WHERE cl.customer_phone = $1 AND cl.id != $2 AND qe.is_deleted = FALSE`,
+          [phoneClean, callData.id]
+        )
+      ]);
+
+      const otherLeadsCount = parseInt(leadsCountRes.rows[0]?.count || '0', 10);
+      const otherEvalsCount = parseInt(evalsCountRes.rows[0]?.count || '0', 10);
+
+      if (otherLeadsCount > 0 || otherEvalsCount > 0) {
+        is_duplicate = true;
+        duplicate_count = 1 + Math.max(otherLeadsCount, otherEvalsCount);
+      } else {
+        is_duplicate = false;
+        duplicate_count = 1;
+      }
+    }
+
+    // If recordings are empty or only 1, try auto-resolving from notes
+    if (!callData.recordings || !Array.isArray(callData.recordings) || callData.recordings.length <= 1) {
+      const leadMatch = callData.notes?.match(/(?:Lead ID:\s*|VICI_LEAD:)(\d+)/i);
+      if (leadMatch) {
+        try {
+          const dialerController = require('./dialerController');
+          const dialerType = (callData.campaign_name && callData.campaign_name.toLowerCase().includes('medicare')) ? 'medicare' : 'pharmacy';
+          const html = await dialerController.fetchAdminPage(`admin_modify_lead.php?lead_id=${leadMatch[1]}`, dialerType);
+          
+          const scrapedRecs = [];
+          const allLinks = html.match(/href=["']([^"']+)["']/gi);
+          if (allLinks) {
+            allLinks.forEach((linkHtml) => {
+              const urlMatch = linkHtml.match(/href=["']([^"']+)["']/i);
+              if (urlMatch) {
+                let recUrl = urlMatch[1];
+                if (recUrl.toLowerCase().includes('.mp3') || recUrl.toLowerCase().includes('.wav')) {
+                  if (recUrl.startsWith('/')) {
+                     const dialerOrigin = (dialerType === 'medicare' && process.env.MEDICARE_DIALER_URL)
+                       ? new URL(process.env.MEDICARE_DIALER_URL).origin
+                       : (process.env.PHARMACY_DIALER_URL ? new URL(process.env.PHARMACY_DIALER_URL).origin : 'http://167.235.117.217');
+                     recUrl = `${dialerOrigin}${recUrl}`;
+                  }
+                  if (recUrl.startsWith('https://') && /\d+\.\d+\.\d+\.\d+/.test(recUrl)) {
+                     recUrl = recUrl.replace('https://', 'http://');
+                  }
+                  const filename = recUrl.split('/').pop();
+                  if (!scrapedRecs.some(r => r.location === recUrl)) {
+                    scrapedRecs.push({
+                      lead_id: leadMatch[1],
+                      date: '',
+                      length: '0',
+                      filename: filename,
+                      location: recUrl
+                    });
+                  }
+                }
+              }
+            });
+          }
+
+          if (scrapedRecs.length > 0) {
+            callData.recordings = scrapedRecs;
+            // Cache back into call_leads
+            await query('UPDATE call_leads SET recordings = $1 WHERE id = $2', [JSON.stringify(scrapedRecs), callData.id]);
+          }
+        } catch (e) {
+          console.error('Error auto-scraping recordings for lead in getCallById:', e.message);
+        }
+      }
+    }
+
+    callData.is_duplicate = is_duplicate;
+    callData.duplicate_count = duplicate_count;
+
+    res.json({ success: true, data: callData });
   } catch (error) {
     next(error);
   }
@@ -377,14 +465,21 @@ const getUploadBatches = async (req, res, next) => {
 
 const updateCallRecording = async (req, res, next) => {
   try {
-    const { recording_url } = req.body;
+    const { recording_url, recordings = [] } = req.body;
     if (!recording_url) {
       return res.status(400).json({ success: false, message: 'recording_url is required' });
     }
 
+    const recsJson = JSON.stringify(Array.isArray(recordings) ? recordings : []);
+
     const result = await query(
-      'UPDATE call_leads SET recording_url = $1, updated_at = NOW() WHERE id = $2 AND is_deleted = FALSE RETURNING id, recording_url',
-      [recording_url, req.params.id]
+      `UPDATE call_leads 
+       SET recording_url = $1, 
+           recordings = CASE WHEN $2::jsonb != '[]'::jsonb THEN $2::jsonb ELSE recordings END,
+           updated_at = NOW() 
+       WHERE id = $3 AND is_deleted = FALSE 
+       RETURNING id, recording_url, recordings`,
+      [recording_url, recsJson, req.params.id]
     );
 
     if (result.rows.length === 0) {

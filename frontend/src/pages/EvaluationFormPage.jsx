@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Play, Pause, Volume2 } from 'lucide-react';
@@ -26,6 +26,7 @@ const INITIAL_METADATA = {
   teams: '',
   dup: '',
   dids: '',
+  talkTime: '',
   agentSideFeedback: '',
   laSideFeedback: '',
   md: false, medicaid: false, age: false, name: false, zip: false,
@@ -35,14 +36,134 @@ const INITIAL_METADATA = {
   laSideErrorCategory: '',
 };
 
+function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnded }) {
+  const audioRef = useRef(null);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(rec.length ? parseFloat(rec.length) : 0);
+  const [playbackRate, setPlaybackRate] = useState(1);
+
+  useEffect(() => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.play().catch(e => console.error('Audio play error:', e));
+    } else {
+      audioRef.current.pause();
+    }
+  }, [isPlaying]);
+
+  const formatTime = (sec) => {
+    if (!sec || isNaN(sec)) return '0:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleRateChange = (newRate) => {
+    setPlaybackRate(newRate);
+    if (audioRef.current) audioRef.current.playbackRate = newRate;
+  };
+
+  return (
+    <div className={`bg-slate-900/90 backdrop-blur-md border rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative overflow-hidden transition-all ${
+      isPlaying ? 'border-indigo-500/60 ring-1 ring-indigo-500/30 bg-slate-900' : 'border-slate-800 hover:border-slate-750'
+    }`}>
+      <div className={`absolute top-0 left-0 w-1.5 h-full ${
+        index === 0 ? 'bg-gradient-to-b from-indigo-500 to-purple-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'
+      }`} />
+      
+      <button 
+        type="button"
+        onClick={() => onTogglePlay(index)} 
+        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg transition-all hover:scale-105 active:scale-95 ${
+          index === 0
+            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/30'
+            : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30'
+        }`}
+      >
+        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
+      </button>
+
+      <div className="flex-1 min-w-0 w-full">
+        <audio
+          ref={audioRef}
+          src={rec.location}
+          onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
+          onLoadedMetadata={() => setDuration(audioRef.current?.duration || (rec.length ? parseFloat(rec.length) : 0))}
+          onEnded={() => onEnded(index)}
+          preload="metadata"
+        />
+        
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+              index === 0 ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'
+            }`}>
+              Recording {index + 1}{total > 1 ? ` of ${total}` : ''}
+            </span>
+            <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[450px]" title={rec.filename}>
+              {rec.filename || `Recording ${index + 1}`}
+            </span>
+            {rec.date && <span className="text-[10px] text-slate-500">({rec.date})</span>}
+          </div>
+
+          <div className="flex items-center gap-3">
+            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(currentTime)}</span>
+            <span className="text-xs text-slate-500">/</span>
+            <span className="text-xs font-mono text-slate-400">{formatTime(duration)}</span>
+            
+            <select
+              value={playbackRate}
+              onChange={e => handleRateChange(parseFloat(e.target.value))}
+              className="bg-slate-800 text-white text-[10px] rounded px-2 py-1 outline-none border border-slate-700 ml-1 cursor-pointer"
+            >
+              <option value={0.5}>0.5x</option>
+              <option value={1}>1x</option>
+              <option value={1.5}>1.5x</option>
+              <option value={2}>2x</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="relative w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+          <div 
+            className={`absolute top-0 left-0 h-full transition-all duration-100 ease-linear ${
+              index === 0 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
+            }`}
+            style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
+          />
+          <input
+            type="range"
+            min={0}
+            max={duration || 100}
+            step="0.1"
+            value={currentTime}
+            onChange={e => {
+              const t = parseFloat(e.target.value);
+              setCurrentTime(t);
+              if (audioRef.current) audioRef.current.currentTime = t;
+            }}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 const EvaluationFormPage = () => {
   const [searchParams] = useSearchParams();
   const callId = searchParams.get('call_id');
+  const leadIdParam = searchParams.get('lead_id');
+  const dialerParam = searchParams.get('dialer') || 'pharmacy';
   const teamParam = searchParams.get('team');
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
 
   const [call, setCall] = useState(null);
+  const [recordingsList, setRecordingsList] = useState(location.state?.recordings || []);
+  const [playingIndex, setPlayingIndex] = useState(null);
+
   const [metadata, setMetadata] = useState({
     ...INITIAL_METADATA,
     teams: teamParam || ''
@@ -54,17 +175,9 @@ const EvaluationFormPage = () => {
   // /my-assignments is QA Agent only, so admins must land somewhere they can access.
   const exitPath = user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations';
 
-
-  // Audio Player State
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const audioRef = useRef(null);
-
   useEffect(() => {
     if (callId) {
-      api.get(`/calls/${callId}`).then(res => {
+      api.get(`/calls/${callId}`).then(async res => {
         const callData = res.data.data;
         if (callData.is_evaluated) {
           toast.error('This call has already been evaluated! You cannot edit it.');
@@ -72,28 +185,85 @@ const EvaluationFormPage = () => {
           return;
         }
         setCall(callData);
-        if (callData.campaign_name || callData.team) {
-          setMetadata(prev => ({
-            ...prev,
-            teams: callData.team || callData.campaign_name || prev.teams
-          }));
+
+        // Helper to normalize and merge recordings from any source
+        const normalizeRecList = (arr) => {
+          if (!arr) return [];
+          if (typeof arr === 'string') {
+            try { arr = JSON.parse(arr); } catch { return []; }
+          }
+          return Array.isArray(arr) ? arr.filter(r => r && r.location) : [];
+        };
+
+        const mergeUniqueRecs = (...lists) => {
+          const seen = new Set();
+          const merged = [];
+          lists.forEach(list => {
+            normalizeRecList(list).forEach(item => {
+              if (!seen.has(item.location)) {
+                seen.add(item.location);
+                merged.push(item);
+              }
+            });
+          });
+          return merged;
+        };
+
+        let recs = mergeUniqueRecs(
+          callData.recordings,
+          location.state?.recordings,
+          callData.recording_url ? [{ location: callData.recording_url, filename: callData.recording_url.split('/').pop() || 'Call Recording' }] : []
+        );
+
+        // Detect dialer type
+        const detectedDialer = dialerParam !== 'pharmacy' && dialerParam 
+          ? dialerParam 
+          : ((callData.team || callData.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy');
+
+        // Resolve lead ID from params or notes (supporting both VICI_LEAD: and Lead ID: formats)
+        const leadMatch = callData.notes?.match(/(?:Lead ID:\s*|VICI_LEAD:)(\d+)/i);
+        const resolvedLeadId = leadIdParam || (leadMatch ? leadMatch[1] : null);
+
+        if (recs.length <= 1 && resolvedLeadId) {
+          try {
+            const dialerRes = await api.get(`/dialer/recordings/${resolvedLeadId}?dialer=${encodeURIComponent(detectedDialer)}`);
+            if (dialerRes.data.success && Array.isArray(dialerRes.data.data) && dialerRes.data.data.length > 0) {
+              recs = mergeUniqueRecs(recs, dialerRes.data.data);
+              // Cache back to backend so future requests don't need re-scraping
+              api.put(`/calls/${callId}/recording`, {
+                recording_url: callData.recording_url || recs[0]?.location,
+                recordings: recs
+              }).catch(() => {});
+            }
+          } catch (e) {
+            console.error('Failed to fetch dialer recordings:', e);
+          }
         }
+
+        setRecordingsList(recs);
+
+        setMetadata(prev => ({
+          ...prev,
+          teams: callData.team || callData.campaign_name || prev.teams,
+          talkTime: prev.talkTime !== undefined && prev.talkTime !== '' ? prev.talkTime : (callData.call_duration || ''),
+          dup: callData.is_duplicate ? (prev.dup || String(callData.duplicate_count || 2)) : prev.dup
+        }));
       }).catch(() => toast.error('Failed to load call details.'));
     }
-  }, [callId, navigate]);
+  }, [callId, leadIdParam, dialerParam, location.state, navigate]);
 
-  const togglePlay = () => {
-    if (!audioRef.current) return;
-    if (isPlaying) audioRef.current.pause();
-    else audioRef.current.play().catch(() => toast.error('Could not play audio.'));
-    setIsPlaying(!isPlaying);
+  const handleTogglePlay = (idx) => {
+    if (playingIndex === idx) {
+      setPlayingIndex(null);
+    } else {
+      setPlayingIndex(idx);
+    }
   };
 
-  const formatTime = (sec) => {
-    if (!sec || isNaN(sec)) return '0:00';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+  const handleEnded = (idx) => {
+    if (playingIndex === idx) {
+      setPlayingIndex(null);
+    }
   };
 
   const handleMetadataChange = (key, value) => {
@@ -106,12 +276,22 @@ const EvaluationFormPage = () => {
     
     setLoading(true);
     try {
+      const finalBackendStatus = 
+        qaStatus === 'Accepted' ? 'Pass' : 
+        qaStatus === 'Rejected' ? 'Fail' : 
+        qaStatus;
+
       await api.post('/evaluations', {
         call_lead_id: call.id,
-        status: qaStatus === 'Accepted' ? 'Pass' : (qaStatus === 'Flagged' ? 'Flagged' : 'Fail'),
+        status: finalBackendStatus,
         qa_remarks: metadata.laSideFeedback || 'Evaluated via spreadsheet',
         evaluation_date: evaluationDate,
-        metadata: metadata,
+        metadata: {
+          ...metadata,
+          qa_status: qaStatus,
+          recordings: recordingsList
+        },
+        recordings: recordingsList,
         // Send zeroes for legacy columns to satisfy backend schema
         opening_script_score: 0, verification_score: 0, product_knowledge_score: 0,
         compliance_score: 0, communication_score: 0, closing_score: 0, call_handling_score: 0,
@@ -146,68 +326,39 @@ const EvaluationFormPage = () => {
       </div>
 
       <div className="px-8 flex flex-col gap-6 flex-1 min-h-0">
-          {/* Top Panel: Audio Player */}
-          <div className="shrink-0">
-            <div className="bg-slate-900/80 backdrop-blur-md border border-slate-800 rounded-3xl p-6 shadow-2xl flex gap-8 items-center w-full relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-1.5 h-full bg-gradient-to-b from-indigo-500 to-purple-500" />
-              
-              <button 
-                onClick={togglePlay} 
-                className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white flex items-center justify-center shadow-xl shadow-indigo-500/30 transition-all hover:scale-105 active:scale-95 shrink-0"
-              >
-                {isPlaying ? <Pause className="w-7 h-7" /> : <Play className="w-7 h-7 ml-1" />}
-              </button>
-              
-              <div className="flex-1 min-w-0 pr-4">
-                {call.recording_url ? (
-                  <>
-                    <audio
-                      ref={audioRef} src={call.recording_url}
-                      onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-                      onLoadedMetadata={() => setDuration(audioRef.current?.duration || 0)}
-                      onEnded={() => setIsPlaying(false)} preload="metadata"
-                    />
-                    <div className="flex justify-between text-xs text-slate-400 font-bold tracking-wide mb-3 items-center">
-                      <span className="text-indigo-400">{formatTime(currentTime)}</span>
-                      <div className="flex gap-2 items-center">
-                        <select value={playbackRate} onChange={e => {
-                          const rate = parseFloat(e.target.value);
-                          setPlaybackRate(rate);
-                          if (audioRef.current) audioRef.current.playbackRate = rate;
-                        }} className="bg-slate-800 text-white text-[10px] rounded px-2 py-0.5 outline-none border border-slate-700">
-                          <option value={0.5}>0.5x</option>
-                          <option value={1}>1x</option>
-                          <option value={1.5}>1.5x</option>
-                          <option value={2}>2x</option>
-                          <option value={3}>3x</option>
-                        </select>
-                        <span>{formatTime(duration)}</span>
-                      </div>
-                    </div>
-                    <div className="relative w-full h-2 bg-slate-800/80 rounded-full overflow-hidden">
-                      <div 
-                        className="absolute top-0 left-0 h-full bg-gradient-to-r from-indigo-500 to-purple-500 transition-all duration-100 ease-linear"
-                        style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-                      />
-                      <input
-                        type="range" min={0} max={duration || 100} value={currentTime}
-                        onChange={(e) => {
-                          const t = parseFloat(e.target.value);
-                          setCurrentTime(t);
-                          if (audioRef.current) audioRef.current.currentTime = t;
-                        }}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                    </div>
-                  </>
-                ) : (
-                  <div className="flex items-center text-slate-500 text-sm font-medium gap-3">
-                    <div className="p-3 bg-slate-800/50 rounded-xl"><Volume2 className="w-6 h-6 opacity-50" /></div>
-                    No recording available for this call
-                  </div>
-                )}
-              </div>
+          {/* Top Panel: Audio Player(s) */}
+          <div className="shrink-0 space-y-3">
+            <div className="flex items-center justify-between">
+              <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-2">
+                <Volume2 className="w-4 h-4 text-indigo-400" />
+                Recordings ({recordingsList.length})
+              </h2>
+              {recordingsList.length > 1 && (
+                <span className="text-[11px] font-medium text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                  All {recordingsList.length} recordings loaded
+                </span>
+              )}
             </div>
+
+            {recordingsList.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 text-center text-slate-500 text-sm">
+                No recording available for this call
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 gap-3">
+                {recordingsList.map((rec, idx) => (
+                  <RecordingPlayerCard
+                    key={rec.location || idx}
+                    rec={rec}
+                    index={idx}
+                    total={recordingsList.length}
+                    isPlaying={playingIndex === idx}
+                    onTogglePlay={handleTogglePlay}
+                    onEnded={handleEnded}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Spreadsheet Form */}
@@ -267,18 +418,35 @@ const EvaluationFormPage = () => {
                       </td>
 
                       <td className="p-3 border-r border-slate-800/50 align-top">
-                        <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-300 text-sm font-mono w-full truncate">
-                          {call.customer_phone}
+                        <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-300 text-sm font-mono w-full flex items-center justify-between gap-1">
+                          <span className="truncate">{call.customer_phone}</span>
+                          {call.is_duplicate && (
+                            <span className="shrink-0 text-[10px] font-bold px-1.5 py-0.5 bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded" title="Duplicate Phone Number">
+                              x{call.duplicate_count || 2}
+                            </span>
+                          )}
                         </div>
                       </td>
 
                       <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                        <select value={metadata.dup} onChange={e => handleMetadataChange('dup', e.target.value)} className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center">
-                          <option value="">—</option>
-                          {[1,2,3,4,5,6,7,8,9,10].map(num => (
-                            <option key={num} value={num}>{num}</option>
-                          ))}
-                        </select>
+                        <div className="flex flex-col items-center gap-1">
+                          <input 
+                            type="text"
+                            value={metadata.dup} 
+                            onChange={e => handleMetadataChange('dup', e.target.value)} 
+                            placeholder="—"
+                            className={`w-full bg-slate-950 border text-sm px-2 py-2 rounded-lg outline-none transition-all text-center font-bold ${
+                              metadata.dup && metadata.dup !== '1' && metadata.dup !== '0'
+                                ? 'border-amber-500/50 text-amber-400 bg-amber-500/10 focus:border-amber-500 focus:ring-1 focus:ring-amber-500/50'
+                                : 'border-slate-800 text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50'
+                            }`}
+                          />
+                          {call.is_duplicate && (
+                            <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-400/90">
+                              Duplicate
+                            </span>
+                          )}
+                        </div>
                       </td>
 
                       <td className="p-3 border-r border-slate-800/50 align-top text-center">
@@ -286,33 +454,51 @@ const EvaluationFormPage = () => {
                           list="did-options"
                           value={metadata.dids} 
                           onChange={e => handleMetadataChange('dids', e.target.value)} 
-                          placeholder="Select or type..."
-                          className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center placeholder:text-slate-600"
+                          placeholder="Select or type DID..."
+                          className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-200 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center placeholder:text-slate-600 font-medium"
                         />
                         <datalist id="did-options">
+                          <option value="D1" />
+                          <option value="D3" />
                           <option value="D4" />
                           <option value="D5" />
-                          <option value="D1" />
                           <option value="D6cpl" />
                           <option value="Hi" />
                           <option value="Hi main" />
-                          <option value="D3" />
-                          <option value="Not billable" />
-                          <option value="Decline" />
                         </datalist>
                       </td>
 
                       <td className="p-3 border-r border-slate-800/50 align-top">
-                        <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-400 text-sm font-medium w-full text-center">
-                          {call.call_duration || '0'}
-                        </div>
+                        <input 
+                          type="text"
+                          value={metadata.talkTime !== undefined ? metadata.talkTime : (call.call_duration || '')} 
+                          onChange={e => handleMetadataChange('talkTime', e.target.value)} 
+                          placeholder="0"
+                          className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-200 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center font-mono"
+                        />
                       </td>
 
                       <td className="p-3 border-r border-slate-800/50 align-top">
-                        <select value={qaStatus} onChange={e => setQaStatus(e.target.value)} className={`w-full bg-slate-950 border text-sm font-bold px-3 py-2 rounded-lg outline-none transition-all focus:ring-1 ${qaStatus === 'Accepted' ? 'text-emerald-400 border-emerald-500/30 focus:border-emerald-500/50 focus:ring-emerald-500/50 bg-emerald-500/5' : qaStatus === 'Flagged' ? 'text-amber-400 border-amber-500/30 focus:border-amber-500/50 focus:ring-amber-500/50 bg-amber-500/5' : 'text-rose-400 border-rose-500/30 focus:border-rose-500/50 focus:ring-rose-500/50 bg-rose-500/5'}`}>
-                          <option value="Accepted">Accepted</option>
-                          <option value="Rejected">Rejected</option>
-                          <option value="Flagged">Flagged</option>
+                        <select 
+                          value={qaStatus} 
+                          onChange={e => setQaStatus(e.target.value)} 
+                          className={`w-full bg-slate-950 border text-sm font-bold px-3 py-2 rounded-lg outline-none transition-all focus:ring-1 cursor-pointer ${
+                            qaStatus === 'Accepted' 
+                              ? 'text-emerald-400 border-emerald-500/30 focus:border-emerald-500/50 focus:ring-emerald-500/50 bg-emerald-500/10' 
+                              : qaStatus === 'Flagged' 
+                                ? 'text-amber-400 border-amber-500/30 focus:border-amber-500/50 focus:ring-amber-500/50 bg-amber-500/10' 
+                                : qaStatus === 'Decline'
+                                  ? 'text-purple-400 border-purple-500/30 focus:border-purple-500/50 focus:ring-purple-500/50 bg-purple-500/10'
+                                  : qaStatus === 'Not Billable'
+                                    ? 'text-cyan-400 border-cyan-500/30 focus:border-cyan-500/50 focus:ring-cyan-500/50 bg-cyan-500/10'
+                                    : 'text-rose-400 border-rose-500/30 focus:border-rose-500/50 focus:ring-rose-500/50 bg-rose-500/10'
+                          }`}
+                        >
+                          <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
+                          <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
+                          <option className="bg-slate-900 text-amber-400" value="Flagged">Flagged</option>
+                          <option className="bg-slate-900 text-purple-400" value="Decline">Decline</option>
+                          <option className="bg-slate-900 text-cyan-400" value="Not Billable">Not Billable</option>
                         </select>
                       </td>
 
@@ -350,6 +536,8 @@ const EvaluationFormPage = () => {
                           <option value="call ended in no result" />
                           <option value="DNQ Customer" />
                           <option value="DNC Customer" />
+                          <option value="Not billable" />
+                          <option value="Decline" />
                         </datalist>
                       </td>
 

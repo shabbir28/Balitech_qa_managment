@@ -23,31 +23,32 @@ const SidebarLayout = ({ children }) => {
 
   const navItems = [
     // Common
-    { name: 'Dashboard',       path: '/dashboard',       icon: LayoutDashboard, roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
+    { name: 'Dashboard',       path: '/dashboard',       icon: LayoutDashboard, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
 
-    // Manager section
-    { name: 'My Team',         path: '/users',            icon: UsersRound,      roles: ['Super Admin', 'QA Admin'] },
-
-    { name: 'Campaigns',       path: '/campaigns',        icon: Target,          roles: ['Super Admin', 'QA Admin'] },
-    { name: 'Assign Leads',    path: '/assign-leads',     icon: Send,            roles: ['Super Admin', 'QA Admin'] },
+    // Manager / Leadership section
+    { name: 'Teams',           path: '/teams',           icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'My Team',         path: '/users',           icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Campaigns',       path: '/campaigns',       icon: Target,          roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Assign Leads',    path: '/assign-leads',    icon: Send,            roles: ['Super Admin', 'QA Admin', 'Manager'] },
 
     // Dialer
-    { name: 'Dialer Search',   path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Dialer Sales',    path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Agent Wise Sales',path: '/dialer-sales/agent-sales', icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'QA Agent'] },
-    { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin'] },
-    { name: 'Compare History', path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Dialer Search',   path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Dialer Sales',    path: '/dialer-sales',     icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Agent Wise Sales',path: '/dialer-sales/agent-sales', icon: UsersRound, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,  roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Compare History', path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin', 'Manager'] },
 
     // QA / Evaluator
     { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },
-    { name: 'Evaluations',     path: '/evaluations',       icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin'] },
+    { name: 'Evaluations',     path: '/evaluations',      icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
   ];
 
   // Section headers for visual grouping
   const getSectionHeader = (path) => {
-    if (path === '/users') return 'Super Admin';
-    if (path === '/my-assignments') return 'Workspace';
+    if (path === '/teams' || path === '/users') return 'Management';
+    if (path === '/dialer') return 'Dialer';
+    if (path === '/my-assignments' || path === '/evaluations') return 'Workspace';
     return null;
   };
 
