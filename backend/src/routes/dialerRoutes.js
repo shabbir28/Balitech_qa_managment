@@ -15,4 +15,7 @@ router.get('/lead/:leadId', authenticate, checkDialerAccess, dialerController.ge
 // Route to import lead into local DB for evaluation
 router.post('/import-lead', authenticate, checkDialerAccess, dialerController.importLeadForEval);
 
+// Route to proxy audio recording download directly
+router.get('/download-recording', authenticate, dialerController.downloadAudio);
+
 module.exports = router;

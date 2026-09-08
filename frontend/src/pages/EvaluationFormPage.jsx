@@ -1,8 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import api from '../services/api';
+import api, { uploadApi } from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Play, Pause, Volume2 } from 'lucide-react';
+import { ArrowLeft, Save, Play, Pause, Volume2, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 
@@ -41,6 +41,7 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(rec.length ? parseFloat(rec.length) : 0);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -62,6 +63,67 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
     setPlaybackRate(newRate);
     if (audioRef.current) audioRef.current.playbackRate = newRate;
   };
+
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    if (!rec.location) {
+      toast.error('No recording URL found.');
+      return;
+    }
+    const cleanFilename = rec.filename || `recording_${index + 1}.mp3`;
+    const finalFilename = cleanFilename.endsWith('.mp3') || cleanFilename.endsWith('.wav') ? cleanFilename : `${cleanFilename}.mp3`;
+    
+    setDownloading(true);
+    try {
+      // First try proxy endpoint to bypass CORS and force direct attachment download
+      // Use uploadApi (5 min timeout) to avoid 30s timeout on large audio files
+      const response = await uploadApi.get('/dialer/download-recording', {
+        params: {
+          url: rec.location,
+          filename: finalFilename
+        },
+        responseType: 'blob'
+      });
+      
+      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'audio/mpeg' }));
+      const link = document.createElement('a');
+      link.href = blobUrl;
+      link.setAttribute('download', finalFilename);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(blobUrl);
+      toast.success('Download started');
+    } catch {
+      // Fallback: direct fetch or hidden iframe download without opening new tab
+      try {
+        const directRes = await fetch(rec.location);
+        if (!directRes.ok) throw new Error('Direct fetch failed');
+        const blob = await directRes.blob();
+        const blobUrl = window.URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = blobUrl;
+        link.setAttribute('download', finalFilename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+        toast.success('Download started');
+      } catch {
+        // Safe hidden trigger to prevent opening new tab
+        const link = document.createElement('a');
+        link.href = rec.location;
+        link.setAttribute('download', finalFilename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        toast.success('Download initiated');
+      }
+    } finally {
+      setDownloading(false);
+    }
+  };
+
 
   return (
     <div className={`bg-slate-900/90 backdrop-blur-md border rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative overflow-hidden transition-all ${
@@ -100,13 +162,13 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
             }`}>
               Recording {index + 1}{total > 1 ? ` of ${total}` : ''}
             </span>
-            <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[450px]" title={rec.filename}>
+            <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[420px]" title={rec.filename}>
               {rec.filename || `Recording ${index + 1}`}
             </span>
             {rec.date && <span className="text-[10px] text-slate-500">({rec.date})</span>}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(currentTime)}</span>
             <span className="text-xs text-slate-500">/</span>
             <span className="text-xs font-mono text-slate-400">{formatTime(duration)}</span>
@@ -121,6 +183,21 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
               <option value={1.5}>1.5x</option>
               <option value={2}>2x</option>
             </select>
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-1 px-2.5 py-1 bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 rounded-lg text-slate-300 hover:text-white text-xs font-medium transition-all shadow-sm cursor-pointer disabled:opacity-50"
+              title="Download this recording"
+            >
+              {downloading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span className="text-[11px]">Download</span>
+            </button>
           </div>
         </div>
 
@@ -224,7 +301,9 @@ const EvaluationFormPage = () => {
             if (!saved.includes(trimmed)) {
               localStorage.setItem('custom_dids', JSON.stringify([...saved, trimmed]));
             }
-          } catch {}
+          } catch (e) {
+            console.debug('Failed to save custom did to localStorage:', e);
+          }
           return next;
         }
         return prev;
@@ -238,7 +317,9 @@ const EvaluationFormPage = () => {
             if (!saved.includes(trimmed)) {
               localStorage.setItem('custom_la_categories', JSON.stringify([...saved, trimmed]));
             }
-          } catch {}
+          } catch (e) {
+            console.debug('Failed to save custom category to localStorage:', e);
+          }
           return next;
         }
         return prev;
@@ -246,8 +327,29 @@ const EvaluationFormPage = () => {
     }
   };
 
-  // /my-assignments is QA Agent only, so admins must land somewhere they can access.
-  const exitPath = user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations';
+  const assignmentIdParam = searchParams.get('assignment_id');
+  const [currentLeadId, setCurrentLeadId] = useState(leadIdParam || null);
+  const [currentDialer, setCurrentDialer] = useState(dialerParam || 'pharmacy');
+
+  // Destination when exiting or completing evaluation:
+  // QA Agents and anyone evaluating an assigned lead always return to /my-assignments
+  const exitPath = (user?.role === 'QA Agent' || assignmentIdParam) ? '/my-assignments' : '/evaluations';
+
+  const handleBack = () => {
+    // If user came from My Assignments flow (has assignment_id) or is QA Agent, go directly back there
+    if (assignmentIdParam || user?.role === 'QA Agent') {
+      navigate('/my-assignments');
+      return;
+    }
+    // If we have a leadId and no assignment (admin/manager came from dialer), go back to lead page
+    const targetLeadId = currentLeadId || leadIdParam;
+    if (targetLeadId) {
+      navigate(`/dialer/lead/${targetLeadId}?dialer=${encodeURIComponent(currentDialer)}`);
+      return;
+    }
+    // Fallback
+    navigate(exitPath);
+  };
 
   useEffect(() => {
     if (callId) {
@@ -255,7 +357,7 @@ const EvaluationFormPage = () => {
         const callData = res.data.data;
         if (callData.is_evaluated) {
           toast.error('This call has already been evaluated! You cannot edit it.');
-          navigate('/evaluations');
+          navigate(exitPath);
           return;
         }
         setCall(callData);
@@ -293,10 +395,14 @@ const EvaluationFormPage = () => {
         const detectedDialer = dialerParam !== 'pharmacy' && dialerParam 
           ? dialerParam 
           : ((callData.team || callData.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy');
+        setCurrentDialer(detectedDialer);
 
         // Resolve lead ID from params or notes (supporting both VICI_LEAD: and Lead ID: formats)
         const leadMatch = callData.notes?.match(/(?:Lead ID:\s*|VICI_LEAD:)(\d+)/i);
         const resolvedLeadId = leadIdParam || (leadMatch ? leadMatch[1] : null);
+        if (resolvedLeadId) {
+          setCurrentLeadId(resolvedLeadId);
+        }
 
         if (recs.length <= 1 && resolvedLeadId) {
           try {
@@ -394,7 +500,7 @@ const EvaluationFormPage = () => {
           <p className="text-sm text-slate-400 mt-1 font-medium">Listen to the recording and fill out the QA sheet below</p>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(exitPath)} className="btn-secondary px-5 py-2.5">
+          <button onClick={handleBack} className="btn-secondary px-5 py-2.5">
             <ArrowLeft size={16} className="mr-2" /> Back
           </button>
           <button onClick={handleSubmit} disabled={loading} className="btn-primary px-6 py-2.5 shadow-indigo-500/20 shadow-lg">

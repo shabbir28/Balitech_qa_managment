@@ -329,3 +329,149 @@ exports.getRecordings = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * Proxy stream download for recording audio to prevent opening new tab or CORS errors.
+ * Supports HTTP redirect following and validates URLs to allowed recording hosts only.
+ */
+exports.downloadAudio = async (req, res, next) => {
+  try {
+    let { url, filename } = req.query;
+    if (!url) {
+      return res.status(400).json({ success: false, message: 'URL is required' });
+    }
+
+    // Fix https to http for bare IP addresses to avoid invalid SSL cert errors
+    if (url.startsWith('https://') && /^\d+\.\d+\.\d+\.\d+/.test(new URL(url).hostname)) {
+      url = url.replace('https://', 'http://');
+    }
+
+    // ── SSRF Protection: Only allow known recording origins ─────────────────
+    let parsedUrl;
+    try {
+      parsedUrl = new URL(url);
+    } catch {
+      return res.status(400).json({ success: false, message: 'Invalid URL format' });
+    }
+
+    // Allowed protocols only
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return res.status(400).json({ success: false, message: 'Only HTTP/HTTPS URLs are allowed' });
+    }
+
+    // Build allowed hosts from env config (recording server IPs / domains)
+    const allowedHosts = new Set();
+    const allowedDomainSuffixes = new Set(); // allow any subdomain of these domains
+
+    const recordingsBase = process.env.DIALER_RECORDINGS_URL || 'http://167.235.117.217/RECORDINGS/MP3';
+    try { allowedHosts.add(new URL(recordingsBase).hostname); } catch {}
+    const pharmacyUrl = process.env.PHARMACY_DIALER_URL || process.env.DIALER_API_URL;
+    if (pharmacyUrl) { try {
+      const h = new URL(pharmacyUrl).hostname;
+      allowedHosts.add(h);
+      // Also allow the parent domain (e.g., dialerhosting.com from bt1.dialerhosting.com)
+      const parts = h.split('.');
+      if (parts.length >= 2) allowedDomainSuffixes.add(parts.slice(-2).join('.'));
+    } catch {} }
+    const medicareUrl = process.env.MEDICARE_DIALER_URL;
+    if (medicareUrl) { try {
+      const h = new URL(medicareUrl).hostname;
+      allowedHosts.add(h);
+      const parts = h.split('.');
+      if (parts.length >= 2) allowedDomainSuffixes.add(parts.slice(-2).join('.'));
+    } catch {} }
+    // Also allow the specific known Vicidial recording IP as a safety fallback
+    allowedHosts.add('167.235.117.217');
+    // Allow any subdomain of dialerhosting.com since recordings use different subdomains
+    allowedDomainSuffixes.add('dialerhosting.com');
+    allowedDomainSuffixes.add('vicidial.net');
+    allowedDomainSuffixes.add('vicidial.org');
+
+    const hostname = parsedUrl.hostname;
+    const domainParts = hostname.split('.');
+    const parentDomain = domainParts.slice(-2).join('.');
+    const isAllowed = allowedHosts.has(hostname) || allowedDomainSuffixes.has(parentDomain);
+
+    if (!isAllowed) {
+      return res.status(403).json({
+        success: false,
+        message: `Recording URL hostname '${hostname}' is not an allowed recording source`
+      });
+    }
+
+    const cleanFilename = (filename || parsedUrl.pathname.split('/').pop() || 'recording.mp3')
+      .replace(/[^a-zA-Z0-9._-]/g, '_');
+    const safeFilename = (cleanFilename.endsWith('.mp3') || cleanFilename.endsWith('.wav'))
+      ? cleanFilename
+      : `${cleanFilename}.mp3`;
+
+    // ── Stream with redirect support (follow up to 5 redirects) ─────────────
+    let currentUrl = url;
+    let redirectCount = 0;
+    const MAX_REDIRECTS = 5;
+
+    const doStream = () => {
+      const client = currentUrl.startsWith('https://') ? require('https') : require('http');
+
+      client.get(currentUrl, (streamRes) => {
+        // Handle redirects properly (no recursive req spread)
+        if (streamRes.statusCode >= 300 && streamRes.statusCode < 400 && streamRes.headers.location) {
+          streamRes.resume(); // consume and discard body
+          if (redirectCount >= MAX_REDIRECTS) {
+            if (!res.headersSent) {
+              return res.status(500).json({ success: false, message: 'Too many redirects' });
+            }
+            return;
+          }
+          redirectCount++;
+          // Resolve relative redirects
+          try {
+            currentUrl = new URL(streamRes.headers.location, currentUrl).toString();
+            // Fix https to http for bare IPs on redirects too
+            if (currentUrl.startsWith('https://') && /^\d+\.\d+\.\d+\.\d+/.test(new URL(currentUrl).hostname)) {
+              currentUrl = currentUrl.replace('https://', 'http://');
+            }
+          } catch {
+            if (!res.headersSent) {
+              return res.status(500).json({ success: false, message: 'Invalid redirect URL' });
+            }
+            return;
+          }
+          return doStream();
+        }
+
+        if (streamRes.statusCode !== 200) {
+          if (!res.headersSent) {
+            return res.status(streamRes.statusCode || 502).json({
+              success: false,
+              message: `Failed to fetch audio stream: upstream returned status ${streamRes.statusCode}`
+            });
+          }
+          return;
+        }
+
+        res.setHeader('Content-Disposition', `attachment; filename="${safeFilename}"`);
+        res.setHeader('Content-Type', streamRes.headers['content-type'] || 'audio/mpeg');
+        res.setHeader('Cache-Control', 'no-store');
+        if (streamRes.headers['content-length']) {
+          res.setHeader('Content-Length', streamRes.headers['content-length']);
+        }
+
+        streamRes.pipe(res);
+        streamRes.on('error', (err) => {
+          console.error('Error piping audio stream:', err.message);
+        });
+      }).on('error', (err) => {
+        console.error('Error in downloadAudio proxy:', err.message);
+        if (!res.headersSent) {
+          res.status(502).json({ success: false, message: 'Audio stream download failed: ' + err.message });
+        }
+      });
+    };
+
+    doStream();
+  } catch (error) {
+    next(error);
+  }
+};
+

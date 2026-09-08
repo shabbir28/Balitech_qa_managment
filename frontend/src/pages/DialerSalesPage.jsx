@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCw, AlertCircle, Database, Filter, ChevronDown, Calendar, Clock, Ban, UserCheck, X, CheckSquare, Square, Check, Layers, Send } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, Database, Filter, ChevronDown, Calendar, Clock, Ban, UserCheck, X, CheckSquare, Square, Check, Layers, Send, Search } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -441,6 +441,7 @@ export default function DialerSalesPage() {
   
   const [selectedStatus, setSelectedStatus] = useState('All');
   const [selectedTeam, setSelectedTeam] = useState('All');
+  const [agentSearch, setAgentSearch] = useState('');
   const [timeFilter, setTimeFilter] = useState('TODAY');
   const [qaMetadata, setQaMetadata] = useState({}); // { lead_id -> { qa_override, qa_status } }
   const [showAssign, setShowAssign] = useState(false);
@@ -451,6 +452,7 @@ export default function DialerSalesPage() {
     setError('');
     setSelectedStatus('All');
     setSelectedTeam('All');
+    setAgentSearch('');
     setSelectedLeadIds([]);
     try {
       const res = await api.get(`/dialer-sales?dialer=${encodeURIComponent(dialerType)}&timeFilter=${timeFilter}`);
@@ -549,6 +551,13 @@ export default function DialerSalesPage() {
     if (selectedTeam !== 'All') {
       finalFiltered = finalFiltered.filter(lead => (lead.team || 'Unknown') === selectedTeam);
     }
+    if (agentSearch.trim()) {
+      const query = agentSearch.trim().toLowerCase();
+      finalFiltered = finalFiltered.filter(lead => {
+        const agent = String(lead.last_agent || lead.agent || lead.user || '').toLowerCase();
+        return agent.includes(query);
+      });
+    }
 
     return { 
       filteredSales: finalFiltered, 
@@ -557,21 +566,29 @@ export default function DialerSalesPage() {
       totalSales: sales.length,
       notASaleCount: nasc
     };
-  }, [sales, statuses, selectedStatus, selectedTeam, qaMetadata]);
+  }, [sales, statuses, selectedStatus, selectedTeam, agentSearch, qaMetadata]);
+
+
+  const [quickSelectCount, setQuickSelectCount] = useState(5);
+
+  const unassignedFilteredSales = useMemo(() => {
+    return filteredSales.filter(lead => !qaMetadata[lead.lead_id]?.is_assigned);
+  }, [filteredSales, qaMetadata]);
 
   const selectedLeads = useMemo(() => {
     return sales.filter(s => selectedLeadIds.includes(s.lead_id));
   }, [sales, selectedLeadIds]);
 
-  const visibleLeadIds = useMemo(() => {
-    return filteredSales.map(l => l.lead_id);
-  }, [filteredSales]);
+  const visibleUnassignedLeadIds = useMemo(() => {
+    return unassignedFilteredSales.map(l => l.lead_id);
+  }, [unassignedFilteredSales]);
 
-  const allFilteredSelected = visibleLeadIds.length > 0 && visibleLeadIds.every(id => selectedLeadIds.includes(id));
-  const someFilteredSelected = visibleLeadIds.some(id => selectedLeadIds.includes(id)) && !allFilteredSelected;
+  const allFilteredSelected = visibleUnassignedLeadIds.length > 0 && visibleUnassignedLeadIds.every(id => selectedLeadIds.includes(id));
+  const someFilteredSelected = visibleUnassignedLeadIds.some(id => selectedLeadIds.includes(id)) && !allFilteredSelected;
 
   const handleToggleLead = (leadId, e) => {
     if (e) e.stopPropagation();
+    if (qaMetadata[leadId]?.is_assigned) return; // Prevent selecting already assigned lead
     setSelectedLeadIds(prev =>
       prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]
     );
@@ -579,9 +596,23 @@ export default function DialerSalesPage() {
 
   const handleToggleAll = () => {
     if (allFilteredSelected) {
-      setSelectedLeadIds(prev => prev.filter(id => !visibleLeadIds.includes(id)));
+      setSelectedLeadIds(prev => prev.filter(id => !visibleUnassignedLeadIds.includes(id)));
     } else {
-      setSelectedLeadIds(prev => Array.from(new Set([...prev, ...visibleLeadIds])));
+      setSelectedLeadIds(prev => Array.from(new Set([...prev, ...visibleUnassignedLeadIds])));
+    }
+  };
+
+  const handleQuickSelect = (count) => {
+    const num = Math.min(unassignedFilteredSales.length, Math.max(1, count));
+    const idsToPick = unassignedFilteredSales.slice(0, num).map(l => l.lead_id);
+    if (idsToPick.length > 0) {
+      setSelectedLeadIds(prev => {
+        const combined = Array.from(new Set([...prev, ...idsToPick]));
+        return combined;
+      });
+      toast.success(`Selected ${idsToPick.length} leads from this view (Total: ${new Set([...selectedLeadIds, ...idsToPick]).size})!`);
+    } else {
+      toast.error('No unassigned leads available in current view.');
     }
   };
 
@@ -800,14 +831,56 @@ export default function DialerSalesPage() {
       */}
       {user?.role !== 'QA Agent' && (
         <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col relative" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
-        <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
-          <div className="flex items-center gap-3">
+        <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900 flex flex-wrap justify-between items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-slate-300 text-xs font-medium flex items-center gap-2">
               <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold">
                 {filteredSales.length}
               </span>
               {selectedStatus === 'All' ? 'Total Leads' : `Leads for ${selectedStatus}`}
             </h3>
+
+            {/* Unassigned count indicator */}
+            <span className="text-[11px] text-slate-400">
+              (<span className="text-emerald-400 font-semibold">{unassignedFilteredSales.length}</span> unassigned)
+            </span>
+
+            {/* Quick Select Buttons */}
+            {unassignedFilteredSales.length > 0 && (
+              <div className="flex items-center gap-1.5 pl-2 border-l border-slate-700/80">
+                <span className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1">
+                  <Layers className="w-3 h-3 text-emerald-400" /> Quick Select:
+                </span>
+                {[5, 10, 20, 50].map(cnt => (
+                  <button
+                    key={cnt}
+                    type="button"
+                    onClick={() => handleQuickSelect(cnt)}
+                    className="px-2 py-0.5 rounded bg-slate-800 hover:bg-emerald-600/30 text-slate-300 hover:text-emerald-300 border border-slate-700 text-[11px] font-bold transition-all cursor-pointer"
+                  >
+                    +{cnt}
+                  </button>
+                ))}
+                <div className="flex items-center gap-1 ml-1">
+                  <input
+                    type="number"
+                    min="1"
+                    max={unassignedFilteredSales.length}
+                    value={quickSelectCount}
+                    onChange={e => setQuickSelectCount(Math.max(1, parseInt(e.target.value) || 1))}
+                    className="w-12 bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded px-1.5 py-0.5 text-center font-mono focus:outline-none focus:border-emerald-500"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => handleQuickSelect(quickSelectCount)}
+                    className="px-2 py-0.5 rounded bg-emerald-600/20 hover:bg-emerald-600/40 text-emerald-400 border border-emerald-500/30 text-[11px] font-semibold transition-all cursor-pointer"
+                  >
+                    Pick
+                  </button>
+                </div>
+              </div>
+            )}
+
             {selectedLeadIds.length > 0 && (
               <div className="flex items-center gap-2 pl-3 border-l border-slate-700/80 animate-in fade-in duration-200">
                 <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1">
@@ -826,26 +899,49 @@ export default function DialerSalesPage() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Agent Search Input */}
+            <div className="relative flex items-center">
+              <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 pointer-events-none" />
+              <input
+                type="text"
+                value={agentSearch}
+                onChange={e => setAgentSearch(e.target.value)}
+                placeholder="Search Agent..."
+                className="bg-slate-950/80 border border-slate-700 text-slate-200 text-xs rounded-lg pl-8 pr-7 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-500 w-36 sm:w-48 transition-all"
+              />
+              {agentSearch && (
+                <button
+                  type="button"
+                  onClick={() => setAgentSearch('')}
+                  className="absolute right-2 text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                  title="Clear agent search"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              )}
+            </div>
+
             {selectedLeadIds.length > 0 && (
               <button
                 type="button"
                 onClick={() => setShowAssign(true)}
-                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all text-xs font-bold shadow-md cursor-pointer animate-in fade-in"
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all text-xs font-bold shadow-md cursor-pointer animate-in fade-in"
               >
                 <UserCheck className="w-3.5 h-3.5" />
                 Assign {selectedLeadIds.length} Selected
               </button>
             )}
-            { (selectedStatus !== 'All' || selectedTeam !== 'All') && (
+            { (selectedStatus !== 'All' || selectedTeam !== 'All' || agentSearch.trim()) && (
               <button 
-                onClick={() => { setSelectedStatus('All'); setSelectedTeam('All'); }}
-                className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+                onClick={() => { setSelectedStatus('All'); setSelectedTeam('All'); setAgentSearch(''); }}
+                className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer py-1 px-2 rounded hover:bg-slate-800"
               >
-                Clear Filter <Filter className="w-3 h-3" />
+                Reset Filters <Filter className="w-3 h-3" />
               </button>
             )}
           </div>
         </div>
+
 
         <div className="overflow-auto flex-1 bg-slate-950/20">
           {loading && !sales.length ? (
@@ -892,37 +988,46 @@ export default function DialerSalesPage() {
                   </tr>
                 )}
                 {filteredSales.map((lead, idx) => {
+                  const isAssigned = Boolean(qaMetadata[lead.lead_id]?.is_assigned);
                   const isSelected = selectedLeadIds.includes(lead.lead_id);
                   return (
                     <tr 
                       key={lead.lead_id + idx}
-                      onClick={() => handleToggleLead(lead.lead_id)}
-                      className={`transition-colors cursor-pointer ${
-                        isSelected 
-                          ? 'bg-emerald-950/40 hover:bg-emerald-950/50 border-l-2 border-emerald-500' 
-                          : qaMetadata[lead.lead_id]?.qa_override === 'NOT_A_SALE' 
-                            ? 'bg-red-950/20 hover:bg-red-950/30' 
-                            : 'hover:bg-slate-800/40'
+                      onClick={() => !isAssigned && handleToggleLead(lead.lead_id)}
+                      className={`transition-colors ${
+                        isAssigned
+                          ? 'bg-slate-950/40 opacity-70 cursor-not-allowed'
+                          : isSelected 
+                            ? 'bg-emerald-950/40 hover:bg-emerald-950/50 border-l-2 border-emerald-500 cursor-pointer' 
+                            : qaMetadata[lead.lead_id]?.qa_override === 'NOT_A_SALE' 
+                              ? 'bg-red-950/20 hover:bg-red-950/30 cursor-pointer' 
+                              : 'hover:bg-slate-800/40 cursor-pointer'
                       }`}
                     >
                       <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
-                        <button
-                          type="button"
-                          onClick={(e) => handleToggleLead(lead.lead_id, e)}
-                          className="text-slate-500 hover:text-emerald-400 transition-colors inline-flex items-center justify-center cursor-pointer"
-                        >
-                          {isSelected ? (
-                            <CheckSquare className="w-4 h-4 text-emerald-400" />
-                          ) : (
-                            <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
-                          )}
-                        </button>
+                        {isAssigned ? (
+                          <span title={`Already assigned to ${qaMetadata[lead.lead_id]?.assigned_qa_name || 'QA Agent'}`}>
+                            <Ban className="w-3.5 h-3.5 text-slate-600 inline-block" />
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={(e) => handleToggleLead(lead.lead_id, e)}
+                            className="text-slate-500 hover:text-emerald-400 transition-colors inline-flex items-center justify-center cursor-pointer"
+                          >
+                            {isSelected ? (
+                              <CheckSquare className="w-4 h-4 text-emerald-400" />
+                            ) : (
+                              <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
+                            )}
+                          </button>
+                        )}
                       </td>
                       <td
                         className="px-4 py-2.5 whitespace-nowrap text-emerald-400 font-medium cursor-pointer hover:underline"
                         onClick={(e) => {
                           e.stopPropagation();
-                          navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}`);
+                          navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}&from=sales`);
                         }}
                       >
                         {lead.lead_id}

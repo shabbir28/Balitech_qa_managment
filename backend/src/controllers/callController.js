@@ -523,6 +523,11 @@ const getDialerSalesLeads = async (req, res, next) => {
     // Default to today's date if not provided
     const targetDate = date || new Date().toISOString().split('T')[0];
 
+    // Whitelist specific teams for Medicare QA evaluation as requested: TeamBrad, JohnMurphy, TeamAdam
+    const medicareTeamFilter = dialer === 'medicare' 
+      ? ` AND (team ILIKE '%TeamBrad%' OR team ILIKE '%Brad%' OR team ILIKE '%JohnMurphy%' OR team ILIKE '%Murphy%' OR team ILIKE '%TeamAdam%' OR team ILIKE '%Adam%')`
+      : '';
+
     let queryStr = `
       SELECT 
         id,
@@ -539,6 +544,7 @@ const getDialerSalesLeads = async (req, res, next) => {
       WHERE dialer = $1 
         AND sale_date = $2
         AND (is_assigned IS FALSE OR is_assigned IS NULL)
+        ${medicareTeamFilter}
     `;
     const params = [dialer, targetDate];
     let paramCount = 3;
@@ -560,6 +566,7 @@ const getDialerSalesLeads = async (req, res, next) => {
          FROM dialer_sales_history 
          WHERE dialer = $1 
            AND (is_assigned IS FALSE OR is_assigned IS NULL)
+           ${medicareTeamFilter}
          GROUP BY sale_date 
          ORDER BY sale_date DESC 
          LIMIT 1`,
@@ -584,6 +591,7 @@ const getDialerSalesLeads = async (req, res, next) => {
           WHERE dialer = $1 
             AND sale_date = $2
             AND (is_assigned IS FALSE OR is_assigned IS NULL)
+            ${medicareTeamFilter}
         `;
         if (search) {
           fallbackQuery += ` AND (phone ILIKE $3 OR agent ILIKE $3 OR lead_id ILIKE $3 OR team ILIKE $3)`;

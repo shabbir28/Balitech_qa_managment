@@ -49,8 +49,8 @@ const SidebarLayout = ({ children }) => {
     <div className="min-h-screen bg-[#080B11] flex selection:bg-amber-500/30 selection:text-amber-100 font-sans">
       {/* Mobile Header */}
       <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#090D16] border-b border-slate-800/80 z-50 flex items-center justify-between px-4">
-        <div className="flex items-center gap-2">
-          <img src={logoImage} alt="Balitech Logo" className="h-8 object-contain" />
+        <div className="flex items-center gap-2.5">
+          <img src={logoImage} alt="Balitech Logo" className="h-9 object-contain" />
         </div>
         <button onClick={() => setIsOpen(!isOpen)} className="text-slate-400 hover:text-white transition-colors">
           {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -66,7 +66,7 @@ const SidebarLayout = ({ children }) => {
       <div className={`fixed lg:static inset-y-0 left-0 z-50 w-[265px] bg-[#090D16] border-r border-slate-800/80 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
         {/* Brand Logo Container */}
-        <div className="h-24 flex items-center px-6 border-b border-slate-800/60 relative overflow-hidden shrink-0">
+        <div className="h-20 flex items-center px-5 border-b border-slate-800/60 relative overflow-hidden shrink-0">
           <img src={logoImage} alt="Balitech Logo" className="h-12 sm:h-13 w-auto max-w-[210px] object-contain drop-shadow-md" />
         </div>
 

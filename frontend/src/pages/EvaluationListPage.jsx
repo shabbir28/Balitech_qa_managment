@@ -90,7 +90,7 @@ const EvaluationListPage = () => {
   // Sub-modals
   const [audioAssignment, setAudioAssignment] = useState(null);
 
-  const { hasRole } = useAuth();
+  const { hasRole, user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -98,6 +98,11 @@ const EvaluationListPage = () => {
   }, []);
 
   const fetchManagedUsers = useCallback(async () => {
+    // QA Agents don't manage other users — skip to avoid a 403
+    if (!hasRole('Super Admin', 'QA Admin', 'Manager')) {
+      setLoadingUsers(false);
+      return;
+    }
     setLoadingUsers(true);
     try {
       const res = await api.get('/users/managed-stats', { params: filters });
@@ -107,7 +112,7 @@ const EvaluationListPage = () => {
     } finally {
       setLoadingUsers(false);
     }
-  }, [filters]);
+  }, [filters, hasRole]);
 
   useEffect(() => {
     fetchManagedUsers();

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search, Phone, User, Activity, Hash, ChevronRight, AlertTriangle, Settings } from 'lucide-react';
+import { Search, Phone, User, Activity, Hash, ChevronRight, AlertTriangle, Settings, ArrowLeft } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -90,9 +90,21 @@ export default function DialerSearchPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Dialer Lead Search</h1>
-          <p className="text-sm text-slate-400 mt-1">Search for a lead by phone number to view details and recordings.</p>
+        <div className="flex items-center gap-4">
+          {(assignmentId || user?.role === 'QA Agent') && (
+            <button 
+              type="button"
+              onClick={() => navigate('/my-assignments')}
+              className="p-2 bg-slate-900 border border-slate-800 rounded-xl hover:bg-slate-800 text-slate-400 hover:text-white transition-colors cursor-pointer"
+              title="Back to My Assignments"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+          )}
+          <div>
+            <h1 className="text-2xl font-bold text-white tracking-tight">Dialer Lead Search</h1>
+            <p className="text-sm text-slate-400 mt-1">Search for a lead by phone number to view details and recordings.</p>
+          </div>
         </div>
       </div>
 
@@ -216,7 +228,7 @@ export default function DialerSearchPage() {
                     <tr
                       key={lead.lead_id}
                       className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}${assignmentId ? `&assignment_id=${assignmentId}` : ''}`)}
+                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}${assignmentId ? `&assignment_id=${assignmentId}` : ''}&from=search`)}
                     >
                       <td className="py-4 px-6">
                         <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-400 font-mono text-sm border border-indigo-500/20">

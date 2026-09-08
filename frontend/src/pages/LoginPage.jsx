@@ -51,12 +51,12 @@ const LoginPage = () => {
         {/* Left Branding Panel */}
         <div className="flex-1 text-center lg:text-left space-y-8 max-w-xl">
           <div className="inline-flex items-center">
-            <img src={logoImage} alt="Brand Logo" className="h-16 lg:h-20 object-contain drop-shadow-2xl" />
+            <img src={logoImage} alt="Balitech Logo" className="h-16 lg:h-20 object-contain drop-shadow-2xl" />
           </div>
           
           <div>
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-white mb-2">
-              Balitech
+              Enterprise
             </h1>
             <h1 className="text-5xl lg:text-7xl font-bold tracking-tight text-orange-500">
               QA Desk
@@ -100,7 +100,7 @@ const LoginPage = () => {
 
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white tracking-tight">Welcome Back</h2>
-              <p className="text-slate-400 text-sm mt-2">Sign in to access your Balitech workspace</p>
+              <p className="text-slate-400 text-sm mt-2">Sign in to access your QA workspace</p>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">

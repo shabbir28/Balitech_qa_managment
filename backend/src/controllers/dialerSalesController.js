@@ -857,6 +857,35 @@ exports.assignSales = async (req, res) => {
       return res.status(400).json({ success: false, message: 'Missing required parameters (dialer, assigned_to, leads)' });
     }
 
+    // Check which leads are ALREADY assigned to prevent duplicate assignment across agents
+    const leadIds = leads.map(l => String(l.lead_id)).filter(Boolean);
+    const phones = leads.map(l => String(l.phone)).filter(Boolean);
+
+    const alreadyAssignedRes = await query(
+      `SELECT lead_id, phone, assigned_qa_name 
+       FROM dialer_sales_history 
+       WHERE dialer = $1 
+         AND is_assigned IS TRUE 
+         AND (lead_id = ANY($2::varchar[]) OR (phone IS NOT NULL AND phone != '' AND phone = ANY($3::varchar[])))`,
+      [dialer, leadIds, phones]
+    );
+
+    const alreadyAssignedSet = new Set();
+    alreadyAssignedRes.rows.forEach(r => {
+      if (r.lead_id) alreadyAssignedSet.add(r.lead_id);
+      if (r.phone) alreadyAssignedSet.add(r.phone);
+    });
+
+    const assignableLeads = leads.filter(l => !alreadyAssignedSet.has(String(l.lead_id)) && !alreadyAssignedSet.has(String(l.phone)));
+
+    if (assignableLeads.length === 0) {
+      const existingNames = [...new Set(alreadyAssignedRes.rows.map(r => r.assigned_qa_name).filter(Boolean))].join(', ');
+      return res.status(400).json({
+        success: false,
+        message: `Selected lead(s) are already assigned${existingNames ? ` (to ${existingNames})` : ''}. Cannot assign the same number again.`
+      });
+    }
+
     // Verify campaign (case-insensitive search)
     const campaignName = dialer === 'medicare' ? 'Medicare' : 'Pharmacy';
     let campRes = await query(
@@ -874,7 +903,7 @@ exports.assignSales = async (req, res) => {
     const assignedCount = [];
     const assignedLeadIds = [];
 
-    for (const lead of leads) {
+    for (const lead of assignableLeads) {
       // Check if call_leads already exists for this phone and campaign
       let leadCheck = await query('SELECT id FROM call_leads WHERE customer_phone = $1 AND campaign_id = $2 LIMIT 1', [lead.phone, campaignId]);
       let callLeadId = null;
@@ -933,7 +962,7 @@ exports.assignSales = async (req, res) => {
       const qaUser = await query('SELECT name FROM users WHERE id = $1', [assigned_to]);
       const qaName = qaUser.rows[0] ? qaUser.rows[0].name : 'QA Agent';
 
-      for (const lead of leads) {
+      for (const lead of assignableLeads) {
         if (!lead.lead_id) continue;
         await query(
           `INSERT INTO dialer_sales_history (lead_id, dialer, phone, status, agent, team, is_assigned, assigned_qa_name, sale_date)
@@ -954,10 +983,17 @@ exports.assignSales = async (req, res) => {
       }
     }
 
+    const skippedCount = leads.length - assignableLeads.length;
+    let message = `${assignedCount.length} lead(s) successfully assigned to QA Agent.`;
+    if (skippedCount > 0) {
+      message += ` (${skippedCount} already-assigned lead(s) were skipped).`;
+    }
+
     return res.json({
       success: true,
-      message: `${assignedCount.length} lead(s) successfully assigned to QA Agent.`,
-      assigned_count: assignedCount.length
+      message,
+      assigned_count: assignedCount.length,
+      assigned_lead_ids: assignedLeadIds
     });
   } catch (error) {
     console.error('Error in assignSales:', error);
