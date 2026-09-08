@@ -1,65 +1,56 @@
 import { useState } from 'react';
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import {
   LayoutDashboard, Phone, ClipboardCheck,
-  LogOut, Menu, X, Target,
-  UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays, History
+  Menu, X, Target,
+  UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays, History,
+  ShieldAlert
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
 import poweredByImage from '../assets/Go Connectivo 1.png';
 
 const SidebarLayout = ({ children }) => {
   const [isOpen, setIsOpen] = useState(false);
-  const { user, logout, hasRole } = useAuth();
-  const navigate = useNavigate();
-
-  const handleLogout = () => {
-    logout();
-    toast.success('Session terminated');
-    navigate('/login');
-  };
+  const { user, hasRole } = useAuth();
 
   const navItems = [
     // Common
-    { name: 'Dashboard',       path: '/dashboard',       icon: LayoutDashboard, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Dashboard',        path: '/dashboard',            icon: LayoutDashboard, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
 
     // Manager / Leadership section
-    { name: 'Teams',           path: '/teams',           icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
-    { name: 'My Team',         path: '/users',           icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
-    { name: 'Campaigns',       path: '/campaigns',       icon: Target,          roles: ['Super Admin', 'QA Admin', 'Manager'] },
-    { name: 'Assign Leads',    path: '/assign-leads',    icon: Send,            roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'My Team',          path: '/users',                icon: UsersRound,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Campaigns',        path: '/campaigns',            icon: Target,          roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Assign Leads',     path: '/assign-leads',         icon: Send,            roles: ['Super Admin', 'QA Admin', 'Manager'] },
 
     // Dialer
-    { name: 'Dialer Search',   path: '/dialer',           icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Dialer Sales',    path: '/dialer-sales',     icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Sales History',   path: '/dialer-sales/history', icon: CalendarDays, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Agent Wise Sales',path: '/dialer-sales/agent-sales', icon: UsersRound, roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Compare Sales',   path: '/dialer-sales/compare', icon: ListChecks,  roles: ['Super Admin', 'QA Admin', 'Manager'] },
-    { name: 'Compare History', path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Dialer Search',    path: '/dialer',               icon: Phone,           roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Dialer Sales',     path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Sales History',    path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Agent Wise Sales', path: '/dialer-sales/agent-sales', icon: UsersRound,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Agent QA Report',  path: '/agent-reports',        icon: ShieldAlert,     roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Compare Sales',    path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Compare History',  path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin', 'Manager'] },
 
     // QA / Evaluator
-    { name: 'My Assignments',  path: '/my-assignments',   icon: ClipboardList,   roles: ['QA Agent'] },
-    { name: 'Evaluations',     path: '/evaluations',      icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'My Assignments',   path: '/my-assignments',       icon: ClipboardList,   roles: ['QA Agent'] },
+    { name: 'Evaluations',      path: '/evaluations',          icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
   ];
 
   // Section headers for visual grouping
   const getSectionHeader = (path) => {
-    if (path === '/teams' || path === '/users') return 'Management';
-    if (path === '/dialer') return 'Dialer';
-    if (path === '/my-assignments' || path === '/evaluations') return 'Workspace';
+    if (path === '/users') return user?.role?.toUpperCase() || 'MANAGEMENT';
     return null;
   };
 
   const visibleItems = navItems.filter(item => hasRole(...item.roles));
 
   return (
-    <div className="min-h-screen bg-dark flex selection:bg-primary-500/30">
+    <div className="min-h-screen bg-[#080B11] flex selection:bg-amber-500/30 selection:text-amber-100 font-sans">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-slate-900 border-b border-slate-800 z-50 flex items-center justify-between px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#090D16] border-b border-slate-800/80 z-50 flex items-center justify-between px-4">
         <div className="flex items-center gap-2">
-          <img src={logoImage} alt="Logo" className="h-8 object-contain" />
+          <img src={logoImage} alt="Balitech Logo" className="h-8 object-contain" />
         </div>
         <button onClick={() => setIsOpen(!isOpen)} className="text-slate-400 hover:text-white transition-colors">
           {isOpen ? <X size={24} /> : <Menu size={24} />}
@@ -72,16 +63,15 @@ const SidebarLayout = ({ children }) => {
       )}
 
       {/* Sidebar */}
-      <div className={`fixed lg:static inset-y-0 left-0 z-50 w-[280px] bg-slate-950 border-r border-slate-800 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
+      <div className={`fixed lg:static inset-y-0 left-0 z-50 w-[265px] bg-[#090D16] border-r border-slate-800/80 transform transition-transform duration-300 ease-in-out lg:transform-none flex flex-col ${isOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         
-        {/* Brand */}
-        <div className="h-20 flex items-center gap-3 px-6 border-b border-slate-800 relative overflow-hidden shrink-0">
-          <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-teal-500" />
-          <img src={logoImage} alt="Brand Logo" className="h-10 object-contain drop-shadow-md" />
+        {/* Brand Logo Container */}
+        <div className="h-24 flex items-center px-6 border-b border-slate-800/60 relative overflow-hidden shrink-0">
+          <img src={logoImage} alt="Balitech Logo" className="h-12 sm:h-13 w-auto max-w-[210px] object-contain drop-shadow-md" />
         </div>
 
-        {/* Navigation */}
-        <div className="flex-1 overflow-y-auto py-3 px-3 space-y-0.5 custom-scrollbar">
+        {/* Navigation Items */}
+        <div className="flex-1 overflow-y-auto py-4 px-3 space-y-1 custom-scrollbar">
           {visibleItems.map((item, idx) => {
             const header = getSectionHeader(item.path);
             const prevItem = visibleItems[idx - 1];
@@ -90,27 +80,26 @@ const SidebarLayout = ({ children }) => {
             return (
               <div key={item.path}>
                 {showHeader && (
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider px-3 pt-4 pb-1.5">{header}</p>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest px-3 pt-5 pb-2">
+                    {header}
+                  </p>
                 )}
                 <NavLink
                   to={item.path}
                   onClick={() => setIsOpen(false)}
                   className={({ isActive }) =>
-                    `flex items-center justify-between px-3 py-2 rounded-lg transition-all duration-200 group relative ${
+                    `flex items-center justify-between px-3.5 py-2.5 rounded-xl transition-all duration-200 group text-[13px] ${
                       isActive
-                        ? 'text-emerald-400 bg-emerald-500/10 font-semibold'
-                        : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200 font-medium'
+                        ? 'text-amber-400 bg-amber-500/10 border border-amber-500/30 font-semibold shadow-[0_0_15px_rgba(245,158,11,0.06)]'
+                        : 'text-slate-400 hover:bg-slate-900/70 hover:text-slate-200 font-medium'
                     }`
                   }
                 >
                   {({ isActive }) => (
-                    <>
-                      {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-emerald-500 rounded-r-full" />}
-                      <div className="flex items-center gap-3 text-[13px]">
-                        <item.icon className={`w-4 h-4 transition-colors ${isActive ? 'text-emerald-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
-                        {item.name}
-                      </div>
-                    </>
+                    <div className="flex items-center gap-3">
+                      <item.icon className={`w-4 h-4 transition-colors ${isActive ? 'text-amber-400' : 'text-slate-500 group-hover:text-slate-300'}`} />
+                      <span>{item.name}</span>
+                    </div>
                   )}
                 </NavLink>
               </div>
@@ -118,54 +107,18 @@ const SidebarLayout = ({ children }) => {
           })}
         </div>
 
-        {/* User Footer */}
-        <div className="p-3 border-t border-slate-800 bg-slate-950 shrink-0">
-          {/* Role Badge */}
-          <div className="px-2.5 py-1.5 mb-2 rounded-lg bg-slate-900 border border-slate-800 flex flex-col gap-1">
-            <div className="flex justify-between items-center">
-              <p className="text-[10px] text-slate-300 font-bold">Logged in as</p>
-              <p className="text-[10px] font-bold text-emerald-400 uppercase tracking-wide">{user?.role}</p>
-            </div>
-            {user?.campaign_name && (
-              <div className="flex justify-between items-center pt-1 mt-1 border-t border-slate-800/50">
-                <p className="text-[10px] text-slate-500 font-bold">Campaign</p>
-                <p className="text-[10px] font-bold text-indigo-400 truncate max-w-[100px]">{user.campaign_name}</p>
-              </div>
-            )}
-          </div>
-          <NavLink
-            to="/profile"
-            onClick={() => setIsOpen(false)}
-            className="flex items-center gap-3 p-1.5 rounded-lg hover:bg-slate-900 transition-colors group mb-2"
-          >
-            <div className="w-7 h-7 rounded-md bg-slate-800 flex items-center justify-center text-emerald-400 font-bold group-hover:bg-slate-700 transition-colors text-xs">
-              {user?.name?.charAt(0).toUpperCase()}
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-[13px] font-semibold text-slate-200 truncate">{user?.name}</p>
-              <p className="text-[10px] text-slate-500 truncate">{user?.email}</p>
-            </div>
-          </NavLink>
-          <button
-            onClick={handleLogout}
-            className="w-full flex items-center justify-center gap-2 px-3 py-1.5 text-xs font-semibold text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors mb-3"
-          >
-            <LogOut className="w-3.5 h-3.5" />
-            Logout
-          </button>
-          
-          <div className="pt-3 border-t border-slate-800/50 flex flex-col items-center opacity-70 hover:opacity-100 transition-opacity">
-            <span className="text-[9px] text-slate-500 font-bold uppercase tracking-widest mb-2">Powered By</span>
-            <img src={poweredByImage} alt="Powered by Go Connective" className="h-8 object-contain" />
-          </div>
+        {/* Sidebar Footer - Only Powered By Go Connectivo */}
+        <div className="p-4 border-t border-slate-800/60 bg-[#090D16] shrink-0 flex flex-col items-center">
+          <span className="text-[8px] text-slate-500 font-bold uppercase tracking-widest mb-1.5">Powered By</span>
+          <img src={poweredByImage} alt="Powered by Go Connective" className="h-8 object-contain opacity-75 hover:opacity-100 transition-opacity" />
         </div>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative bg-[#070B12]">
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[600px] h-[400px] bg-emerald-500/5 rounded-full blur-[100px] pointer-events-none" />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 pt-20 lg:pt-8 scroll-smooth relative z-10">
-          <div className="max-w-7xl mx-auto">
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative bg-[#080B11]">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-amber-500/[0.015] rounded-full blur-[120px] pointer-events-none" />
+        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 pt-20 lg:pt-6 scroll-smooth relative z-10">
+          <div className="max-w-[1440px] mx-auto">
             {children}
           </div>
         </main>

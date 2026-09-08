@@ -192,11 +192,11 @@ const getAssignments = async (req, res, next) => {
         COUNT(CASE WHEN la.status = 'accepted' THEN 1 END) as accepted,
         COUNT(CASE WHEN la.status = 'rejected' THEN 1 END) as rejected,
         COUNT(CASE WHEN la.status = 'completed' THEN 1 END) as completed,
-        COUNT(CASE WHEN e.status IN ('Accepted', 'Pass') THEN 1 END) as eval_accepted,
-        COUNT(CASE WHEN e.status IN ('Rejected', 'Fail') THEN 1 END) as eval_rejected,
-        COUNT(CASE WHEN e.status = 'Decline' THEN 1 END) as eval_decline,
-        COUNT(CASE WHEN e.status IN ('Not Billable', 'Not Bilable') THEN 1 END) as eval_not_billable,
-        COUNT(CASE WHEN e.status = 'Flagged' THEN 1 END) as eval_flagged
+        COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Accepted', 'Pass') THEN 1 END) as eval_accepted,
+        COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Rejected', 'Fail') THEN 1 END) as eval_rejected,
+        COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Decline' THEN 1 END) as eval_decline,
+        COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Not Billable', 'Not Bilable') THEN 1 END) as eval_not_billable,
+        COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Flagged' THEN 1 END) as eval_flagged
       FROM lead_assignments la
       LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
       ${statsWhere}
@@ -211,7 +211,7 @@ const getAssignments = async (req, res, next) => {
         c.name as dialer_campaign,
         u1.name as assigned_to_name, u1.email as assigned_to_email,
         u2.name as assigned_by_name,
-        e.status as evaluation_status, e.id as evaluation_id,
+        COALESCE(e.metadata->>'qa_status', e.status) as evaluation_status, e.id as evaluation_id,
         ub.batch_name, ub.file_name
        FROM lead_assignments la
        JOIN call_leads cl ON la.call_lead_id = cl.id
@@ -245,14 +245,21 @@ const getAssignments = async (req, res, next) => {
  */
 const createAssignments = async (req, res, next) => {
   try {
-    const { call_lead_ids = [], manual_leads = [], assigned_to, campaign_name, notes } = req.body;
-    if ((!call_lead_ids.length && !manual_leads.length) || !assigned_to)
+    const { call_lead_ids = [], manual_leads = [], dialer_leads = [], assigned_to, campaign_name, notes } = req.body;
+    if ((!call_lead_ids.length && !manual_leads.length && !dialer_leads.length) || !assigned_to)
       return res.status(400).json({ success: false, message: 'Leads and assigned_to are required.' });
 
     const results = [];
+
+    // Fetch assigned evaluator name for status tagging
+    const qaUser = await query('SELECT name FROM users WHERE id = $1', [assigned_to]);
+    const qaName = qaUser.rows[0] ? qaUser.rows[0].name : 'QA Evaluator';
     
-    // Process selected existing leads
-    for (const lead_id of call_lead_ids) {
+    // If dialer_leads are provided, do not double-process call_lead_ids
+    const effectiveCallLeadIds = dialer_leads.length > 0 ? [] : call_lead_ids;
+
+    // Process selected existing call_leads IDs
+    for (const lead_id of effectiveCallLeadIds) {
       const r = await query(
         `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
          VALUES ($1, $2, $3, $4, $5)
@@ -261,6 +268,76 @@ const createAssignments = async (req, res, next) => {
         [lead_id, assigned_to, req.user.id, campaign_name || '', notes || '']
       );
       if (r.rows[0]) results.push(r.rows[0]);
+    }
+
+    // Process dialer sales leads (from dialer_sales_history)
+    for (const dLead of dialer_leads) {
+      const phone = dLead.customer_phone || dLead.phone;
+      if (!phone) continue;
+
+      let campId = null;
+      if (campaign_name) {
+        const campRes = await query(
+          'SELECT id FROM campaigns WHERE LOWER(TRIM(name)) = LOWER(TRIM($1)) OR LOWER(TRIM(name)) = LOWER(TRIM($2)) LIMIT 1',
+          [campaign_name, `${campaign_name} Dialer`]
+        );
+        if (campRes.rows[0]) campId = campRes.rows[0].id;
+      }
+
+      // Check if call_leads already exists for this phone & campaign
+      let existingCallLead = await query(
+        'SELECT id FROM call_leads WHERE customer_phone = $1 AND (campaign_id = $2 OR campaign_name ILIKE $3) LIMIT 1',
+        [phone, campId, `%${campaign_name || ''}%`]
+      );
+      let callLeadId = null;
+
+      if (existingCallLead.rows[0]) {
+        callLeadId = existingCallLead.rows[0].id;
+      } else {
+        const ins = await query(
+          `INSERT INTO call_leads (agent_name, agent_id, campaign_name, campaign_id, customer_name, customer_phone, call_date, disposition, notes)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+           RETURNING id`,
+          [
+            dLead.agent_name || dLead.agent || 'Dialer Agent',
+            dLead.agent_id || 'DIALER',
+            dLead.campaign_name || campaign_name || 'Medicare',
+            campId,
+            dLead.customer_name || dLead.name || '',
+            phone,
+            dLead.call_date || new Date(),
+            dLead.disposition || dLead.status || 'Sale',
+            notes ? `Assigned from Dialer Sales. Notes: ${notes}` : 'Assigned from Dialer Sales'
+          ]
+        );
+        callLeadId = ins.rows[0].id;
+      }
+
+      // Assign to user
+      const r = await query(
+        `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [callLeadId, assigned_to, req.user.id, campaign_name || '', notes || '']
+      );
+      if (r.rows[0]) results.push(r.rows[0]);
+
+      // Mark assigned in dialer_sales_history if id or lead_id exists
+      if (dLead.id) {
+        await query(
+          `UPDATE dialer_sales_history 
+           SET is_assigned = TRUE, assigned_qa_name = $1 
+           WHERE id = $2`,
+          [qaName, dLead.id]
+        );
+      } else if (dLead.lead_id) {
+        await query(
+          `UPDATE dialer_sales_history 
+           SET is_assigned = TRUE, assigned_qa_name = $1 
+           WHERE lead_id = $2`,
+          [qaName, String(dLead.lead_id)]
+        );
+      }
     }
 
     // Process manual phone numbers

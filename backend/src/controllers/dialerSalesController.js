@@ -901,9 +901,21 @@ exports.assignSales = async (req, res) => {
         callLeadId = insLead.rows[0].id;
       }
 
-      // Assign to user
-      let assignCheck = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 AND assigned_to = $2 LIMIT 1', [callLeadId, assigned_to]);
-      if (!assignCheck.rows[0]) {
+      // Assign to user - check if assignment already exists for this call_lead
+      let existingAssign = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [callLeadId]);
+      if (existingAssign.rows[0]) {
+        const r = await query(
+          `UPDATE lead_assignments 
+           SET assigned_to = $1, assigned_by = $2, campaign_name = $3, notes = $4, assigned_at = NOW(), status = 'pending'
+           WHERE id = $5
+           RETURNING id`,
+          [assigned_to, req.user.id, lead.team || campaignName, notes || '', existingAssign.rows[0].id]
+        );
+        if (r.rows[0]) {
+          assignedCount.push(r.rows[0].id);
+          if (lead.lead_id) assignedLeadIds.push(lead.lead_id);
+        }
+      } else {
         const r = await query(
           `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
            VALUES ($1, $2, $3, $4, $5)
@@ -921,12 +933,25 @@ exports.assignSales = async (req, res) => {
       const qaUser = await query('SELECT name FROM users WHERE id = $1', [assigned_to]);
       const qaName = qaUser.rows[0] ? qaUser.rows[0].name : 'QA Agent';
 
-      await query(
-        `UPDATE dialer_sales_history 
-         SET is_assigned = true, assigned_qa_name = $1 
-         WHERE dialer = $2 AND lead_id = ANY($3::varchar[])`,
-        [qaName, dialer, assignedLeadIds]
-      );
+      for (const lead of leads) {
+        if (!lead.lead_id) continue;
+        await query(
+          `INSERT INTO dialer_sales_history (lead_id, dialer, phone, status, agent, team, is_assigned, assigned_qa_name, sale_date)
+           VALUES ($1, $2, $3, $4, $5, $6, TRUE, $7, COALESCE($8::date, CURRENT_DATE))
+           ON CONFLICT (lead_id, dialer) 
+           DO UPDATE SET is_assigned = TRUE, assigned_qa_name = EXCLUDED.assigned_qa_name, phone = COALESCE(NULLIF(dialer_sales_history.phone, ''), EXCLUDED.phone)`,
+          [
+            String(lead.lead_id),
+            dialer,
+            lead.phone || '',
+            lead.status || '',
+            lead.agent || lead.last_agent || '',
+            lead.team || '',
+            qaName,
+            lead.sale_date || null
+          ]
+        );
+      }
     }
 
     return res.json({

@@ -122,10 +122,12 @@ const EvaluationListPage = () => {
       const enriched = res.data.data.map(a => {
         let displayStatus = 'pending';
         if (a.status === 'completed' || a.evaluation_status) {
-            if (a.evaluation_status === 'Pass' || a.evaluation_status === 'Accepted') displayStatus = 'accepted';
-            else if (a.evaluation_status === 'Fail' || a.evaluation_status === 'Rejected') displayStatus = 'rejected';
-            else if (a.evaluation_status === 'Decline') displayStatus = 'decline';
-            else if (a.evaluation_status === 'Not Billable' || a.evaluation_status === 'Not Bilable') displayStatus = 'not_billable';
+            const evalStatus = (a.evaluation_status || '').toLowerCase();
+            if (evalStatus === 'pass' || evalStatus === 'accepted') displayStatus = 'accepted';
+            else if (evalStatus === 'fail' || evalStatus === 'rejected') displayStatus = 'rejected';
+            else if (evalStatus === 'flagged') displayStatus = 'flagged';
+            else if (evalStatus === 'decline') displayStatus = 'decline';
+            else if (evalStatus.includes('not billable') || evalStatus.includes('not bilable')) displayStatus = 'not_billable';
             else displayStatus = 'completed';
         } else if (a.status === 'rejected') {
             displayStatus = 'rejected (declined task)'; 
@@ -148,7 +150,7 @@ const EvaluationListPage = () => {
 
   const filteredAssignments = userAssignments.filter(a => {
     if (assignmentFilter === 'all') return true;
-    if (assignmentFilter === 'rejected') return a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)' || a.displayStatus === 'decline' || a.displayStatus === 'not_billable';
+    if (assignmentFilter === 'rejected') return a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)';
     return a.displayStatus === assignmentFilter;
   });
 
@@ -217,30 +219,38 @@ const EvaluationListPage = () => {
                     </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 relative z-10">
-                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 hover:border-slate-600 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'all'); }}>
-                    <p className="text-xs text-slate-500 mb-1">Total Assigned</p>
-                    <p className="text-xl font-bold text-white">{u.total_assigned}</p>
+                <div className="grid grid-cols-2 gap-3 relative z-10">
+                  <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800 hover:border-slate-600 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'all'); }}>
+                    <p className="text-[11px] text-slate-500 mb-0.5">Total Assigned</p>
+                    <p className="text-lg font-bold text-white">{u.total_assigned}</p>
                   </div>
-                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 hover:border-amber-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'pending'); }}>
-                    <p className="text-xs text-amber-500/70 mb-1">Pending</p>
-                    <p className="text-xl font-bold text-amber-400">{u.pending}</p>
+                  <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800 hover:border-amber-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'pending'); }}>
+                    <p className="text-[11px] text-amber-500/70 mb-0.5">Pending</p>
+                    <p className="text-lg font-bold text-amber-400">{u.pending}</p>
                   </div>
-                  <div className="bg-primary-500/10 rounded-xl p-3 border border-primary-500/20 hover:border-primary-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'accepted'); }}>
-                    <p className="text-xs text-primary-400 mb-1">Accepted</p>
-                    <p className="text-xl font-bold text-primary-400">{u.accepted}</p>
+                  <div className="bg-emerald-500/10 rounded-xl p-2.5 border border-emerald-500/20 hover:border-emerald-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'accepted'); }}>
+                    <p className="text-[11px] text-emerald-400 mb-0.5">Accepted</p>
+                    <p className="text-lg font-bold text-emerald-400">{u.accepted}</p>
                   </div>
-                  <div className="bg-rose-500/10 rounded-xl p-3 border border-rose-500/20 hover:border-rose-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'rejected'); }}>
-                    <p className="text-xs text-rose-400 mb-1">Rejected</p>
-                    <p className="text-xl font-bold text-rose-400">{u.rejected}</p>
+                  <div className="bg-rose-500/10 rounded-xl p-2.5 border border-rose-500/20 hover:border-rose-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'rejected'); }}>
+                    <p className="text-[11px] text-rose-400 mb-0.5">Rejected</p>
+                    <p className="text-lg font-bold text-rose-400">{u.rejected}</p>
                   </div>
-                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 transition-colors">
-                    <p className="text-xs text-slate-400 mb-1">Under Buffer</p>
-                    <p className="text-xl font-bold text-white">{u.under_buffer || 0}</p>
+                  <div className="bg-amber-500/10 rounded-xl p-2.5 border border-amber-500/20 hover:border-amber-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'flagged'); }}>
+                    <p className="text-[11px] text-amber-400 mb-0.5">Flagged</p>
+                    <p className="text-lg font-bold text-amber-400">{u.flagged || 0}</p>
                   </div>
-                  <div className="bg-slate-950 rounded-xl p-3 border border-slate-800 transition-colors">
-                    <p className="text-xs text-slate-400 mb-1">Fake Sale</p>
-                    <p className="text-xl font-bold text-white">{u.fake_sale || 0}</p>
+                  <div className="bg-purple-500/10 rounded-xl p-2.5 border border-purple-500/20 hover:border-purple-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'decline'); }}>
+                    <p className="text-[11px] text-purple-400 mb-0.5">Decline</p>
+                    <p className="text-lg font-bold text-purple-400">{u.decline || 0}</p>
+                  </div>
+                  <div className="bg-cyan-500/10 rounded-xl p-2.5 border border-cyan-500/20 hover:border-cyan-500/50 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'not_billable'); }}>
+                    <p className="text-[11px] text-cyan-400 mb-0.5">Not Billable</p>
+                    <p className="text-lg font-bold text-cyan-400">{u.not_billable || 0}</p>
+                  </div>
+                  <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800 transition-colors">
+                    <p className="text-[11px] text-slate-400 mb-0.5">Under Buffer</p>
+                    <p className="text-lg font-bold text-white">{u.under_buffer || 0}</p>
                   </div>
                 </div>
               </div>
@@ -267,23 +277,38 @@ const EvaluationListPage = () => {
               </button>
             </div>
 
-            <div className="px-6 py-4 border-b border-slate-800 flex gap-2">
+            <div className="px-6 py-4 border-b border-slate-800 flex flex-wrap gap-2">
               {[
                 { id: 'all', label: 'All Assignments' },
                 { id: 'pending', label: 'Pending' },
-                { id: 'accepted', label: 'Accepted (Passed)' },
-                { id: 'rejected', label: 'Rejected (Failed)' }
-              ].map(tab => (
-                <button
-                  key={tab.id}
-                  onClick={() => setAssignmentFilter(tab.id)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                    assignmentFilter === tab.id ? 'bg-indigo-500 text-white shadow-lg' : 'text-slate-400 hover:bg-slate-800'
-                  }`}
-                >
-                  {tab.label}
-                </button>
-              ))}
+                { id: 'accepted', label: 'Accepted' },
+                { id: 'rejected', label: 'Rejected' },
+                { id: 'flagged', label: 'Flagged' },
+                { id: 'decline', label: 'Decline' },
+                { id: 'not_billable', label: 'Not Billable' }
+              ].map(tab => {
+                const count = tab.id === 'all' 
+                  ? userAssignments.length 
+                  : userAssignments.filter(a => a.displayStatus === tab.id).length;
+                return (
+                  <button
+                    key={tab.id}
+                    onClick={() => setAssignmentFilter(tab.id)}
+                    className={`px-3.5 py-1.5 text-xs font-bold rounded-lg transition-all flex items-center gap-1.5 ${
+                      assignmentFilter === tab.id 
+                        ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/25 ring-1 ring-indigo-400' 
+                        : 'text-slate-400 bg-slate-950/60 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                      assignmentFilter === tab.id ? 'bg-indigo-700/80 text-white' : 'bg-slate-800 text-slate-400'
+                    }`}>
+                      {count}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="p-6 flex-1 overflow-y-auto">
@@ -314,14 +339,15 @@ const EvaluationListPage = () => {
                             </td>
                             <td className="td">
                               <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
-                                a.displayStatus === 'accepted' ? 'bg-primary-500/10 text-primary-400 border border-primary-500/30' :
+                                a.displayStatus === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
                                 a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)' ? 'bg-rose-500/10 text-rose-400 border border-rose-500/30' :
-                                a.displayStatus === 'decline' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                                a.displayStatus === 'not_billable' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
+                                a.displayStatus === 'flagged' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                a.displayStatus === 'decline' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
+                                a.displayStatus === 'not_billable' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' :
                                 a.displayStatus === 'pending' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/30' :
-                                'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30'
+                                'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
                               }`}>
-                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : 'Completed'}
+                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'flagged' ? 'Flagged' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : 'Completed'}
                               </span>
                             </td>
                             <td className="td">

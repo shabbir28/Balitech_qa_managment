@@ -224,12 +224,12 @@ const getManagedUsersStats = async (req, res, next) => {
       params.push(`%${campaign}%`);
     }
     if (from_date) {
-      laConditions += ` AND la.assigned_at >= $${paramIdx++}`;
+      laConditions += ` AND DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') >= $${paramIdx++}::date`;
       params.push(from_date);
     }
     if (to_date) {
-      laConditions += ` AND la.assigned_at <= $${paramIdx++}`;
-      params.push(`${to_date} 23:59:59`);
+      laConditions += ` AND DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') <= $${paramIdx++}::date`;
+      params.push(to_date);
     }
 
     if (search) {
@@ -241,11 +241,11 @@ const getManagedUsersStats = async (req, res, next) => {
       SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id, c.name as user_campaign_name,
         COUNT(DISTINCT la.id) as total_assigned,
         COUNT(DISTINCT CASE WHEN (la.status = 'pending' OR la.status = 'accepted') AND e.id IS NULL THEN la.id END) as pending,
-        COUNT(DISTINCT CASE WHEN e.status IN ('Accepted', 'Pass') THEN e.id END) as accepted,
-        COUNT(DISTINCT CASE WHEN e.status IN ('Rejected', 'Fail') THEN e.id END) as rejected,
-        COUNT(DISTINCT CASE WHEN e.status = 'Decline' THEN e.id END) as decline,
-        COUNT(DISTINCT CASE WHEN e.status IN ('Not Billable', 'Not Bilable') THEN e.id END) as not_billable,
-        COUNT(DISTINCT CASE WHEN e.status = 'Flagged' THEN e.id END) as flagged,
+        COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Accepted', 'Pass') THEN e.id END) as accepted,
+        COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Rejected', 'Fail') THEN e.id END) as rejected,
+        COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Decline' THEN e.id END) as decline,
+        COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Not Billable', 'Not Bilable') THEN e.id END) as not_billable,
+        COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Flagged' THEN e.id END) as flagged,
         COUNT(DISTINCT CASE WHEN la.status = 'completed' AND e.id IS NULL THEN la.id END) as completed,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Under Buffer' THEN e.id END) as under_buffer,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Fake Sale' THEN e.id END) as fake_sale

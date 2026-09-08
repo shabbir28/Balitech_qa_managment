@@ -204,6 +204,16 @@ const createEvaluation = async (req, res, next) => {
       ]
     );
 
+    // Sync QA status to dialer_sales_history if phone matches
+    if (call.customer_phone) {
+      await client.query(
+        `UPDATE dialer_sales_history
+         SET qa_status = $1
+         WHERE phone = $2 OR phone = $3`,
+        [finalStatus, call.customer_phone, call.customer_phone.replace(/\D/g, '')]
+      );
+    }
+
     await client.query('COMMIT');
 
     res.status(201).json({
@@ -427,4 +437,219 @@ const deleteEvaluation = async (req, res, next) => {
   }
 };
 
-module.exports = { createEvaluation, getEvaluations, getEvaluationById, updateEvaluation, deleteEvaluation };
+/**
+ * GET /api/evaluations/reports/agent-errors
+ * Returns aggregated QA statuses & LA Side Error Category counts grouped by QA Evaluator (or Call Agent)
+ */
+const getAgentErrorReport = async (req, res, next) => {
+  try {
+    const { campaign_name, from_date, to_date, search, group_by = 'qa', qa_user_id } = req.query;
+
+    const conditions = [];
+    const params = [];
+    let pc = 1;
+
+    if (qa_user_id) {
+      conditions.push(`la.assigned_to = $${pc}`);
+      params.push(qa_user_id);
+      pc++;
+    }
+
+    if (search) {
+      conditions.push(`(u.name ILIKE $${pc} OR cl.agent_name ILIKE $${pc} OR la.campaign_name ILIKE $${pc})`);
+      params.push(`%${search}%`);
+      pc++;
+    }
+    if (campaign_name) {
+      conditions.push(`(la.campaign_name ILIKE $${pc} OR qe.campaign_name ILIKE $${pc})`);
+      params.push(`%${campaign_name}%`);
+      pc++;
+    }
+    if (from_date) {
+      conditions.push(`(DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') >= $${pc}::date OR DATE(qe.evaluation_date) >= $${pc}::date)`);
+      params.push(from_date);
+      pc++;
+    }
+    if (to_date) {
+      conditions.push(`(DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') <= $${pc}::date OR DATE(qe.evaluation_date) <= $${pc}::date)`);
+      params.push(to_date);
+      pc++;
+    }
+
+    const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+
+    // Fetch lead assignments along with evaluation results and metadata
+    const reportQuery = `
+      SELECT 
+        la.id as assignment_id,
+        la.assigned_to,
+        u.name as qa_name,
+        u.email as qa_email,
+        la.campaign_name,
+        la.status as assignment_status,
+        la.assigned_at,
+        TO_CHAR(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York', 'YYYY-MM-DD') as assigned_at_est,
+        cl.customer_phone,
+        cl.agent_name as call_agent_name,
+        cl.agent_id as call_agent_id,
+        qe.id as evaluation_id,
+        qe.status as qa_status,
+        qe.total_score,
+        qe.evaluation_date,
+        qe.metadata->>'laSideErrorCategory' as la_error_category,
+        qe.metadata->>'laSideFeedback' as la_feedback,
+        qe.metadata->>'agentSideFeedback' as agent_feedback
+      FROM lead_assignments la
+      JOIN users u ON la.assigned_to = u.id
+      JOIN call_leads cl ON la.call_lead_id = cl.id
+      LEFT JOIN qa_evaluations qe ON qe.call_lead_id = la.call_lead_id AND qe.is_deleted = FALSE
+      ${where}
+      ORDER BY la.assigned_at DESC
+    `;
+    const reportRes = await query(reportQuery, params);
+
+    // Grouping by QA Evaluator (default) or Call Agent
+    const map = {};
+    const overallCategories = {};
+    const overallStatuses = {
+      Pending: 0,
+      Accepted: 0,
+      Rejected: 0,
+      Flagged: 0,
+      Decline: 0,
+      'Not Billable': 0
+    };
+
+    reportRes.rows.forEach((row) => {
+      const isCallAgentGrouping = group_by === 'call_agent';
+      const key = isCallAgentGrouping
+        ? (row.call_agent_name || 'Unknown Call Agent')
+        : (row.qa_name || `QA User #${row.assigned_to}`);
+
+      if (!map[key]) {
+        map[key] = {
+          name: key,
+          qa_id: row.assigned_to,
+          campaign_name: row.campaign_name,
+          total_assigned: 0,
+          total_evaluated: 0,
+          statuses: {
+            Pending: 0,
+            Accepted: 0,
+            Rejected: 0,
+            Flagged: 0,
+            Decline: 0,
+            'Not Billable': 0
+          },
+          la_categories: {},
+          records: []
+        };
+      }
+
+      const item = map[key];
+      item.total_assigned++;
+
+      let st = 'Pending';
+      if (row.evaluation_id) {
+        item.total_evaluated++;
+        st = row.qa_status || 'Pending';
+        if (st === 'Pass') st = 'Accepted';
+        if (st === 'Fail') st = 'Rejected';
+        if (st === 'Not Bilable') st = 'Not Billable';
+      }
+
+      item.statuses[st] = (item.statuses[st] || 0) + 1;
+      overallStatuses[st] = (overallStatuses[st] || 0) + 1;
+
+      // LA side error category count
+      const cat = (row.la_error_category || '').trim();
+      if (cat) {
+        item.la_categories[cat] = (item.la_categories[cat] || 0) + 1;
+        overallCategories[cat] = (overallCategories[cat] || 0) + 1;
+      }
+
+      item.records.push({
+        id: row.assignment_id,
+        phone: row.customer_phone,
+        call_agent: row.call_agent_name,
+        qa_evaluator: row.qa_name,
+        date: row.evaluation_date || row.assigned_at_est || '—',
+        qa_status: st,
+        la_category: cat || '—',
+        la_feedback: row.la_feedback || '—',
+        agent_feedback: row.agent_feedback || '—'
+      });
+    });
+
+    res.json({
+      success: true,
+      data: Object.values(map),
+      total_records: reportRes.rows.length,
+      overall_statuses: overallStatuses,
+      overall_categories: overallCategories,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/evaluations/options/dropdowns
+ * Returns unique DIDs and LA Side Error Categories collected from previous evaluations
+ */
+const getEvaluationDropdownOptions = async (req, res, next) => {
+  try {
+    const didsRes = await query(`
+      SELECT DISTINCT TRIM(metadata->>'dids') as val
+      FROM qa_evaluations
+      WHERE metadata->>'dids' IS NOT NULL AND TRIM(metadata->>'dids') != ''
+      LIMIT 100
+    `);
+
+    const laCatRes = await query(`
+      SELECT DISTINCT TRIM(metadata->>'laSideErrorCategory') as val
+      FROM qa_evaluations
+      WHERE metadata->>'laSideErrorCategory' IS NOT NULL AND TRIM(metadata->>'laSideErrorCategory') != ''
+      LIMIT 100
+    `);
+
+    const defaultDids = ['D1', 'D3', 'D4', 'D5', 'D6cpl', 'Hi', 'Hi main'];
+    const defaultLaCats = [
+      'Already in a good plan',
+      'No plan Available',
+      'Customer become not intrested',
+      'call Back arange',
+      'call ended in no result',
+      'DNQ Customer',
+      'DNC Customer',
+      'Not billable',
+      'Decline'
+    ];
+
+    const dbDids = didsRes.rows.map(r => r.val).filter(Boolean);
+    const dbLaCats = laCatRes.rows.map(r => r.val).filter(Boolean);
+
+    const mergedDids = Array.from(new Set([...defaultDids, ...dbDids]));
+    const mergedLaCats = Array.from(new Set([...defaultLaCats, ...dbLaCats]));
+
+    res.json({
+      success: true,
+      data: {
+        dids: mergedDids,
+        laSideErrorCategories: mergedLaCats
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = {
+  createEvaluation,
+  getEvaluations,
+  getEvaluationById,
+  updateEvaluation,
+  deleteEvaluation,
+  getAgentErrorReport,
+  getEvaluationDropdownOptions
+};

@@ -41,12 +41,17 @@ CREATE TABLE IF NOT EXISTS dialer_sales_history (
   transfer_agent VARCHAR(100),
   qa_override VARCHAR(50),
   qa_status VARCHAR(50) DEFAULT 'Pending',
+  is_assigned BOOLEAN DEFAULT FALSE,
+  assigned_qa_name VARCHAR(100),
   sale_date DATE,
   call_date TIMESTAMP,
   dialer VARCHAR(20) NOT NULL,
   created_at TIMESTAMP DEFAULT NOW(),
   UNIQUE (lead_id, dialer)
 );
+
+ALTER TABLE dialer_sales_history ADD COLUMN IF NOT EXISTS is_assigned BOOLEAN DEFAULT FALSE;
+ALTER TABLE dialer_sales_history ADD COLUMN IF NOT EXISTS assigned_qa_name VARCHAR(100);
 
 CREATE INDEX IF NOT EXISTS idx_dialer_sales_sale_date ON dialer_sales_history(sale_date);
 CREATE INDEX IF NOT EXISTS idx_dialer_sales_dialer ON dialer_sales_history(dialer);

@@ -14,6 +14,43 @@ export const fmtLocal = (d) => {
   return `${y}-${m}-${day}`;
 };
 
+export const getEstFormattedDate = (dateObj = new Date()) => {
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'long',
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric'
+  }).format(dateObj);
+};
+
+export const getEstTimeOfDay = (dateObj = new Date()) => {
+  const hourStr = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    hour12: false
+  }).format(dateObj);
+  const hour = parseInt(hourStr, 10);
+  if (hour < 12) return 'Morning';
+  if (hour < 17) return 'Afternoon';
+  return 'Evening';
+};
+
+export const getEstDateTimeString = (dateInput) => {
+  if (!dateInput) return '—';
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return String(dateInput);
+  return new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: 'short',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true
+  }).format(d);
+};
+
 export const getPresets = () => {
   const now = new Date();
   const todayStr = getEstDateString(now); // EST today

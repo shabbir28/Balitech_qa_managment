@@ -492,4 +492,125 @@ const updateCallRecording = async (req, res, next) => {
   }
 };
 
-module.exports = { uploadCalls, getCalls, getCallById, deleteCall, getUploadBatches, updateCallRecording, parseFile, normalizeRow };
+/**
+ * GET /api/calls/dialer-sales-leads
+ * Fetches leads from dialer_sales_history for the Assign Leads workbench
+ */
+const getDialerSalesLeads = async (req, res, next) => {
+  try {
+    const { campaign_name, search, date } = req.query;
+
+    const campLower = (campaign_name || '').toLowerCase().trim();
+    let dialer = null;
+
+    if (campLower.includes('pharmacy')) {
+      dialer = 'pharmacy';
+    } else if (campLower.includes('medicare') || campLower.includes('001')) {
+      dialer = 'medicare';
+    }
+
+    // If campaign is not a dialer campaign (e.g. ACA, FE, Med Alert), dialer records should NOT show
+    if (!dialer) {
+      return res.json({
+        success: true,
+        data: [],
+        date: date || new Date().toISOString().split('T')[0],
+        total: 0,
+        dialer: null
+      });
+    }
+
+    // Default to today's date if not provided
+    const targetDate = date || new Date().toISOString().split('T')[0];
+
+    let queryStr = `
+      SELECT 
+        id,
+        lead_id,
+        phone as customer_phone,
+        status as disposition,
+        agent as agent_name,
+        team as campaign_name,
+        sale_date::text as call_date,
+        qa_status,
+        is_assigned,
+        assigned_qa_name
+      FROM dialer_sales_history
+      WHERE dialer = $1 
+        AND sale_date = $2
+        AND (is_assigned IS FALSE OR is_assigned IS NULL)
+    `;
+    const params = [dialer, targetDate];
+    let paramCount = 3;
+
+    if (search) {
+      queryStr += ` AND (phone ILIKE $${paramCount} OR agent ILIKE $${paramCount} OR lead_id ILIKE $${paramCount} OR team ILIKE $${paramCount})`;
+      params.push(`%${search}%`);
+      paramCount++;
+    }
+
+    queryStr += ` ORDER BY id DESC`;
+
+    const result = await query(queryStr, params);
+
+    // If target date has 0 unassigned records, check the most recent date with unassigned records
+    if (result.rows.length === 0 && !date) {
+      const recentDateRes = await query(
+        `SELECT sale_date::text as latest_date, COUNT(*) as cnt 
+         FROM dialer_sales_history 
+         WHERE dialer = $1 
+           AND (is_assigned IS FALSE OR is_assigned IS NULL)
+         GROUP BY sale_date 
+         ORDER BY sale_date DESC 
+         LIMIT 1`,
+        [dialer]
+      );
+      if (recentDateRes.rows[0]) {
+        const fallbackDate = recentDateRes.rows[0].latest_date;
+        const fallbackParams = [dialer, fallbackDate];
+        let fallbackQuery = `
+          SELECT 
+            id,
+            lead_id,
+            phone as customer_phone,
+            status as disposition,
+            agent as agent_name,
+            team as campaign_name,
+            sale_date::text as call_date,
+            qa_status,
+            is_assigned,
+            assigned_qa_name
+          FROM dialer_sales_history
+          WHERE dialer = $1 
+            AND sale_date = $2
+            AND (is_assigned IS FALSE OR is_assigned IS NULL)
+        `;
+        if (search) {
+          fallbackQuery += ` AND (phone ILIKE $3 OR agent ILIKE $3 OR lead_id ILIKE $3 OR team ILIKE $3)`;
+          fallbackParams.push(`%${search}%`);
+        }
+        fallbackQuery += ` ORDER BY id DESC`;
+        const fallbackResult = await query(fallbackQuery, fallbackParams);
+        return res.json({
+          success: true,
+          data: fallbackResult.rows,
+          date: fallbackDate,
+          total: fallbackResult.rows.length,
+          dialer
+        });
+      }
+    }
+
+    res.json({
+      success: true,
+      data: result.rows,
+      date: targetDate,
+      total: result.rows.length,
+      dialer
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+module.exports = { uploadCalls, getCalls, getDialerSalesLeads, getCallById, deleteCall, getUploadBatches, updateCallRecording, parseFile, normalizeRow };

@@ -172,6 +172,80 @@ const EvaluationFormPage = () => {
   const [evaluationDate, setEvaluationDate] = useState(new Date().toISOString().split('T')[0]);
   const [loading, setLoading] = useState(false);
 
+  // Dynamic Datalist options (synced with Backend DB + Local Storage)
+  const [didOptions, setDidOptions] = useState([
+    'D1', 'D3', 'D4', 'D5', 'D6cpl', 'Hi', 'Hi main'
+  ]);
+  const [laCategoryOptions, setLaCategoryOptions] = useState([
+    'Already in a good plan', 'No plan Available', 'Customer become not intrested',
+    'call Back arange', 'call ended in no result', 'DNQ Customer', 'DNC Customer',
+    'Not billable', 'Decline'
+  ]);
+
+  // Load dynamic options on mount
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const localSavedDids = JSON.parse(localStorage.getItem('custom_dids') || '[]');
+        const localSavedLa = JSON.parse(localStorage.getItem('custom_la_categories') || '[]');
+
+        const res = await api.get('/evaluations/options/dropdowns');
+        if (res.data?.success && res.data?.data) {
+          const apiDids = res.data.data.dids || [];
+          const apiLa = res.data.data.laSideErrorCategories || [];
+
+          setDidOptions(prev => Array.from(new Set([...prev, ...apiDids, ...localSavedDids])));
+          setLaCategoryOptions(prev => Array.from(new Set([...prev, ...apiLa, ...localSavedLa])));
+        } else {
+          setDidOptions(prev => Array.from(new Set([...prev, ...localSavedDids])));
+          setLaCategoryOptions(prev => Array.from(new Set([...prev, ...localSavedLa])));
+        }
+      } catch (err) {
+        console.warn('Could not fetch dynamic options from server, using local defaults:', err);
+        const localSavedDids = JSON.parse(localStorage.getItem('custom_dids') || '[]');
+        const localSavedLa = JSON.parse(localStorage.getItem('custom_la_categories') || '[]');
+        setDidOptions(prev => Array.from(new Set([...prev, ...localSavedDids])));
+        setLaCategoryOptions(prev => Array.from(new Set([...prev, ...localSavedLa])));
+      }
+    };
+    loadOptions();
+  }, []);
+
+  // Helper to persist newly typed options to local state and localStorage
+  const registerNewOption = (type, val) => {
+    const trimmed = (val || '').trim();
+    if (!trimmed) return;
+    if (type === 'dids') {
+      setDidOptions(prev => {
+        if (!prev.includes(trimmed)) {
+          const next = [...prev, trimmed];
+          try {
+            const saved = JSON.parse(localStorage.getItem('custom_dids') || '[]');
+            if (!saved.includes(trimmed)) {
+              localStorage.setItem('custom_dids', JSON.stringify([...saved, trimmed]));
+            }
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+    } else if (type === 'laSideErrorCategory') {
+      setLaCategoryOptions(prev => {
+        if (!prev.includes(trimmed)) {
+          const next = [...prev, trimmed];
+          try {
+            const saved = JSON.parse(localStorage.getItem('custom_la_categories') || '[]');
+            if (!saved.includes(trimmed)) {
+              localStorage.setItem('custom_la_categories', JSON.stringify([...saved, trimmed]));
+            }
+          } catch {}
+          return next;
+        }
+        return prev;
+      });
+    }
+  };
+
   // /my-assignments is QA Agent only, so admins must land somewhere they can access.
   const exitPath = user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations';
 
@@ -274,6 +348,10 @@ const EvaluationFormPage = () => {
     e.preventDefault();
     if (!call) return toast.error('No call selected.');
     
+    // Auto-register any custom typed options into datalists & localStorage
+    if (metadata.dids) registerNewOption('dids', metadata.dids);
+    if (metadata.laSideErrorCategory) registerNewOption('laSideErrorCategory', metadata.laSideErrorCategory);
+
     setLoading(true);
     try {
       const finalBackendStatus = 
@@ -454,17 +532,14 @@ const EvaluationFormPage = () => {
                           list="did-options"
                           value={metadata.dids} 
                           onChange={e => handleMetadataChange('dids', e.target.value)} 
+                          onBlur={e => registerNewOption('dids', e.target.value)}
                           placeholder="Select or type DID..."
                           className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-200 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center placeholder:text-slate-600 font-medium"
                         />
                         <datalist id="did-options">
-                          <option value="D1" />
-                          <option value="D3" />
-                          <option value="D4" />
-                          <option value="D5" />
-                          <option value="D6cpl" />
-                          <option value="Hi" />
-                          <option value="Hi main" />
+                          {didOptions.map(opt => (
+                            <option key={opt} value={opt} />
+                          ))}
                         </datalist>
                       </td>
 
@@ -525,19 +600,14 @@ const EvaluationFormPage = () => {
                           list="la-side-error-category-options"
                           value={metadata.laSideErrorCategory} 
                           onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)} 
+                          onBlur={e => registerNewOption('laSideErrorCategory', e.target.value)}
                           placeholder="Select or type LA category..."
                           className="w-full bg-slate-950 border border-slate-800 text-sm px-3 py-2 rounded-lg outline-none text-slate-300 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all placeholder:text-slate-650"
                         />
                         <datalist id="la-side-error-category-options">
-                          <option value="Already in a good plan" />
-                          <option value="No plan Available" />
-                          <option value="Customer become not intrested" />
-                          <option value="call Back arange" />
-                          <option value="call ended in no result" />
-                          <option value="DNQ Customer" />
-                          <option value="DNC Customer" />
-                          <option value="Not billable" />
-                          <option value="Decline" />
+                          {laCategoryOptions.map(opt => (
+                            <option key={opt} value={opt} />
+                          ))}
                         </datalist>
                       </td>
 

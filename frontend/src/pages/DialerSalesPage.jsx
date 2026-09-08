@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, RefreshCw, AlertCircle, Database, Filter, ChevronDown, Calendar, Clock, Ban, UserCheck, X } from 'lucide-react';
+import { Loader2, RefreshCw, AlertCircle, Database, Filter, ChevronDown, Calendar, Clock, Ban, UserCheck, X, CheckSquare, Square, Check, Layers, Send } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -108,6 +108,10 @@ function QaStatusCell({ lead, dialerType, currentStatus, onStatusChange }) {
         return 'bg-red-950/40 text-red-400 border-red-500/20';
       case 'Flagged':
         return 'bg-amber-950/40 text-amber-400 border-amber-500/20';
+      case 'Decline':
+        return 'bg-purple-950/40 text-purple-400 border-purple-500/20';
+      case 'Not Billable':
+        return 'bg-cyan-950/40 text-cyan-400 border-cyan-500/20';
       default: // Pending
         return 'bg-slate-800 text-slate-400 border-slate-700';
     }
@@ -128,6 +132,8 @@ function QaStatusCell({ lead, dialerType, currentStatus, onStatusChange }) {
             <option value="Accepted">Accepted</option>
             <option value="Rejected">Rejected</option>
             <option value="Flagged">Flagged</option>
+            <option value="Decline">Decline</option>
+            <option value="Not Billable">Not Billable</option>
           </select>
           <ChevronDown className="w-2.5 h-2.5 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
         </div>
@@ -137,32 +143,50 @@ function QaStatusCell({ lead, dialerType, currentStatus, onStatusChange }) {
 }
 
 // ─── AssignLeadsModal ────────────────────────────────────────────────────────
-function AssignLeadsModal({ onClose, dialer, filteredLeads, onComplete }) {
+function AssignLeadsModal({ onClose, dialer, selectedLeads = [], onDeselectLead, filteredLeads = [], onComplete }) {
   const [qas, setQas] = useState([]);
   const [selectedQa, setSelectedQa] = useState('');
-  const [qty, setQty] = useState(filteredLeads.length > 5 ? 5 : filteredLeads.length);
+  const [assignMode, setAssignMode] = useState(selectedLeads.length > 0 ? 'selected' : 'bulk');
+  const [qty, setQty] = useState(filteredLeads.length > 5 ? 5 : Math.max(1, filteredLeads.length));
   const [notes, setNotes] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [loadingQas, setLoadingQas] = useState(true);
 
+  // Auto-switch mode if selected leads become empty
+  useEffect(() => {
+    if (selectedLeads.length === 0 && assignMode === 'selected') {
+      setAssignMode('bulk');
+    }
+  }, [selectedLeads.length, assignMode]);
+
   useEffect(() => {
     api.get('/teams/members/available')
       .then(res => {
-        setQas(res.data.data || []);
-        if (res.data.data?.length > 0) {
-          setSelectedQa(res.data.data[0].id);
+        const list = res.data.data || [];
+        setQas(list);
+        if (list.length > 0) {
+          setSelectedQa(list[0].id);
         }
       })
-      .catch(() => toast.error('Failed to load QA list.'))
+      .catch(() => {
+        // Fallback to /users
+        api.get('/users?limit=100').then(res => {
+          const list = (res.data.data || []).filter(u => u.role === 'QA Agent' || u.role_id === 2);
+          setQas(list);
+          if (list.length > 0) setSelectedQa(list[0].id);
+        }).catch(() => toast.error('Failed to load QA list.'));
+      })
       .finally(() => setLoadingQas(false));
   }, []);
 
+  const leadsToAssign = assignMode === 'selected' 
+    ? selectedLeads 
+    : filteredLeads.slice(0, qty);
+
+  const selectedQaObj = qas.find(q => String(q.id) === String(selectedQa));
+
   const handleAssign = async () => {
     if (!selectedQa) { toast.error('Select a QA Agent.'); return; }
-    if (qty <= 0) { toast.error('Quantity must be greater than 0.'); return; }
-    
-    // Slice first X quantity from filteredLeads
-    const leadsToAssign = filteredLeads.slice(0, qty);
     if (leadsToAssign.length === 0) { toast.error('No leads available to assign.'); return; }
 
     setSubmitting(true);
@@ -176,46 +200,147 @@ function AssignLeadsModal({ onClose, dialer, filteredLeads, onComplete }) {
           status: l.status,
           agent: l.agent || l.last_agent || 'Dialer Agent',
           name: l.name || '',
+          team: l.team || '',
           sale_date: l.sale_date || l.last_call?.substring(0, 10)
         })),
         notes
       });
       if (res.data.success) {
-        toast.success(res.data.message || 'Leads assigned successfully!');
-        onComplete();
+        toast.success(res.data.message || `${leadsToAssign.length} leads assigned successfully!`);
+        onComplete(leadsToAssign.map(l => l.lead_id), selectedQaObj?.name || 'QA Agent');
         onClose();
       } else {
         toast.error(res.data.message || 'Failed to assign leads.');
       }
-    } catch {
-      toast.error('Server error during lead assignment.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Server error during lead assignment.');
     } finally {
       setSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl w-full max-w-md">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+      <div className="bg-slate-900 border border-slate-700/80 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800">
-          <div className="flex items-center gap-2">
-            <UserCheck className="w-4 h-4 text-emerald-400" />
-            <h2 className="text-white font-semibold text-sm">Assign Leads to QA</h2>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-800 bg-slate-950/40">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded-lg bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400">
+              <UserCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <h2 className="text-white font-semibold text-sm">Assign Leads to QA Evaluator</h2>
+              <p className="text-[11px] text-slate-400">Distribute selected calls for quality evaluation</p>
+            </div>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
+          <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        <div className="p-5 space-y-4">
-          <p className="text-slate-400 text-xs leading-relaxed">
-            Assign leads from your current filtered list to a QA Agent for evaluation.
-          </p>
+        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar flex-1">
+          {/* Mode Selector (if selectedLeads exist) */}
+          {selectedLeads.length > 0 && (
+            <div className="flex bg-slate-950/60 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => setAssignMode('selected')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  assignMode === 'selected'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <CheckSquare className="w-3.5 h-3.5" />
+                Selected Leads ({selectedLeads.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setAssignMode('bulk')}
+                className={`flex-1 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  assignMode === 'bulk'
+                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 shadow-sm'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Bulk Quantity
+              </button>
+            </div>
+          )}
+
+          {/* Selected Leads Pills Preview */}
+          {assignMode === 'selected' && selectedLeads.length > 0 && (
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Cherry-picked Numbers ({selectedLeads.length})
+                </label>
+                <span className="text-[10px] text-slate-500">Click ✕ to remove from batch</span>
+              </div>
+              <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-2.5 max-h-36 overflow-y-auto custom-scrollbar flex flex-wrap gap-1.5">
+                {selectedLeads.map(l => (
+                  <span
+                    key={l.lead_id}
+                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-slate-800/80 border border-slate-700 text-[11px] font-mono text-slate-200"
+                  >
+                    <span className="font-semibold text-emerald-400">{l.phone}</span>
+                    <span className="text-slate-500 text-[10px]">({l.lead_id})</span>
+                    {onDeselectLead && (
+                      <button
+                        type="button"
+                        onClick={() => onDeselectLead(l.lead_id)}
+                        className="text-slate-400 hover:text-red-400 transition-colors ml-0.5"
+                        title="Remove from selection"
+                      >
+                        <X className="w-3 h-3" />
+                      </button>
+                    )}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Quantity Mode */}
+          {assignMode === 'bulk' && (
+            <div>
+              <div className="flex justify-between items-center mb-1.5">
+                <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Quantity to Assign
+                </label>
+                <span className="text-[11px] text-slate-500 font-medium">Max: {filteredLeads.length}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min="1"
+                  max={filteredLeads.length}
+                  value={qty}
+                  onChange={e => setQty(Math.min(filteredLeads.length, Math.max(1, parseInt(e.target.value) || 0)))}
+                  className="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 font-mono"
+                />
+                <div className="flex gap-1">
+                  {[5, 10, 25, 50].map(n => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setQty(Math.min(filteredLeads.length, n))}
+                      className="px-2 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 rounded text-xs font-semibold cursor-pointer"
+                    >
+                      {n}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* QA Dropdown */}
           <div>
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Select QA Agent</label>
+            <label className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5" /> Target QA Evaluator
+            </label>
             {loadingQas ? (
               <div className="text-xs text-slate-500 animate-pulse">Loading QA team members...</div>
             ) : (
@@ -223,65 +348,68 @@ function AssignLeadsModal({ onClose, dialer, filteredLeads, onComplete }) {
                 <select
                   value={selectedQa}
                   onChange={e => setSelectedQa(e.target.value)}
-                  className="w-full appearance-none bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 pr-8 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer"
+                  className="w-full appearance-none bg-slate-800/80 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 pr-8 py-2.5 focus:outline-none focus:ring-1 focus:ring-emerald-500 cursor-pointer font-medium"
                 >
                   {qas.length === 0 ? (
                     <option value="">No QA Agents found</option>
                   ) : (
                     qas.map(q => (
-                      <option key={q.id} value={q.id}>{q.name} ({q.campaign_name || 'No Campaign'})</option>
+                      <option key={q.id} value={q.id}>
+                        {q.name} ({q.campaign_name || q.role || 'QA Agent'})
+                      </option>
                     ))
                   )}
                 </select>
-                <ChevronDown className="w-3.5 h-3.5 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
+                <ChevronDown className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none text-slate-400" />
               </div>
             )}
           </div>
 
-          {/* Quantity */}
-          <div>
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">
-              Quantity to Assign (Max {filteredLeads.length})
-            </label>
-            <input
-              type="number"
-              min="1"
-              max={filteredLeads.length}
-              value={qty}
-              onChange={e => setQty(Math.min(filteredLeads.length, Math.max(1, parseInt(e.target.value) || 0)))}
-              className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-            />
-          </div>
-
           {/* Notes */}
           <div>
-            <label className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5 block">Notes (Optional)</label>
+            <label className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 block">Notes / Instructions (Optional)</label>
             <textarea
               value={notes}
               onChange={e => setNotes(e.target.value)}
-              placeholder="E.g., Please evaluate these urgently..."
+              placeholder="E.g., High priority sales, check script & consent..."
               rows="2"
-              className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-650 resize-none"
+              className="w-full bg-slate-800/80 border border-slate-700 text-slate-200 text-xs rounded-lg px-3 py-2 focus:outline-none focus:ring-1 focus:ring-emerald-500 placeholder:text-slate-600 resize-none"
             />
           </div>
 
-          {/* Actions */}
-          <div className="flex gap-2 pt-1">
-            <button
-              onClick={handleAssign}
-              disabled={submitting || qas.length === 0}
-              className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg py-2 transition-colors disabled:opacity-50"
-            >
-              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <UserCheck className="w-4 h-4" />}
-              {submitting ? 'Assigning...' : 'Confirm Assignment'}
-            </button>
-            <button
-              onClick={onClose}
-              className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-400 text-sm rounded-lg py-2 transition-colors"
-            >
-              Cancel
-            </button>
+          {/* Summary Box */}
+          <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between text-xs">
+            <div>
+              <p className="text-slate-400 font-medium">Ready to assign:</p>
+              <p className="text-sm font-bold text-white font-mono mt-0.5">
+                {leadsToAssign.length} Lead(s)
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-slate-400 font-medium">Evaluator:</p>
+              <p className="text-sm font-bold text-emerald-400 mt-0.5">
+                {selectedQaObj?.name || '—'}
+              </p>
+            </div>
           </div>
+        </div>
+
+        {/* Actions */}
+        <div className="px-5 py-4 border-t border-slate-800 bg-slate-950/40 flex gap-2">
+          <button
+            onClick={handleAssign}
+            disabled={submitting || qas.length === 0 || leadsToAssign.length === 0}
+            className="flex-1 flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold rounded-lg py-2.5 transition-colors disabled:opacity-50 shadow-lg shadow-emerald-950/50 cursor-pointer"
+          >
+            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            {submitting ? 'Assigning...' : `Confirm & Assign (${leadsToAssign.length})`}
+          </button>
+          <button
+            onClick={onClose}
+            className="px-4 bg-slate-800 hover:bg-slate-700 text-slate-300 text-sm rounded-lg py-2.5 transition-colors cursor-pointer"
+          >
+            Cancel
+          </button>
         </div>
       </div>
     </div>
@@ -316,12 +444,14 @@ export default function DialerSalesPage() {
   const [timeFilter, setTimeFilter] = useState('TODAY');
   const [qaMetadata, setQaMetadata] = useState({}); // { lead_id -> { qa_override, qa_status } }
   const [showAssign, setShowAssign] = useState(false);
+  const [selectedLeadIds, setSelectedLeadIds] = useState([]);
 
   const fetchSales = useCallback(async () => {
     setLoading(true);
     setError('');
     setSelectedStatus('All');
     setSelectedTeam('All');
+    setSelectedLeadIds([]);
     try {
       const res = await api.get(`/dialer-sales?dialer=${encodeURIComponent(dialerType)}&timeFilter=${timeFilter}`);
       if (res.data.success) {
@@ -429,6 +559,47 @@ export default function DialerSalesPage() {
     };
   }, [sales, statuses, selectedStatus, selectedTeam, qaMetadata]);
 
+  const selectedLeads = useMemo(() => {
+    return sales.filter(s => selectedLeadIds.includes(s.lead_id));
+  }, [sales, selectedLeadIds]);
+
+  const visibleLeadIds = useMemo(() => {
+    return filteredSales.map(l => l.lead_id);
+  }, [filteredSales]);
+
+  const allFilteredSelected = visibleLeadIds.length > 0 && visibleLeadIds.every(id => selectedLeadIds.includes(id));
+  const someFilteredSelected = visibleLeadIds.some(id => selectedLeadIds.includes(id)) && !allFilteredSelected;
+
+  const handleToggleLead = (leadId, e) => {
+    if (e) e.stopPropagation();
+    setSelectedLeadIds(prev =>
+      prev.includes(leadId) ? prev.filter(id => id !== leadId) : [...prev, leadId]
+    );
+  };
+
+  const handleToggleAll = () => {
+    if (allFilteredSelected) {
+      setSelectedLeadIds(prev => prev.filter(id => !visibleLeadIds.includes(id)));
+    } else {
+      setSelectedLeadIds(prev => Array.from(new Set([...prev, ...visibleLeadIds])));
+    }
+  };
+
+  const handleAssignmentComplete = (assignedIds, qaName) => {
+    setQaMetadata(prev => {
+      const updated = { ...prev };
+      assignedIds.forEach(id => {
+        updated[id] = {
+          ...(updated[id] || {}),
+          is_assigned: true,
+          assigned_qa_name: qaName
+        };
+      });
+      return updated;
+    });
+    setSelectedLeadIds(prev => prev.filter(id => !assignedIds.includes(id)));
+  };
+
   return (
     <div className="space-y-4 max-w-[1400px] mx-auto pb-6">
       
@@ -507,11 +678,15 @@ export default function DialerSalesPage() {
           <button
             onClick={() => setShowAssign(true)}
             disabled={loading || filteredSales.length === 0}
-            className="flex items-center gap-1.5 px-3 h-[34px] bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors disabled:opacity-50 text-xs font-semibold shadow-md cursor-pointer"
-            title="Assign these leads to QA"
+            className={`flex items-center gap-1.5 px-3 h-[34px] rounded-lg transition-all text-xs font-semibold shadow-md cursor-pointer ${
+              selectedLeadIds.length > 0
+                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ring-2 ring-emerald-400/40'
+                : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50'
+            }`}
+            title="Assign leads to QA"
           >
             <UserCheck className="w-3.5 h-3.5" />
-            Assign to QA
+            {selectedLeadIds.length > 0 ? `Assign (${selectedLeadIds.length}) Selected` : 'Assign to QA'}
           </button>
         </div>
       </div>
@@ -520,8 +695,10 @@ export default function DialerSalesPage() {
         <AssignLeadsModal
           onClose={() => setShowAssign(false)}
           dialer={dialerType}
+          selectedLeads={selectedLeads}
+          onDeselectLead={(id) => setSelectedLeadIds(prev => prev.filter(x => x !== id))}
           filteredLeads={filteredSales.filter(l => !qaMetadata[l.lead_id]?.is_assigned)}
-          onComplete={fetchSales}
+          onComplete={handleAssignmentComplete}
         />
       )}
 
@@ -622,22 +799,52 @@ export default function DialerSalesPage() {
         CLEAN DATA TABLE 
       */}
       {user?.role !== 'QA Agent' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col relative" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
         <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
-          <h3 className="text-slate-300 text-xs font-medium flex items-center gap-2">
-            <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold">
-              {filteredSales.length}
-            </span>
-            {selectedStatus === 'All' ? 'Total Leads' : `Leads for ${selectedStatus}`}
-          </h3>
-          { (selectedStatus !== 'All' || selectedTeam !== 'All') && (
-            <button 
-              onClick={() => { setSelectedStatus('All'); setSelectedTeam('All'); }}
-              className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1"
-            >
-              Clear Filter <Filter className="w-3 h-3" />
-            </button>
-          )}
+          <div className="flex items-center gap-3">
+            <h3 className="text-slate-300 text-xs font-medium flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 border border-slate-700 text-xs font-semibold">
+                {filteredSales.length}
+              </span>
+              {selectedStatus === 'All' ? 'Total Leads' : `Leads for ${selectedStatus}`}
+            </h3>
+            {selectedLeadIds.length > 0 && (
+              <div className="flex items-center gap-2 pl-3 border-l border-slate-700/80 animate-in fade-in duration-200">
+                <span className="px-2 py-0.5 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-bold flex items-center gap-1">
+                  <Check className="w-3 h-3" />
+                  {selectedLeadIds.length} Selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedLeadIds([])}
+                  className="text-xs text-slate-400 hover:text-slate-200 underline cursor-pointer"
+                >
+                  Clear
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedLeadIds.length > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAssign(true)}
+                className="flex items-center gap-1.5 px-3 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all text-xs font-bold shadow-md cursor-pointer animate-in fade-in"
+              >
+                <UserCheck className="w-3.5 h-3.5" />
+                Assign {selectedLeadIds.length} Selected
+              </button>
+            )}
+            { (selectedStatus !== 'All' || selectedTeam !== 'All') && (
+              <button 
+                onClick={() => { setSelectedStatus('All'); setSelectedTeam('All'); }}
+                className="text-xs text-slate-400 hover:text-slate-200 flex items-center gap-1 cursor-pointer"
+              >
+                Clear Filter <Filter className="w-3 h-3" />
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="overflow-auto flex-1 bg-slate-950/20">
@@ -650,6 +857,22 @@ export default function DialerSalesPage() {
             <table className="w-full text-left text-xs text-slate-300">
               <thead className="bg-slate-900 sticky top-0 z-10">
                 <tr>
+                  <th className="w-10 px-3 py-3 text-center font-medium text-slate-400 border-b border-slate-800">
+                    <button
+                      type="button"
+                      onClick={handleToggleAll}
+                      className="text-slate-400 hover:text-emerald-400 transition-colors inline-flex items-center justify-center cursor-pointer"
+                      title={allFilteredSelected ? "Deselect all visible" : "Select all visible"}
+                    >
+                      {allFilteredSelected ? (
+                        <CheckSquare className="w-4 h-4 text-emerald-400" />
+                      ) : someFilteredSelected ? (
+                        <div className="w-3.5 h-3.5 rounded border border-emerald-400 bg-emerald-500/20 flex items-center justify-center text-emerald-400 font-bold text-[9px]">—</div>
+                      ) : (
+                        <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
+                      )}
+                    </button>
+                  </th>
                   <th className="px-4 py-3 font-medium text-slate-400 border-b border-slate-800">Lead ID</th>
                   <th className="px-4 py-3 font-medium text-slate-400 border-b border-slate-800">Status</th>
                   <th className="px-4 py-3 font-medium text-slate-400 border-b border-slate-800">QA Status</th>
@@ -663,68 +886,120 @@ export default function DialerSalesPage() {
               <tbody className="divide-y divide-slate-800/60">
                 {filteredSales.length === 0 && !loading && (
                   <tr>
-                    <td colSpan="8" className="px-4 py-16 text-center text-slate-500">
+                    <td colSpan="9" className="px-4 py-16 text-center text-slate-500">
                       No leads match the current filters.
                     </td>
                   </tr>
                 )}
-                {filteredSales.map((lead, idx) => (
-                  <tr 
-                    key={lead.lead_id + idx}
-                    className={`transition-colors ${qaMetadata[lead.lead_id]?.qa_override === 'NOT_A_SALE' ? 'bg-red-950/20 hover:bg-red-950/30' : 'hover:bg-slate-800/40'}`}
-                  >
-                    <td
-                      className="px-4 py-2.5 whitespace-nowrap text-emerald-400 font-medium cursor-pointer hover:underline"
-                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}`)}
+                {filteredSales.map((lead, idx) => {
+                  const isSelected = selectedLeadIds.includes(lead.lead_id);
+                  return (
+                    <tr 
+                      key={lead.lead_id + idx}
+                      onClick={() => handleToggleLead(lead.lead_id)}
+                      className={`transition-colors cursor-pointer ${
+                        isSelected 
+                          ? 'bg-emerald-950/40 hover:bg-emerald-950/50 border-l-2 border-emerald-500' 
+                          : qaMetadata[lead.lead_id]?.qa_override === 'NOT_A_SALE' 
+                            ? 'bg-red-950/20 hover:bg-red-950/30' 
+                            : 'hover:bg-slate-800/40'
+                      }`}
                     >
-                      {lead.lead_id}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <StatusCell
-                        lead={lead}
-                        dialerType={dialerType}
-                        qaOverride={qaMetadata[lead.lead_id]?.qa_override}
-                        onOverrideChange={handleOverrideChange}
-                        statuses={statuses}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <QaStatusCell
-                        lead={lead}
-                        dialerType={dialerType}
-                        currentStatus={qaMetadata[lead.lead_id]?.qa_status || 'Pending'}
-                        onStatusChange={handleStatusChange}
-                      />
-                      {qaMetadata[lead.lead_id]?.is_assigned && (
-                        <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-900/40 text-blue-400 border border-blue-500/20">
-                          Assigned to: {qaMetadata[lead.lead_id].assigned_qa_name}
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5 font-mono text-slate-300">
-                      {lead.phone}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-200">
-                      {lead.name || <span className="text-slate-600 italic">Unknown</span>}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-900/40 text-emerald-400 border border-emerald-500/20">
-                        {lead.team || 'Unknown'}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-400">
-                      {lead.last_agent || '-'}
-                    </td>
-                    <td className="px-4 py-2.5 text-slate-500">
-                      {lead.last_call || '-'}
-                    </td>
-                  </tr>
-                ))}
+                      <td className="px-3 py-2.5 text-center" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          type="button"
+                          onClick={(e) => handleToggleLead(lead.lead_id, e)}
+                          className="text-slate-500 hover:text-emerald-400 transition-colors inline-flex items-center justify-center cursor-pointer"
+                        >
+                          {isSelected ? (
+                            <CheckSquare className="w-4 h-4 text-emerald-400" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-600 hover:text-slate-400" />
+                          )}
+                        </button>
+                      </td>
+                      <td
+                        className="px-4 py-2.5 whitespace-nowrap text-emerald-400 font-medium cursor-pointer hover:underline"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}`);
+                        }}
+                      >
+                        {lead.lead_id}
+                      </td>
+                      <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <StatusCell
+                          lead={lead}
+                          dialerType={dialerType}
+                          qaOverride={qaMetadata[lead.lead_id]?.qa_override}
+                          onOverrideChange={handleOverrideChange}
+                          statuses={statuses}
+                        />
+                      </td>
+                      <td className="px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+                        <QaStatusCell
+                          lead={lead}
+                          dialerType={dialerType}
+                          currentStatus={qaMetadata[lead.lead_id]?.qa_status || 'Pending'}
+                          onStatusChange={handleStatusChange}
+                        />
+                        {qaMetadata[lead.lead_id]?.is_assigned && (
+                          <div className="mt-1.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-blue-900/40 text-blue-400 border border-blue-500/20">
+                            Assigned to: {qaMetadata[lead.lead_id].assigned_qa_name}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-2.5 font-mono text-slate-300 font-semibold">
+                        {lead.phone}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-200">
+                        {lead.name || <span className="text-slate-600 italic">Unknown</span>}
+                      </td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider bg-emerald-900/40 text-emerald-400 border border-emerald-500/20">
+                          {lead.team || 'Unknown'}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-400">
+                        {lead.last_agent || '-'}
+                      </td>
+                      <td className="px-4 py-2.5 text-slate-500">
+                        {lead.last_call || '-'}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}
         </div>
       </div>
+      )}
+
+      {/* Floating Selection Bar */}
+      {selectedLeadIds.length > 0 && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-slate-900/95 border border-emerald-500/40 shadow-2xl shadow-emerald-950/80 rounded-2xl px-5 py-3 flex items-center gap-4 backdrop-blur-md animate-in slide-in-from-bottom duration-200">
+          <div className="flex items-center gap-2 text-white text-xs font-medium">
+            <span className="w-6 h-6 rounded-full bg-emerald-500 text-slate-950 font-black flex items-center justify-center text-xs">
+              {selectedLeadIds.length}
+            </span>
+            <span>Lead(s) selected from table</span>
+          </div>
+          <div className="h-4 w-px bg-slate-700" />
+          <button
+            onClick={() => setShowAssign(true)}
+            className="flex items-center gap-1.5 px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-md hover:scale-105 cursor-pointer"
+          >
+            <UserCheck className="w-4 h-4" />
+            Assign Selected Leads
+          </button>
+          <button
+            onClick={() => setSelectedLeadIds([])}
+            className="text-xs text-slate-400 hover:text-white transition-colors cursor-pointer"
+          >
+            Deselect All
+          </button>
+        </div>
       )}
     </div>
   );

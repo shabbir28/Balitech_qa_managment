@@ -101,6 +101,10 @@ function QaStatusCell({ row, dialerType, onStatusChange }) {
         return 'bg-red-950/40 text-red-400 border-red-500/20';
       case 'Flagged':
         return 'bg-amber-950/40 text-amber-400 border-amber-500/20';
+      case 'Decline':
+        return 'bg-purple-950/40 text-purple-400 border-purple-500/20';
+      case 'Not Billable':
+        return 'bg-cyan-950/40 text-cyan-400 border-cyan-500/20';
       default: // Pending
         return 'bg-slate-800 text-slate-400 border-slate-700';
     }
@@ -121,6 +125,8 @@ function QaStatusCell({ row, dialerType, onStatusChange }) {
             <option value="Accepted">Accepted</option>
             <option value="Rejected">Rejected</option>
             <option value="Flagged">Flagged</option>
+            <option value="Decline">Decline</option>
+            <option value="Not Billable">Not Billable</option>
           </select>
           <ChevronDown className="w-2.5 h-2.5 absolute right-1 top-1/2 -translate-y-1/2 pointer-events-none text-slate-500" />
         </div>
