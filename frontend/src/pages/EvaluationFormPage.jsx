@@ -44,6 +44,17 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
   const [playbackRate, setPlaybackRate] = useState(1);
   const [downloading, setDownloading] = useState(false);
 
+  // The dialer reports the exact call length in seconds. Prefer that value for
+  // display so it matches the dialer report exactly. The audio element's own
+  // decoded duration (`duration`) can drift by a second on VBR mp3s, so it is
+  // used only for the seek bar / progress, never for the number we show.
+  const reportedLength =
+    rec.length !== undefined && rec.length !== null && String(rec.length).trim() !== ''
+      ? Math.round(parseFloat(rec.length))
+      : null;
+  const displayDuration =
+    reportedLength != null && !isNaN(reportedLength) ? reportedLength : Math.round(duration);
+
   useEffect(() => {
     if (!audioRef.current) return;
     if (isPlaying) {
@@ -52,13 +63,6 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
       audioRef.current.pause();
     }
   }, [isPlaying]);
-
-  const formatTime = (sec) => {
-    if (!sec || isNaN(sec)) return '0:00';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
-  };
 
   const handleRateChange = (newRate) => {
     setPlaybackRate(newRate);
@@ -163,6 +167,14 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
             }`}>
               Recording {index + 1}{total > 1 ? ` of ${total}` : ''}
             </span>
+            {rec.tsr && (
+              <span
+                className="text-[11px] font-bold px-2 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/25 shrink-0"
+                title="Agent (TSR) that took this call"
+              >
+                TSR {rec.tsr}
+              </span>
+            )}
             <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[420px]" title={rec.filename}>
               {rec.filename || `Recording ${index + 1}`}
             </span>
@@ -170,9 +182,9 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
           </div>
 
           <div className="flex items-center gap-2.5">
-            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(currentTime)}</span>
+            <span className="text-xs font-mono font-bold text-indigo-400">{Math.min(Math.round(currentTime), displayDuration)}s</span>
             <span className="text-xs text-slate-500">/</span>
-            <span className="text-xs font-mono text-slate-400">{formatTime(duration)}</span>
+            <span className="text-xs font-mono text-slate-400">{displayDuration}s</span>
             
             <select
               value={playbackRate}
@@ -378,18 +390,28 @@ const EvaluationFormPage = () => {
           return Array.isArray(arr) ? arr.filter(r => r && r.location) : [];
         };
 
+        // Keyed by location so the same recording coming from several sources is
+        // enriched rather than dropped: cached rows often lack the length and
+        // TSR that only the dialer scrape provides.
         const mergeUniqueRecs = (...lists) => {
-          const seen = new Set();
-          const merged = [];
+          const byLocation = new Map();
           lists.forEach(list => {
             normalizeRecList(list).forEach(item => {
-              if (!seen.has(item.location)) {
-                seen.add(item.location);
-                merged.push(item);
+              const existing = byLocation.get(item.location);
+              if (!existing) {
+                byLocation.set(item.location, { ...item });
+                return;
               }
+              const merged = { ...existing };
+              if (!(parseFloat(merged.length) > 0) && parseFloat(item.length) > 0) merged.length = item.length;
+              if (!merged.tsr && item.tsr) merged.tsr = item.tsr;
+              if (!merged.date && item.date) merged.date = item.date;
+              if (!merged.recid && item.recid) merged.recid = item.recid;
+              if (!merged.filename && item.filename) merged.filename = item.filename;
+              byLocation.set(item.location, merged);
             });
           });
-          return merged;
+          return Array.from(byLocation.values());
         };
 
         let recs = mergeUniqueRecs(
@@ -411,7 +433,10 @@ const EvaluationFormPage = () => {
           setCurrentLeadId(resolvedLeadId);
         }
 
-        if (recs.length <= 1 && resolvedLeadId) {
+        // Re-scrape when there is nothing cached yet, or when the cached rows
+        // predate length/TSR capture, so seconds and the agent id show up.
+        const hasLengths = recs.some(r => parseFloat(r.length) > 0);
+        if ((recs.length <= 1 || !hasLengths) && resolvedLeadId) {
           try {
             const dialerRes = await api.get(`/dialer/recordings/${resolvedLeadId}?dialer=${encodeURIComponent(detectedDialer)}`);
             if (dialerRes.data.success && Array.isArray(dialerRes.data.data) && dialerRes.data.data.length > 0) {
@@ -429,10 +454,21 @@ const EvaluationFormPage = () => {
 
         setRecordingsList(recs);
 
+        // Talk time is expressed in seconds: sum the actual recording lengths
+        // (each `length` is already in seconds). Fall back to the uploaded
+        // call_duration only when no recording length is available.
+        const totalSeconds = recs.reduce((sum, r) => {
+          const len = parseFloat(r.length);
+          return sum + (isNaN(len) ? 0 : Math.round(len));
+        }, 0);
+        const talkTimeSeconds = totalSeconds > 0
+          ? String(totalSeconds)
+          : (callData.call_duration || '');
+
         setMetadata(prev => ({
           ...prev,
           teams: callData.team || callData.campaign_name || prev.teams,
-          talkTime: prev.talkTime !== undefined && prev.talkTime !== '' ? prev.talkTime : (callData.call_duration || ''),
+          talkTime: prev.talkTime !== undefined && prev.talkTime !== '' ? prev.talkTime : talkTimeSeconds,
           dup: callData.is_duplicate ? (prev.dup || String(callData.duplicate_count || 2)) : prev.dup
         }));
       }).catch(() => {
@@ -578,7 +614,7 @@ const EvaluationFormPage = () => {
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-40">Numbers</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-24 text-center">Dup</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-24 text-center">DID's</th>
-                      <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-28 text-center">Talk Time</th>
+                      <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-28 text-center">Talk Time (sec)</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-36">QA Status</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[300px]">Agentside Feedback</th>
                       <th className="px-4 py-5 border-b border-r border-slate-800/50 text-[11px] font-bold text-slate-400 uppercase tracking-wider w-[350px]">LA side</th>
@@ -672,7 +708,7 @@ const EvaluationFormPage = () => {
                           type="text"
                           value={metadata.talkTime !== undefined ? metadata.talkTime : (call.call_duration || '')} 
                           onChange={e => handleMetadataChange('talkTime', e.target.value)} 
-                          placeholder="0"
+                          placeholder="0 sec"
                           className="w-full bg-slate-950 border border-slate-800 text-sm px-2 py-2 rounded-lg outline-none text-slate-200 focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-all text-center font-mono"
                         />
                       </td>

@@ -292,37 +292,80 @@ exports.getRecordings = async (req, res, next) => {
     const html = await exports.fetchAdminPage(`admin_modify_lead.php?lead_id=${leadId}`, dialer);
     
     const recordings = [];
-    
-    // Find any hrefs that contain .mp3 or .wav
-    const allLinks = html.match(/href=["']([^"']+)["']/gi);
-    if (allLinks) {
+
+    const clean = (td) => (td || '').replace(/<[^>]*>/g, ' ').replace(/&nbsp;/gi, ' ').replace(/\s+/g, ' ').trim();
+    const normalizeUrl = (raw) => {
+      let recUrl = raw;
+      if (recUrl.startsWith('/')) recUrl = `http://167.235.117.217${recUrl}`;
+      // Fix https to http for IP addresses to avoid ERR_CERT_COMMON_NAME_INVALID
+      if (recUrl.startsWith('https://') && /\d+\.\d+\.\d+\.\d+/.test(recUrl)) {
+        recUrl = recUrl.replace('https://', 'http://');
+      }
+      return recUrl;
+    };
+    const isAudio = (u) => u.toLowerCase().includes('.mp3') || u.toLowerCase().includes('.wav');
+
+    /*
+     * The recordings table on admin_modify_lead.php is laid out as:
+     *   # | LEAD | DATE/TIME | SECONDS | RECID | FILENAME | LOCATION | TSR
+     * Parse it row by row so the real call length (SECONDS) and the agent that
+     * took the call (TSR) are preserved. Cells are read relative to the
+     * LOCATION column, which is the one holding the audio link, because the
+     * leading `#` column is not always rendered.
+     */
+    const rows = html.match(/<tr[^>]*>([\s\S]*?)<\/tr>/gi) || [];
+    for (const rowHtml of rows) {
+      if (!/\.mp3|\.wav/i.test(rowHtml)) continue;
+
+      const tds = rowHtml.match(/<td[^>]*>([\s\S]*?)<\/td>/gi);
+      if (!tds || tds.length < 2) continue;
+
+      const locIdx = tds.findIndex((td) => {
+        const m = td.match(/href=["']([^"']+)["']/i);
+        return m && isAudio(m[1]);
+      });
+      if (locIdx === -1) continue;
+
+      const recUrl = normalizeUrl(tds[locIdx].match(/href=["']([^"']+)["']/i)[1]);
+      if (recordings.some((r) => r.location === recUrl)) continue;
+
+      const at = (i) => (i >= 0 && i < tds.length ? clean(tds[i]) : '');
+
+      // SECONDS sits three columns left of LOCATION. Offsets are taken from the
+      // LOCATION column rather than the row start, so an absent leading `#`
+      // column does not shift them. Anything unexpected stays 0 instead of
+      // guessing, so a wrong duration is never shown.
+      const seconds = at(locIdx - 3);
+      const tsr = at(locIdx + 1);
+
+      recordings.push({
+        lead_id:  at(locIdx - 5) || leadId,
+        date:     at(locIdx - 4),
+        length:   /^\d+$/.test(seconds) ? seconds : '0',
+        recid:    at(locIdx - 2),
+        filename: at(locIdx - 1) || recUrl.split('/').pop(),
+        location: recUrl,
+        tsr:      tsr,
+      });
+    }
+
+    // Fallback: if the table could not be parsed, keep the old link-only scrape
+    // so recordings still play (without length/TSR metadata).
+    if (recordings.length === 0) {
+      const allLinks = html.match(/href=["']([^"']+)["']/gi) || [];
       allLinks.forEach((linkHtml) => {
         const urlMatch = linkHtml.match(/href=["']([^"']+)["']/i);
-        if (urlMatch) {
-          let recUrl = urlMatch[1];
-          if (recUrl.toLowerCase().includes('.mp3') || recUrl.toLowerCase().includes('.wav')) {
-            if (recUrl.startsWith('/')) {
-               recUrl = `http://167.235.117.217${recUrl}`;
-            }
-            // Fix https to http for IP addresses to avoid ERR_CERT_COMMON_NAME_INVALID
-            if (recUrl.startsWith('https://') && /\d+\.\d+\.\d+\.\d+/.test(recUrl)) {
-               recUrl = recUrl.replace('https://', 'http://');
-            }
-            
-            const filename = recUrl.split('/').pop();
-            // Prevent duplicates
-            if (!recordings.some(r => r.location === recUrl)) {
-              recordings.push({
-                lead_id:  leadId,
-                date:     '', 
-                length:   '0',
-                filename: filename,
-                location: recUrl,
-                tsr:      '',
-              });
-            }
-          }
-        }
+        if (!urlMatch || !isAudio(urlMatch[1])) return;
+        const recUrl = normalizeUrl(urlMatch[1]);
+        if (recordings.some((r) => r.location === recUrl)) return;
+        recordings.push({
+          lead_id:  leadId,
+          date:     '',
+          length:   '0',
+          filename: recUrl.split('/').pop(),
+          location: recUrl,
+          tsr:      '',
+        });
       });
     }
 
