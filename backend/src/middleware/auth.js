@@ -79,7 +79,8 @@ const checkDialerAccess = (req, res, next) => {
   }
 
   // Find dialer type from query, body, or params
-  let dialer = req.query.dialer || req.body.dialer || req.params.dialer;
+  // Express 5 leaves req.body undefined on requests without a JSON payload (e.g. GET).
+  let dialer = req.query?.dialer || req.body?.dialer || req.params?.dialer;
 
   if (!dialer) {
     return next();
