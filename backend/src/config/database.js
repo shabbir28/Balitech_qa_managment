@@ -31,8 +31,10 @@ const pool = new Pool({
     : false,
 });
 
-pool.on('connect', (client) => {
-  if (!isProduction) {
+let loggedFirstConnect = false;
+pool.on('connect', () => {
+  if (!isProduction && !loggedFirstConnect) {
+    loggedFirstConnect = true;
     console.log('✅ Database connected successfully');
   }
 });
@@ -51,7 +53,7 @@ const query = async (text, params) => {
     const duration = Date.now() - start;
     if (!isProduction) {
       // Only log slow queries in development to avoid log flooding
-      if (duration > 100) {
+      if (duration > 500) {
         console.log('Slow query detected', { text: text.substring(0, 80), duration, rows: res.rowCount });
       }
     }

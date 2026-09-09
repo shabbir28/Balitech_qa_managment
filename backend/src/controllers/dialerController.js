@@ -230,12 +230,14 @@ exports.importLeadForEval = async (req, res, next) => {
       );
       
       // Auto-assign to self so it appears in the evaluations list
-      await query(
-        `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, status, notes) 
-         VALUES ($1, $2, $3, $4, 'pending', 'Self-assigned via direct evaluation') 
-         ON CONFLICT DO NOTHING`,
-        [existingId, req.user.id, req.user.id, existing.rows[0].campaign_name || '']
-      );
+      const existingAssign = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [existingId]);
+      if (!existingAssign.rows.length) {
+        await query(
+          `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, status, notes) 
+           VALUES ($1, $2, $3, $4, 'pending', 'Self-assigned via direct evaluation')`,
+          [existingId, req.user.id, req.user.id, existing.rows[0].campaign_name || '']
+        );
+      }
       
       return res.json({ success: true, call_id: existingId });
     }

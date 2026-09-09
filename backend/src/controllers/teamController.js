@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const { query } = require('../config/database');
 const { parseFile, normalizeRow } = require('./callController');
+const { NY_DAY_START, nyDateStart } = require('../utils/timezone');
 
 /* ─── TEAMS ─────────────────────────────────────────────────────────── */
 
@@ -125,13 +126,87 @@ const getAvailableUsers = async (req, res, next) => {
 /* ─── LEAD ASSIGNMENTS ──────────────────────────────────────────────── */
 
 /**
+ * Automatically expires uncompleted assignments (pending, accepted) that were
+ * handed out before the current America/New_York day, so a QA Agent's queue
+ * only ever holds leads assigned today.
+ *
+ * Releases dialer sales history assigned state if any un-evaluated leads were assigned from dialer sales.
+ */
+const expireStaleAssignments = async () => {
+  try {
+    const staleResult = await query(`
+      UPDATE lead_assignments
+      SET status = 'expired'
+      WHERE status IN ('pending', 'accepted')
+        AND assigned_at < ${NY_DAY_START}
+        AND (reopened_at IS NULL OR reopened_at < ${NY_DAY_START})
+      RETURNING id, call_lead_id
+    `);
+
+    if (staleResult.rows.length > 0) {
+      const callLeadIds = staleResult.rows.map(r => r.call_lead_id);
+      await query(`
+        UPDATE dialer_sales_history dsh
+        SET is_assigned = FALSE, assigned_qa_name = NULL
+        WHERE dsh.is_assigned IS TRUE
+          AND (
+            dsh.lead_id IN (
+              SELECT m[1]
+              FROM call_leads cl
+              CROSS JOIN LATERAL regexp_match(
+                COALESCE(cl.notes, ''),
+                '(?:Lead ID:|VICI_LEAD:)\\s*(\\S+)'
+              ) AS m
+              WHERE cl.id = ANY($1::int[])
+                AND cl.is_evaluated IS NOT TRUE
+                AND m IS NOT NULL
+            )
+            OR dsh.phone IN (
+              SELECT cl.customer_phone
+              FROM call_leads cl
+              WHERE cl.id = ANY($1::int[])
+                AND cl.is_evaluated IS NOT TRUE
+                AND COALESCE(cl.notes, '') !~ '(Lead ID:|VICI_LEAD:)'
+            )
+          )
+      `, [callLeadIds]).catch(err => {
+        console.warn('Notice when releasing dialer sales leads for expired assignments:', err.message);
+      });
+    }
+
+    return staleResult.rows.length;
+  } catch (error) {
+    console.error('Error in expireStaleAssignments:', error.message);
+    throw error;
+  }
+};
+
+/**
+ * An auto-expired assignment keeps its original meaning for history: it was
+ * either already accepted by the agent, or still waiting. `accepted_at` tells
+ * the two apart, so a past day can be reported exactly as the agent left it.
+ */
+const EFFECTIVE_STATUS = `
+  CASE WHEN la.status = 'expired'
+       THEN CASE WHEN la.accepted_at IS NOT NULL THEN 'accepted' ELSE 'pending' END
+       ELSE la.status END
+`;
+
+/**
  * GET /api/assignments
- * Manager sees assignments; QA member sees their own
+ * Manager sees assignments; QA member sees their own.
+ *
+ * `start_date` / `end_date` are America/New_York calendar dates. A QA Agent
+ * defaults to the current New York day, so a fresh login always opens on
+ * today's queue while older days stay reachable through the date picker.
  */
 const getAssignments = async (req, res, next) => {
   try {
+    // Automatically expire any uncompleted assignments from previous days
+    try { await expireStaleAssignments(); } catch (e) { console.error('Assignment expiration failed:', e.message); }
+
     const role = req.user.role;
-    const { page = 1, limit = 50, status, user_id } = req.query;
+    const { page = 1, limit = 50, status, user_id, start_date, end_date } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
     
     let conditions = [];
@@ -158,9 +233,22 @@ const getAssignments = async (req, res, next) => {
         params.push(req.user.id);
       }
     }
-    
+
+    // Day window. Agents are always scoped to a day; leadership only when asked.
+    const rangeStart = start_date || (isLeadership ? null : 'TODAY');
+    const rangeEnd = end_date || rangeStart;
+    const useExplicitRange = Boolean(rangeStart) && rangeStart !== 'TODAY';
+    if (rangeStart === 'TODAY') {
+      conditions.push(`la.assigned_at >= ${NY_DAY_START}`);
+    } else if (useExplicitRange) {
+      conditions.push(`la.assigned_at >= ${nyDateStart(`$${paramCount++}`)}`);
+      params.push(rangeStart);
+      conditions.push(`la.assigned_at < ${nyDateStart(`$${paramCount++}`, 1)}`);
+      params.push(rangeEnd);
+    }
+
     if (status && status !== 'all') {
-      conditions.push(`la.status = $${paramCount++}`);
+      conditions.push(`(${EFFECTIVE_STATUS}) = $${paramCount++}`);
       params.push(status);
     }
 
@@ -171,27 +259,37 @@ const getAssignments = async (req, res, next) => {
     const countResult = await query(`SELECT COUNT(*) FROM lead_assignments la ${countJoin} ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    // Build stats params accurately
-    let statsWhere = '';
-    let statsParams = [];
+    // Stats describe the same scope as the list, minus the status tab filter.
+    const statsConditions = [];
+    const statsParams = [];
+    let statsCount = 1;
     if (!isLeadership) {
-      statsWhere = 'WHERE la.assigned_to = $1';
-      statsParams = [req.user.id];
+      statsConditions.push(`la.assigned_to = $${statsCount++}`);
+      statsParams.push(req.user.id);
     } else if (user_id) {
-      statsWhere = 'WHERE la.assigned_to = $1';
-      statsParams = [user_id];
+      statsConditions.push(`la.assigned_to = $${statsCount++}`);
+      statsParams.push(user_id);
     } else if (role === 'Manager' || req.query.my_assigned === 'true') {
-      statsWhere = 'WHERE la.assigned_by = $1';
-      statsParams = [req.user.id];
+      statsConditions.push(`la.assigned_by = $${statsCount++}`);
+      statsParams.push(req.user.id);
     }
+    if (rangeStart === 'TODAY') {
+      statsConditions.push(`la.assigned_at >= ${NY_DAY_START}`);
+    } else if (useExplicitRange) {
+      statsConditions.push(`la.assigned_at >= ${nyDateStart(`$${statsCount++}`)}`);
+      statsConditions.push(`la.assigned_at < ${nyDateStart(`$${statsCount++}`, 1)}`);
+      statsParams.push(rangeStart, rangeEnd);
+    }
+    const statsWhere = statsConditions.length ? 'WHERE ' + statsConditions.join(' AND ') : '';
 
     const statsResult = await query(`
       SELECT 
-        COUNT(la.*) as total,
-        COUNT(CASE WHEN la.status = 'pending' THEN 1 END) as pending,
-        COUNT(CASE WHEN la.status = 'accepted' THEN 1 END) as accepted,
-        COUNT(CASE WHEN la.status = 'rejected' THEN 1 END) as rejected,
-        COUNT(CASE WHEN la.status = 'completed' THEN 1 END) as completed,
+        COUNT(*) as total,
+        COUNT(CASE WHEN (${EFFECTIVE_STATUS}) = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN (${EFFECTIVE_STATUS}) = 'accepted' THEN 1 END) as accepted,
+        COUNT(CASE WHEN (${EFFECTIVE_STATUS}) = 'rejected' THEN 1 END) as rejected,
+        COUNT(CASE WHEN (${EFFECTIVE_STATUS}) = 'completed' THEN 1 END) as completed,
+        COUNT(CASE WHEN la.status = 'expired' THEN 1 END) as expired,
         COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Accepted', 'Pass') THEN 1 END) as eval_accepted,
         COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Rejected', 'Fail') THEN 1 END) as eval_rejected,
         COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Decline' THEN 1 END) as eval_decline,
@@ -207,6 +305,8 @@ const getAssignments = async (req, res, next) => {
 
     const result = await query(
       `SELECT la.*,
+        (${EFFECTIVE_STATUS}) as effective_status,
+        (la.status = 'expired') as is_expired,
         cl.customer_phone, cl.agent_name, cl.campaign_name, cl.call_date, cl.call_duration, cl.recording_url, cl.recordings, cl.disposition,
         c.name as dialer_campaign,
         u1.name as assigned_to_name, u1.email as assigned_to_email,
@@ -245,6 +345,9 @@ const getAssignments = async (req, res, next) => {
  */
 const createAssignments = async (req, res, next) => {
   try {
+    // Expire any stale assignments first so newly assigned leads start with a fresh daily queue
+    try { await expireStaleAssignments(); } catch (e) { console.error('Assignment expiration failed:', e.message); }
+
     const { call_lead_ids = [], manual_leads = [], dialer_leads = [], assigned_to, campaign_name, notes } = req.body;
     if ((!call_lead_ids.length && !manual_leads.length && !dialer_leads.length) || !assigned_to)
       return res.status(400).json({ success: false, message: 'Leads and assigned_to are required.' });
@@ -260,10 +363,11 @@ const createAssignments = async (req, res, next) => {
 
     // Process selected existing call_leads IDs
     for (const lead_id of effectiveCallLeadIds) {
+      const existing = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [lead_id]);
+      if (existing.rows.length) continue;
       const r = await query(
         `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
          VALUES ($1, $2, $3, $4, $5)
-         ON CONFLICT DO NOTHING
          RETURNING *`,
         [lead_id, assigned_to, req.user.id, campaign_name || '', notes || '']
       );
@@ -375,13 +479,24 @@ const createAssignments = async (req, res, next) => {
 };
 
 /**
+ * A lead is still actionable while it is pending, and also when it was auto
+ * expired without ever being accepted — an agent may go back to an earlier day
+ * and pick it up. `reopened_at` then keeps the expiration job off it for the
+ * rest of the current New York day.
+ */
+const CLAIMABLE = `(status = 'pending' OR (status = 'expired' AND accepted_at IS NULL))`;
+
+/**
  * PATCH /api/assignments/:id/accept
  */
 const acceptAssignment = async (req, res, next) => {
   try {
     const result = await query(
-      `UPDATE lead_assignments SET status = 'accepted', accepted_at = NOW()
-       WHERE id = $1 AND assigned_to = $2 AND status = 'pending'
+      `UPDATE lead_assignments
+       SET status = 'accepted',
+           accepted_at = NOW(),
+           reopened_at = CASE WHEN status = 'expired' THEN NOW() ELSE reopened_at END
+       WHERE id = $1 AND assigned_to = $2 AND ${CLAIMABLE}
        RETURNING *`,
       [req.params.id, req.user.id]
     );
@@ -398,7 +513,7 @@ const rejectAssignment = async (req, res, next) => {
   try {
     const result = await query(
       `UPDATE lead_assignments SET status = 'rejected', completed_at = NOW()
-       WHERE id = $1 AND assigned_to = $2 AND status = 'pending'
+       WHERE id = $1 AND assigned_to = $2 AND ${CLAIMABLE}
        RETURNING *`,
       [req.params.id, req.user.id]
     );
@@ -410,15 +525,26 @@ const rejectAssignment = async (req, res, next) => {
 
 /**
  * PATCH /api/assignments/accept-all
- * Bulk accept all pending assignments for the logged-in user
+ * Bulk accept the pending assignments of one day for the logged-in user.
+ * Defaults to today; `date` (a New York calendar date) accepts an earlier day.
+ * Deliberately limited to a single day so a wide range cannot be claimed by
+ * accident.
  */
 const acceptAllAssignments = async (req, res, next) => {
   try {
+    const date = req.body?.date || req.query.date;
+    const dayFilter = date
+      ? `AND assigned_at >= ${nyDateStart('$2')} AND assigned_at < ${nyDateStart('$2', 1)}`
+      : `AND assigned_at >= ${NY_DAY_START}`;
+
     const result = await query(
-      `UPDATE lead_assignments SET status = 'accepted', accepted_at = NOW()
-       WHERE assigned_to = $1 AND status = 'pending'
+      `UPDATE lead_assignments
+       SET status = 'accepted',
+           accepted_at = NOW(),
+           reopened_at = CASE WHEN status = 'expired' THEN NOW() ELSE reopened_at END
+       WHERE assigned_to = $1 AND ${CLAIMABLE} ${dayFilter}
        RETURNING *`,
-      [req.user.id]
+      date ? [req.user.id, date] : [req.user.id]
     );
     res.json({ success: true, message: `${result.rows.length} assignments accepted.` });
   } catch (err) { next(err); }
@@ -496,6 +622,14 @@ const createManagedUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid role_id.' });
     }
 
+    const roleRes = await query('SELECT id, name FROM roles WHERE id = $1', [parsedRoleId]);
+    if (!roleRes.rows[0] || roleRes.rows[0].name !== 'QA Agent') {
+      return res.status(403).json({
+        success: false,
+        message: 'You can only create QA Agent accounts from this screen.',
+      });
+    }
+
     // Normalize email
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -526,6 +660,9 @@ const createManagedUser = async (req, res, next) => {
  */
 const uploadAssignments = async (req, res, next) => {
   try {
+    // Expire any stale assignments first so newly assigned leads start with a fresh daily queue
+    try { await expireStaleAssignments(); } catch (e) { console.error('Assignment expiration failed:', e.message); }
+
     const { assigned_to, campaign_name, notes } = req.body;
     if (!req.file || !assigned_to) {
       return res.status(400).json({ success: false, message: 'File and assigned_to are required.' });
@@ -629,6 +766,12 @@ const uploadAssignments = async (req, res, next) => {
     }
     
     fs.unlink(req.file.path, () => {});
+    if (totalInserted === 0) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to assign any leads from the file. Check the file format and try again.',
+      });
+    }
     res.status(201).json({ success: true, message: `${totalInserted} lead(s) assigned successfully from file.` });
   } catch (err) {
     if (req.file) fs.unlink(req.file.path, () => {});
@@ -641,4 +784,5 @@ module.exports = {
   getTeamMembers, addTeamMember, removeTeamMember, getAvailableUsers,
   getAssignments, createAssignments, acceptAssignment, rejectAssignment, acceptAllAssignments, completeAssignment, deleteAssignment, uploadAssignments,
   createManagedUser,
+  expireStaleAssignments,
 };

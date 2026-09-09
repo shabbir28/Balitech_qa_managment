@@ -1,4 +1,5 @@
 const { query } = require('../config/database');
+const { NY_DAY_START } = require('../utils/timezone');
 
 /**
  * GET /api/dashboard/stats
@@ -86,17 +87,18 @@ const getDashboardStats = async (req, res, next) => {
           ${dialerFilter === 'medicare' || dialerFilter === 'pharmacy' ? `AND dialer = '${dialerFilter}'` : ''}
       `, isUser ? [startDate, endDate, userId] : [startDate, endDate]),
       query(`SELECT COUNT(*) FROM users WHERE deleted_at IS NULL AND is_active = TRUE AND role_id IN (SELECT id FROM roles WHERE name = 'QA Agent')`),
-      // Queue count for user
+      // Queue count for user — today's assignments only (America/New_York day)
       isUser ? query(`
         SELECT COUNT(*) as count 
         FROM lead_assignments la
         JOIN call_leads cl ON la.call_lead_id = cl.id
         WHERE la.assigned_to = $1 
           AND la.status IN ('pending', 'accepted')
+          AND la.assigned_at >= ${NY_DAY_START}
           AND cl.is_evaluated = FALSE
           AND cl.is_deleted = FALSE
       `, [userId]) : Promise.resolve({ rows: [{ count: 0 }] }),
-      // Oldest pending call for user to evaluate
+      // Oldest pending call from today's queue for user to evaluate
       isUser ? query(`
         SELECT la.id as assignment_id, la.call_lead_id, la.campaign_name, la.status as assignment_status,
                cl.customer_phone, cl.customer_name, cl.call_date, cl.recording_url, cl.recordings, cl.notes
@@ -104,6 +106,7 @@ const getDashboardStats = async (req, res, next) => {
         JOIN call_leads cl ON la.call_lead_id = cl.id
         WHERE la.assigned_to = $1 
           AND la.status IN ('pending', 'accepted')
+          AND la.assigned_at >= ${NY_DAY_START}
           AND cl.is_evaluated = FALSE
           AND cl.is_deleted = FALSE
         ORDER BY la.assigned_at ASC, la.id ASC

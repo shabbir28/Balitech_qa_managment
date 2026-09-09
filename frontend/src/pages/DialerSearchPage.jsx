@@ -83,7 +83,9 @@ export default function DialerSearchPage() {
 
   const handleSearch = async (e) => {
     e.preventDefault();
-    setSearchParams({ phone, dialer: dialerType });
+    const nextParams = { phone, dialer: dialerType };
+    if (assignmentId) nextParams.assignment_id = assignmentId;
+    setSearchParams(nextParams);
     await performSearch(phone);
   };
 
@@ -239,7 +241,7 @@ export default function DialerSearchPage() {
                         <span className="text-sm font-medium text-slate-200">{lead.name || '—'}</span>
                       </td>
                       <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-1.5 text-sm font-medium px-2 py-0.5 rounded-full border text-xs ${
+                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
                           lead.status === 'CALLBK' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
                           lead.status === 'SALE'   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
                           lead.status === 'DNC'    ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :

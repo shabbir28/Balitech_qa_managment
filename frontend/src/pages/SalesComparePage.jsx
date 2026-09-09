@@ -1,207 +1,29 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { ArrowLeft, FileSpreadsheet, Upload, Search, Phone, CalendarRange, CalendarDays, ChevronDown, Loader2, Download } from 'lucide-react';
+import { ArrowLeft, FileSpreadsheet, Upload, Search, Phone, ChevronDown, Loader2, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 import api from '../services/api';
 import PreviewRecheckModal from '../components/PreviewRecheckModal';
+import { DateRangeDropdown } from '../components/ui';
+import { getEstDateString, fmtLocal } from '../utils/dateUtils';
 
-// ─── Date helpers ────────────────────────────────────────────────────────────
-const fmt = (d) => d.toISOString().slice(0, 10);
-
-const getPresets = () => {
-  const now = new Date();
-  const today = fmt(now);
-
-  const yesterday = new Date(now);
-  yesterday.setDate(yesterday.getDate() - 1);
-  const yd = fmt(yesterday);
-
-  // Monday of current week
-  const dow = now.getDay();
-  const mondayThis = new Date(now);
-  mondayThis.setDate(now.getDate() - (dow === 0 ? 6 : dow - 1));
-  const sundayThis = new Date(mondayThis);
-  sundayThis.setDate(mondayThis.getDate() + 6);
-
-  // Last week Mon–Sun
-  const mondayLast = new Date(mondayThis);
-  mondayLast.setDate(mondayThis.getDate() - 7);
-  const sundayLast = new Date(mondayLast);
-  sundayLast.setDate(mondayLast.getDate() + 6);
-
-  // This month
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
-  const monthEnd   = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-
-  // Last month
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const lastMonthEnd   = new Date(now.getFullYear(), now.getMonth(), 0);
-
-  return [
-    { label: 'Today',       start: today,              end: today },
-    { label: 'Yesterday',   start: yd,                 end: yd },
-    { label: 'This Week',   start: fmt(mondayThis),    end: fmt(sundayThis) },
-    { label: 'Last Week',   start: fmt(mondayLast),    end: fmt(sundayLast) },
-    { label: 'This Month',  start: fmt(monthStart),    end: fmt(monthEnd) },
-    { label: 'Last Month',  start: fmt(lastMonthStart),end: fmt(lastMonthEnd) },
-    { label: 'Custom Range',start: null,               end: null, isCustom: true },
-  ];
+// Yesterday on the US Eastern calendar. Stepping back from the Eastern day
+// (rather than from local time) keeps this in step with the picker's presets,
+// which otherwise disagree when it is past midnight locally but not in New York.
+const getEasternYesterday = () => {
+  const day = new Date(`${getEstDateString(new Date())}T00:00:00`);
+  day.setDate(day.getDate() - 1);
+  return fmtLocal(day);
 };
-
-// ─── DateRangeDropdown component ─────────────────────────────────────────────
-function DateRangeDropdown({ startDate, endDate, onChange, customTrigger, placement = 'right' }) {
-  const [open, setOpen] = useState(false);
-  const [customStart, setCustomStart] = useState(startDate);
-  const [customEnd, setCustomEnd]     = useState(endDate);
-  const [activeLabel, setActiveLabel] = useState('Yesterday');
-  const [showCustom, setShowCustom]   = useState(false);
-  const ref = useRef(null);
-
-  const presets = useMemo(() => getPresets(), []);
-
-  useEffect(() => {
-    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const selectPreset = (preset) => {
-    if (preset.isCustom) {
-      setShowCustom(true);
-      setActiveLabel('Custom Range');
-      return;
-    }
-    setShowCustom(false);
-    setActiveLabel(preset.label);
-    setCustomStart(preset.start);
-    setCustomEnd(preset.end);
-    onChange(preset.start, preset.end);
-    setOpen(false);
-  };
-
-  const applyCustom = () => {
-    if (!customStart || !customEnd) {
-      toast.error('Please select both start and end dates');
-      return;
-    }
-    if (customStart > customEnd) {
-      toast.error('Start date cannot be after end date');
-      return;
-    }
-    onChange(customStart, customEnd);
-    setOpen(false);
-  };
-
-  const displayLabel = showCustom && startDate && endDate && startDate !== endDate
-    ? `${startDate} → ${endDate}`
-    : activeLabel === 'Custom Range' && startDate
-      ? `${startDate}${endDate !== startDate ? ` → ${endDate}` : ''}`
-      : activeLabel;
-
-  return (
-    <div className="relative" ref={ref}>
-      {customTrigger ? customTrigger(() => setOpen(o => !o), open) : (
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-2 h-[34px] px-3 bg-slate-950 border border-slate-700 text-slate-200 text-sm rounded-xl hover:bg-slate-900 transition-colors focus:outline-none focus:ring-2 focus:ring-emerald-500/50 min-w-[160px] justify-between shadow-inner"
-        >
-          <span className="flex items-center gap-1.5 truncate">
-            <CalendarRange className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-            <span className="text-sm truncate">{displayLabel}</span>
-          </span>
-          <ChevronDown className={`w-3.5 h-3.5 text-slate-400 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
-        </button>
-      )}
-
-      {open && (
-        <div className={`absolute ${placement === 'right' ? 'right-0' : 'left-0'} mt-1 w-72 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden`}>
-          <div className="p-1">
-            {presets.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => selectPreset(preset)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  activeLabel === preset.label
-                    ? 'bg-emerald-600/30 text-emerald-300 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{preset.label}</span>
-                  {!preset.isCustom && (
-                    <span className="text-[10px] text-slate-500 font-mono">
-                      {preset.start === preset.end ? preset.start : `${preset.start} – ${preset.end}`}
-                    </span>
-                  )}
-                  {preset.isCustom && <CalendarDays className="w-3.5 h-3.5 text-slate-500" />}
-                </div>
-              </button>
-            ))}
-          </div>
-
-          {/* Custom date range pickers */}
-          {showCustom && (
-            <div className="border-t border-slate-800 p-3 space-y-3">
-              <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">Custom Range</p>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-slate-500 font-medium mb-1 block">Start Date</label>
-                  <input
-                    type="date"
-                    value={customStart}
-                    max={customEnd || fmt(new Date())}
-                    onChange={e => setCustomStart(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-slate-500 font-medium mb-1 block">End Date</label>
-                  <input
-                    type="date"
-                    value={customEnd}
-                    min={customStart}
-                    max={fmt(new Date())}
-                    onChange={e => setCustomEnd(e.target.value)}
-                    className="w-full bg-slate-800 border border-slate-700 text-slate-200 text-xs rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-emerald-500"
-                  />
-                </div>
-              </div>
-              <div className="flex gap-2">
-                <button
-                  onClick={applyCustom}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-lg py-1.5 transition-colors"
-                >
-                  Apply
-                </button>
-                <button
-                  onClick={() => { setShowCustom(false); setActiveLabel('Yesterday'); }}
-                  className="px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg py-1.5 transition-colors"
-                >
-                  Clear
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
 
 export default function SalesComparePage() {
   const navigate = useNavigate();
   const [dialerType, setDialerType] = useState('medicare');
-  
-  const getInitialDates = () => {
-    const d = new Date();
-    d.setDate(d.getDate() - 1);
-    return { start: fmt(d), end: fmt(d) };
-  };
 
-  const [startDate, setStartDate] = useState(getInitialDates().start);
-  const [endDate, setEndDate]     = useState(getInitialDates().end);
+  const [startDate, setStartDate] = useState(getEasternYesterday);
+  const [endDate, setEndDate]     = useState(getEasternYesterday);
 
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -411,17 +233,22 @@ export default function SalesComparePage() {
     }
   };
 
-  const handleDownload = (e, teamFilter) => {
-    e.stopPropagation();
+  /**
+   * Exports the comparison rows to Excel. Any card can hand over its own slice:
+   * a team, a disposition, or the special `Matched` group (everything the
+   * dialer actually returned, i.e. all statuses except "Not Found").
+   */
+  const handleDownload = (e, { team = 'All', status = 'All', label = 'this selection' } = {}) => {
+    e?.stopPropagation();
     if (!result) return;
 
-    let exportData = result.data;
-    if (teamFilter !== 'All') {
-      exportData = exportData.filter(d => (d.team || '-') === teamFilter);
-    }
+    let exportData = result.data || [];
+    if (status === 'Matched') exportData = exportData.filter(d => d.status !== 'Not Found');
+    else if (status !== 'All') exportData = exportData.filter(d => d.status === status);
+    if (team !== 'All') exportData = exportData.filter(d => (d.team || '-') === team);
 
     if (exportData.length === 0) {
-      toast.error('No data to download for this team');
+      toast.error(`No records to download for ${label}.`);
       return;
     }
 
@@ -435,12 +262,12 @@ export default function SalesComparePage() {
     const ws = XLSX.utils.json_to_sheet(formattedData);
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Comparison Results");
-    
-    let filename = `compare_results_${dialerType}_${startDate}`;
-    if (teamFilter !== 'All') filename += `_${teamFilter.replace(/[^a-z0-9]/gi, '_')}`;
-    filename += '.xlsx';
 
-    XLSX.writeFile(wb, filename);
+    const parts = ['compare_results', dialerType, startDate];
+    if (status !== 'All') parts.push(status);
+    if (team !== 'All') parts.push(team === '-' ? 'no_team' : team);
+    XLSX.writeFile(wb, `${parts.join('_').replace(/[^a-z0-9_]/gi, '_')}.xlsx`);
+    toast.success(`Downloaded ${exportData.length} number(s).`);
   };
 
   const { filteredData, statusCounts, teamCounts } = useMemo(() => {
@@ -600,13 +427,31 @@ export default function SalesComparePage() {
              </div>
              <div className="bg-gradient-to-br from-emerald-900/40 to-slate-900 border border-emerald-500/20 rounded-xl p-4 shadow-sm relative overflow-hidden group">
                 <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 rounded-bl-full group-hover:bg-emerald-500/20 transition-colors"></div>
-                <p className="text-[11px] text-emerald-400/80 font-bold uppercase tracking-wider mb-1">Matches Found</p>
-                <p className="text-2xl font-bold text-emerald-400 font-mono">{result.summary.total_found}</p>
+                <div className="flex items-center justify-between gap-2 mb-1 relative z-10">
+                  <p className="text-[11px] text-emerald-400/80 font-bold uppercase tracking-wider">Matches Found</p>
+                  <button
+                    onClick={(e) => handleDownload(e, { status: 'Matched', label: 'matched numbers' })}
+                    className="text-emerald-500/70 hover:text-emerald-300 transition-colors p-1 rounded-md hover:bg-emerald-500/10"
+                    title="Download matched numbers"
+                  >
+                    <Download className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+                <p className="text-2xl font-bold text-emerald-400 font-mono relative z-10">{result.summary.total_found}</p>
              </div>
              <div className="flex-1 bg-slate-900 border border-slate-800 rounded-xl p-4 flex justify-between items-center relative">
                <div>
                  <div className="flex items-center gap-2 mb-1">
                    <p className="text-xs uppercase font-bold text-rose-500/80">Not Found</p>
+                   {result.notFoundCount > 0 && (
+                     <button
+                       onClick={(e) => handleDownload(e, { status: 'Not Found', label: 'not found numbers' })}
+                       className="text-rose-500/70 hover:text-rose-300 transition-colors p-1 rounded-md hover:bg-rose-500/10"
+                       title="Download not found numbers"
+                     >
+                       <Download className="w-3.5 h-3.5" />
+                     </button>
+                   )}
                    {result.notFoundCount > 0 && savedHistoryId && (
                      <DateRangeDropdown
                        startDate={startDate}
@@ -651,9 +496,18 @@ export default function SalesComparePage() {
                         : 'bg-slate-900 border-slate-800/80 hover:border-slate-600'
                     }`}
                   >
-                    <span className={`text-[10px] font-bold uppercase tracking-wider ${selectedStatus === 'All' ? 'text-white' : 'text-slate-400'}`}>
-                      All Records
-                    </span>
+                    <div className="flex items-center justify-between w-full">
+                      <span className={`text-[10px] font-bold uppercase tracking-wider ${selectedStatus === 'All' ? 'text-white' : 'text-slate-400'}`}>
+                        All Records
+                      </span>
+                      <button
+                        onClick={(e) => handleDownload(e, { label: 'all records' })}
+                        className="text-slate-500 hover:text-emerald-400 transition-colors p-1 rounded-md hover:bg-slate-800/50"
+                        title="Download all records"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                     <span className="text-lg font-bold text-slate-100 font-mono">{result.data.length}</span>
                 </div>
 
@@ -686,9 +540,18 @@ export default function SalesComparePage() {
                           }`}>
                             {status}
                           </span>
-                          <div className={`w-1.5 h-1.5 rounded-full shadow-sm ${
-                            isNotFound ? 'bg-red-500 shadow-red-500/50' : 'bg-emerald-500 shadow-emerald-500/50'
-                          }`} />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              onClick={(e) => handleDownload(e, { status, label: status })}
+                              className={`text-slate-500 transition-colors p-1 rounded-md hover:bg-slate-800/50 ${isNotFound ? 'hover:text-red-400' : 'hover:text-emerald-400'}`}
+                              title={`Download ${status} numbers`}
+                            >
+                              <Download className="w-3 h-3" />
+                            </button>
+                            <div className={`w-1.5 h-1.5 rounded-full shadow-sm ${
+                              isNotFound ? 'bg-red-500 shadow-red-500/50' : 'bg-emerald-500 shadow-emerald-500/50'
+                            }`} />
+                          </div>
                         </div>
                         <span className={`text-lg font-bold font-mono z-10 ${
                           isSelected 
@@ -720,7 +583,7 @@ export default function SalesComparePage() {
                         All Teams
                       </span>
                       <button 
-                        onClick={(e) => handleDownload(e, 'All')}
+                        onClick={(e) => handleDownload(e, { label: 'all teams' })}
                         className="text-slate-500 hover:text-emerald-400 transition-colors p-1 rounded-md hover:bg-slate-800/50"
                         title="Download All Teams"
                       >
@@ -758,7 +621,7 @@ export default function SalesComparePage() {
                           </span>
                           <div className="flex items-center gap-1.5">
                             <button 
-                              onClick={(e) => handleDownload(e, team)}
+                              onClick={(e) => handleDownload(e, { team, label: displayName })}
                               className="text-slate-500 hover:text-indigo-400 transition-colors p-1 rounded-md hover:bg-slate-800/50"
                               title={`Download ${displayName} data`}
                             >

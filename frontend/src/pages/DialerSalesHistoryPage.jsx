@@ -362,7 +362,7 @@ export default function DialerSalesHistoryPage() {
         `/dialer-sales/history?dialer=${encodeURIComponent(dialerType)}&startDate=${s}&endDate=${e}`
       );
       if (res.data.success) {
-        setSales(res.data.data);
+        setSales(res.data.data || []);
         setStatusSummary(res.data.statusSummary || {});
         setTeamSummary(res.data.teamSummary || {});
         setTotal(res.data.total || 0);

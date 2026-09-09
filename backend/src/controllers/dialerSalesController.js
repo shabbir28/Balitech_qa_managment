@@ -931,8 +931,9 @@ exports.assignSales = async (req, res) => {
       }
 
       // Assign to user - check if assignment already exists for this call_lead
-      let existingAssign = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [callLeadId]);
+      let existingAssign = await query('SELECT id, status FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [callLeadId]);
       if (existingAssign.rows[0]) {
+        if (existingAssign.rows[0].status === 'completed') continue;
         const r = await query(
           `UPDATE lead_assignments 
            SET assigned_to = $1, assigned_by = $2, campaign_name = $3, notes = $4, assigned_at = NOW(), status = 'pending'

@@ -23,6 +23,7 @@ const teamRoutes = require('./src/routes/teamRoutes');
 const assignmentRoutes = require('./src/routes/assignmentRoutes');
 const dialerRoutes = require('./src/routes/dialerRoutes');
 const initSalesSyncCron = require('./src/cron/salesSync');
+const initAssignmentExpirationCron = require('./src/cron/assignmentExpirationCron');
 
 if (!process.env.JWT_SECRET) {
   console.error('❌ JWT_SECRET is not set. Configure it in your .env file before starting the server.');
@@ -73,20 +74,44 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Chrome DevTools / Cursor probes hit /json/version on whatever is listening.
+const isProbeRequest = (req) =>
+  req.path === '/json/version' ||
+  req.path === '/json/list' ||
+  req.path === '/json' ||
+  req.path === '/favicon.ico';
+
 // ── Logging ───────────────────────────────────────────────────────────
+const morganSkip = (req) => isProbeRequest(req);
 if (NODE_ENV === 'development') {
-  app.use(morgan('dev'));
+  app.use(morgan('dev', { skip: morganSkip }));
 } else {
   // Use combined format in production for proper access log monitoring
-  app.use(morgan('combined'));
+  app.use(morgan('combined', { skip: morganSkip }));
 }
 
 // ── Static Uploads ────────────────────────────────────────────────────
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ── Health Check ──────────────────────────────────────────────────────
+const healthPayload = () => ({
+  success: true,
+  message: 'BPO QA System API is running.',
+  health: '/api/health',
+  timestamp: new Date().toISOString(),
+});
+
+app.get('/', (req, res) => {
+  res.json(healthPayload());
+});
+
 app.get('/api/health', (req, res) => {
-  res.json({ success: true, message: 'BPO QA System API is running.', timestamp: new Date().toISOString() });
+  res.json(healthPayload());
+});
+
+// Quiet Chrome DevTools Protocol probes (not API routes)
+app.get(['/json', '/json/version', '/json/list'], (req, res) => {
+  res.status(204).end();
 });
 
 // ── API Routes ────────────────────────────────────────────────────────
@@ -110,6 +135,7 @@ app.use(errorHandler);
 
 // ── Initialize Cron Jobs ──────────────────────────────────────────────
 initSalesSyncCron();
+initAssignmentExpirationCron();
 
 // ── Start Server ──────────────────────────────────────────────────────
 app.listen(PORT, () => {

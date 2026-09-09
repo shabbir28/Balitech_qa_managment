@@ -344,16 +344,22 @@ CREATE TABLE lead_assignments (
   assigned_to INTEGER NOT NULL REFERENCES users(id),
   assigned_by INTEGER NOT NULL REFERENCES users(id),
   campaign_name VARCHAR(150),
-  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected')),
+  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired')),
   notes TEXT,
   assigned_at TIMESTAMP DEFAULT NOW(),
   accepted_at TIMESTAMP,
-  completed_at TIMESTAMP
+  completed_at TIMESTAMP,
+  -- Set when a QA Agent deliberately picks up a lead from an earlier day, so
+  -- the nightly expiration job leaves it alone for the rest of that day.
+  reopened_at TIMESTAMP
 );
 
 CREATE INDEX idx_lead_assignments_assigned_to ON lead_assignments(assigned_to);
 CREATE INDEX idx_lead_assignments_call_lead_id ON lead_assignments(call_lead_id);
 CREATE INDEX idx_lead_assignments_status ON lead_assignments(status);
+CREATE INDEX idx_lead_assignments_active_assigned_at
+  ON lead_assignments (status, assigned_at)
+  WHERE status IN ('pending', 'accepted');
 
 -- =============================================
 -- COMPARE HISTORY TABLE

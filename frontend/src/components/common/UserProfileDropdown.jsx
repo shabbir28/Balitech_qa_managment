@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { User, LogOut, Shield, ChevronRight, Sparkles, CheckCircle2 } from 'lucide-react';
+import { User, LogOut, Shield, ChevronRight, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 
 export default function UserProfileDropdown() {

@@ -28,13 +28,13 @@ const SidebarLayout = ({ children }) => {
     { name: 'Dialer Sales',     path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
     { name: 'Sales History',    path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
     { name: 'Agent Wise Sales', path: '/dialer-sales/agent-sales', icon: UsersRound,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Agent QA Report',  path: '/agent-reports',        icon: ShieldAlert,     roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Agent QA Report',  path: '/agent-reports',        icon: ShieldAlert,     roles: ['Super Admin', 'QA Admin', 'Manager'] },
     { name: 'Compare Sales',    path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
     { name: 'Compare History',  path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin', 'Manager'] },
 
     // QA / Evaluator
     { name: 'My Assignments',   path: '/my-assignments',       icon: ClipboardList,   roles: ['QA Agent'] },
-    { name: 'Evaluations',      path: '/evaluations',          icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Evaluations',      path: '/evaluations',          icon: ClipboardCheck,  roles: ['Super Admin', 'QA Admin', 'Manager'] },
   ];
 
   // Section headers for visual grouping

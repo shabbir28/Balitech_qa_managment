@@ -7,6 +7,10 @@ import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
 import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { format } from 'date-fns';
+import { getEstDateString } from '../utils/dateUtils';
+
+const isRejectedStatus = (status) =>
+  status === 'rejected' || status === 'rejected (declined task)';
 
 /* ─── Mini Audio Player Modal ───────────────────────────────────────── */
 const AudioModal = ({ url, phone, onClose }) => {
@@ -78,7 +82,8 @@ const EvaluationListPage = () => {
   const [loadingUsers, setLoadingUsers] = useState(true);
   
   // Filters
-  const [filters, setFilters] = useState({ search: '', campaign: '', from_date: '', to_date: '' });
+  const todayEst = getEstDateString(new Date());
+  const [filters, setFilters] = useState({ search: '', campaign: '', from_date: todayEst, to_date: todayEst });
   const [campaigns, setCampaigns] = useState([]);
 
   // Detail Modal State
@@ -90,7 +95,7 @@ const EvaluationListPage = () => {
   // Sub-modals
   const [audioAssignment, setAudioAssignment] = useState(null);
 
-  const { hasRole, user } = useAuth();
+  const { hasRole } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -124,7 +129,7 @@ const EvaluationListPage = () => {
     setLoadingAssignments(true);
     try {
       const res = await api.get('/assignments', { params: { user_id: u.id, limit: 1000 } });
-      const enriched = res.data.data.map(a => {
+      const enriched = (res.data.data || []).map(a => {
         let displayStatus = 'pending';
         if (a.status === 'completed' || a.evaluation_status) {
             const evalStatus = (a.evaluation_status || '').toLowerCase();
@@ -136,6 +141,8 @@ const EvaluationListPage = () => {
             else displayStatus = 'completed';
         } else if (a.status === 'rejected') {
             displayStatus = 'rejected (declined task)'; 
+        } else if (a.status === 'expired') {
+            displayStatus = 'expired';
         }
         return { ...a, displayStatus };
       });
@@ -155,7 +162,7 @@ const EvaluationListPage = () => {
 
   const filteredAssignments = userAssignments.filter(a => {
     if (assignmentFilter === 'all') return true;
-    if (assignmentFilter === 'rejected') return a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)';
+    if (assignmentFilter === 'rejected') return isRejectedStatus(a.displayStatus);
     return a.displayStatus === assignmentFilter;
   });
 
@@ -213,7 +220,7 @@ const EvaluationListPage = () => {
                 </div>
                 <div className="flex items-center gap-4 mb-6 relative z-10">
                   <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-lg">
-                    {u.name.charAt(0)}
+                    {(u.name || '?').charAt(0)}
                   </div>
                   <div>
                     <p className="font-bold text-white text-lg">{u.name}</p>
@@ -257,6 +264,10 @@ const EvaluationListPage = () => {
                     <p className="text-[11px] text-slate-400 mb-0.5">Under Buffer</p>
                     <p className="text-lg font-bold text-white">{u.under_buffer || 0}</p>
                   </div>
+                  <div className="bg-slate-950 rounded-xl p-2.5 border border-slate-800 hover:border-slate-600 transition-colors cursor-pointer" onClick={(e) => { e.stopPropagation(); openUserActivity(u, 'expired'); }}>
+                    <p className="text-[11px] text-slate-500 mb-0.5">Expired</p>
+                    <p className="text-lg font-bold text-slate-400">{u.expired || 0}</p>
+                  </div>
                 </div>
               </div>
             ))
@@ -290,11 +301,14 @@ const EvaluationListPage = () => {
                 { id: 'rejected', label: 'Rejected' },
                 { id: 'flagged', label: 'Flagged' },
                 { id: 'decline', label: 'Decline' },
-                { id: 'not_billable', label: 'Not Billable' }
+                { id: 'not_billable', label: 'Not Billable' },
+                { id: 'expired', label: 'Expired' }
               ].map(tab => {
-                const count = tab.id === 'all' 
-                  ? userAssignments.length 
-                  : userAssignments.filter(a => a.displayStatus === tab.id).length;
+                const count = tab.id === 'all'
+                  ? userAssignments.length
+                  : tab.id === 'rejected'
+                    ? userAssignments.filter(a => isRejectedStatus(a.displayStatus)).length
+                    : userAssignments.filter(a => a.displayStatus === tab.id).length;
                 return (
                   <button
                     key={tab.id}
@@ -340,7 +354,9 @@ const EvaluationListPage = () => {
                             <td className="td font-mono text-sm font-bold text-white">{a.customer_phone}</td>
                             <td className="td text-sm text-slate-300">{a.campaign_name}</td>
                             <td className="td text-sm text-slate-400">
-                              {a.assigned_at ? format(new Date(a.assigned_at), 'MMM d, yyyy') : '—'}
+                              {a.assigned_at && !isNaN(new Date(a.assigned_at).getTime())
+                                ? format(new Date(a.assigned_at), 'MMM d, yyyy')
+                                : '—'}
                             </td>
                             <td className="td">
                               <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
@@ -349,10 +365,11 @@ const EvaluationListPage = () => {
                                 a.displayStatus === 'flagged' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
                                 a.displayStatus === 'decline' ? 'bg-purple-500/10 text-purple-400 border border-purple-500/30' :
                                 a.displayStatus === 'not_billable' ? 'bg-cyan-500/10 text-cyan-400 border border-cyan-500/30' :
-                                a.displayStatus === 'pending' ? 'bg-slate-500/10 text-slate-400 border border-slate-500/30' :
+                                a.displayStatus === 'pending' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                                a.displayStatus === 'expired' ? 'bg-slate-800 text-slate-400 border border-slate-700' :
                                 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
                               }`}>
-                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'flagged' ? 'Flagged' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : 'Completed'}
+                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'flagged' ? 'Flagged' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : a.displayStatus === 'expired' ? 'Expired' : 'Completed'}
                               </span>
                             </td>
                             <td className="td">

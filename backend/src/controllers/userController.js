@@ -1,5 +1,6 @@
 const bcrypt = require('bcryptjs');
 const { query } = require('../config/database');
+const { nyDateStart } = require('../utils/timezone');
 
 /**
  * GET /api/users
@@ -224,11 +225,11 @@ const getManagedUsersStats = async (req, res, next) => {
       params.push(`%${campaign}%`);
     }
     if (from_date) {
-      laConditions += ` AND DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') >= $${paramIdx++}::date`;
+      laConditions += ` AND la.assigned_at >= ${nyDateStart(`$${paramIdx++}`)}`;
       params.push(from_date);
     }
     if (to_date) {
-      laConditions += ` AND DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') <= $${paramIdx++}::date`;
+      laConditions += ` AND la.assigned_at < ${nyDateStart(`$${paramIdx++}`, 1)}`;
       params.push(to_date);
     }
 
@@ -239,7 +240,7 @@ const getManagedUsersStats = async (req, res, next) => {
 
     const result = await query(`
       SELECT u.id, u.name, u.email, u.role_id, r.name as role, u.department, u.agent_id, c.name as user_campaign_name,
-        COUNT(DISTINCT la.id) as total_assigned,
+        COUNT(DISTINCT CASE WHEN la.status != 'expired' THEN la.id END) as total_assigned,
         COUNT(DISTINCT CASE WHEN (la.status = 'pending' OR la.status = 'accepted') AND e.id IS NULL THEN la.id END) as pending,
         COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Accepted', 'Pass') THEN e.id END) as accepted,
         COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Rejected', 'Fail') THEN e.id END) as rejected,
@@ -247,6 +248,7 @@ const getManagedUsersStats = async (req, res, next) => {
         COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Not Billable', 'Not Bilable') THEN e.id END) as not_billable,
         COUNT(DISTINCT CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Flagged' THEN e.id END) as flagged,
         COUNT(DISTINCT CASE WHEN la.status = 'completed' AND e.id IS NULL THEN la.id END) as completed,
+        COUNT(DISTINCT CASE WHEN la.status = 'expired' THEN la.id END) as expired,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Under Buffer' THEN e.id END) as under_buffer,
         COUNT(DISTINCT CASE WHEN e.metadata->>'errorCategory' = 'Fake Sale' THEN e.id END) as fake_sale
       FROM users u

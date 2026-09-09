@@ -13,10 +13,18 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await api.get('/auth/me');
       setUser(res.data.user);
-    } catch {
-      localStorage.removeItem('token');
-      localStorage.removeItem('user');
-      setUser(null);
+    } catch (err) {
+      const status = err.response?.status;
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        setUser(null);
+      } else {
+        const cached = localStorage.getItem('user');
+        if (cached) {
+          try { setUser(JSON.parse(cached)); } catch { setUser(null); }
+        }
+      }
     } finally {
       setLoading(false);
     }

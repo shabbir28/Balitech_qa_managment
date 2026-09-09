@@ -1,4 +1,5 @@
 const { query, getClient } = require('../config/database');
+const { nyDateStart } = require('../utils/timezone');
 
 // Must stay in sync with the qa_evaluations_status_check constraint.
 const VALID_STATUSES = ['Pass', 'Fail', 'Flagged', 'Accepted', 'Rejected', 'Decline', 'Not Billable', 'Not Bilable'];
@@ -384,7 +385,8 @@ const updateEvaluation = async (req, res, next) => {
       `UPDATE qa_evaluations SET
         opening_script_score=$1, verification_score=$2, product_knowledge_score=$3,
         compliance_score=$4, communication_score=$5, closing_score=$6, call_handling_score=$7,
-        total_score=$8, status=$9, qa_remarks=$10, evaluation_date=$11, metadata=$12,
+        total_score=$8, status=$9, qa_remarks=$10,
+        evaluation_date=COALESCE($11, evaluation_date), metadata=COALESCE($12::jsonb, metadata),
         recordings=COALESCE($13::jsonb, recordings), updated_at=NOW()
        WHERE id=$14 AND is_deleted=FALSE RETURNING *`,
       [
@@ -392,10 +394,14 @@ const updateEvaluation = async (req, res, next) => {
         parseFloat(product_knowledge_score) || 0, parseFloat(compliance_score) || 0,
         parseFloat(communication_score) || 0, parseFloat(closing_score) || 0,
         parseFloat(call_handling_score) || 0, total_score, status, qa_remarks,
-        evaluation_date, req.body.metadata ? JSON.stringify(req.body.metadata) : null,
+        evaluation_date || null, req.body.metadata ? JSON.stringify(req.body.metadata) : null,
         recsJson, req.params.id,
       ]
     );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Evaluation not found.' });
+    }
 
     // If talkTime is provided in metadata, update call_duration in call_leads
     if (req.body.metadata?.talkTime) {
@@ -425,12 +431,24 @@ const updateEvaluation = async (req, res, next) => {
 const deleteEvaluation = async (req, res, next) => {
   try {
     const result = await query(
-      'UPDATE qa_evaluations SET is_deleted=TRUE, deleted_at=NOW() WHERE id=$1 AND is_deleted=FALSE RETURNING id',
+      'UPDATE qa_evaluations SET is_deleted=TRUE, deleted_at=NOW() WHERE id=$1 AND is_deleted=FALSE RETURNING id, call_lead_id',
       [req.params.id]
     );
     if (result.rows.length === 0) {
       return res.status(404).json({ success: false, message: 'Evaluation not found.' });
     }
+
+    const callLeadId = result.rows[0].call_lead_id;
+    if (callLeadId) {
+      const remaining = await query(
+        'SELECT id FROM qa_evaluations WHERE call_lead_id = $1 AND is_deleted = FALSE LIMIT 1',
+        [callLeadId]
+      );
+      if (remaining.rows.length === 0) {
+        await query('UPDATE call_leads SET is_evaluated = FALSE WHERE id = $1', [callLeadId]);
+      }
+    }
+
     res.json({ success: true, message: 'Evaluation deleted.' });
   } catch (error) {
     next(error);
@@ -465,15 +483,20 @@ const getAgentErrorReport = async (req, res, next) => {
       params.push(`%${campaign_name}%`);
       pc++;
     }
-    if (from_date) {
-      conditions.push(`(DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') >= $${pc}::date OR DATE(qe.evaluation_date) >= $${pc}::date)`);
-      params.push(from_date);
-      pc++;
-    }
-    if (to_date) {
-      conditions.push(`(DATE(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York') <= $${pc}::date OR DATE(qe.evaluation_date) <= $${pc}::date)`);
-      params.push(to_date);
-      pc++;
+    // A row belongs to the window when either the assignment or the evaluation
+    // falls inside it. Both bounds have to be applied to the same side of that
+    // OR, otherwise an assignment outside the range is pulled in by an
+    // evaluation inside it (and vice versa).
+    if (from_date || to_date) {
+      const from = from_date || to_date;
+      const to = to_date || from_date;
+      const fromParam = `$${pc++}`;
+      const toParam = `$${pc++}`;
+      params.push(from, to);
+      conditions.push(`(
+        (la.assigned_at >= ${nyDateStart(fromParam)} AND la.assigned_at < ${nyDateStart(toParam, 1)})
+        OR (qe.evaluation_date BETWEEN ${fromParam}::date AND ${toParam}::date)
+      )`);
     }
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';

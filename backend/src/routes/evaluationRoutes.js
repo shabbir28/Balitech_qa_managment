@@ -13,7 +13,7 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 router.post('/', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), createEvaluation);
 router.get('/', authenticate, getEvaluations);
-router.get('/reports/agent-errors', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getAgentErrorReport);
+router.get('/reports/agent-errors', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), getAgentErrorReport);
 router.get('/options/dropdowns', authenticate, getEvaluationDropdownOptions);
 router.get('/:id', authenticate, getEvaluationById);
 router.put('/:id', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), updateEvaluation);

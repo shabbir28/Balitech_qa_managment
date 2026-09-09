@@ -147,8 +147,14 @@ const ManagerEvaluationViewPage = () => {
   const [saving, setSaving] = useState(false);
   const [recordingsList, setRecordingsList] = useState([]);
   const [playingIndex, setPlayingIndex] = useState(null);
+  const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
+    if (!id) {
+      setLoadError('No evaluation selected.');
+      return;
+    }
+    setLoadError(null);
     if (id) {
       api.get(`/evaluations/${id}`).then(res => {
         const data = res.data.data;
@@ -185,7 +191,10 @@ const ManagerEvaluationViewPage = () => {
           data.recording_url ? [{ location: data.recording_url, filename: data.recording_url.split('/').pop() || 'Call Recording' }] : []
         );
         setRecordingsList(recs);
-      }).catch(() => toast.error('Failed to load evaluation details.'));
+      }).catch(() => {
+        toast.error('Failed to load evaluation details.');
+        setLoadError('Failed to load evaluation details.');
+      });
     }
   }, [id]);
 
@@ -241,6 +250,14 @@ const ManagerEvaluationViewPage = () => {
     }
   };
 
+  if (loadError) {
+    return (
+      <div className="p-10 text-center">
+        <p className="text-slate-400 mb-4">{loadError}</p>
+        <button onClick={() => navigate(user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations')} className="btn-secondary">Go back</button>
+      </div>
+    );
+  }
   if (!evaluation) return <div className="p-10 text-center text-slate-400">Loading evaluation data...</div>;
 
   return (

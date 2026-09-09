@@ -66,7 +66,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/evaluations" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
               <SidebarLayout><EvaluationListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
@@ -122,7 +122,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/agent-reports" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
               <SidebarLayout><AgentErrorReportPage /></SidebarLayout>
             </ProtectedRoute>
           } />

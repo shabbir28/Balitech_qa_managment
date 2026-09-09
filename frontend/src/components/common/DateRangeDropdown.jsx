@@ -1,21 +1,42 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { CalendarRange, ChevronDown, CalendarDays } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { getPresets, getEstDateString, fmtLocal } from '../../utils/dateUtils';
+import { getPresets, getEstDateString } from '../../utils/dateUtils';
 
+/**
+ * Range picker over US Eastern calendar days.
+ *
+ * The visible label is derived from `startDate`/`endDate` on every render
+ * rather than kept in state, so it can never disagree with the range the page
+ * is actually querying — including when the parent changes the range itself
+ * (URL params, a reset button, a dashboard tile handing over dates).
+ */
 export default function DateRangeDropdown({ startDate, endDate, onChange }) {
   const [open, setOpen] = useState(false);
-  const [customStart, setCustomStart] = useState(startDate);
-  const [customEnd, setCustomEnd]     = useState(endDate);
-  
-  // Find which preset matches the given dates to highlight the right label
   const presets = useMemo(() => getPresets(), []);
-  
-  const initialActivePreset = presets.find(p => !p.isCustom && p.start === startDate && p.end === endDate);
-  const [activeLabel, setActiveLabel] = useState(initialActivePreset ? initialActivePreset.label : 'Yesterday');
-  
-  const [showCustom, setShowCustom]   = useState(!initialActivePreset);
+  const today = useMemo(() => getEstDateString(new Date()), []);
+
+  const matchedPreset = presets.find(
+    (p) => !p.isCustom && p.start === startDate && p.end === endDate
+  );
+  const isCustomRange = !matchedPreset && Boolean(startDate);
+
+  const displayLabel = matchedPreset
+    ? matchedPreset.label
+    : startDate
+      ? (startDate === endDate ? startDate : `${startDate} → ${endDate}`)
+      : 'Select dates';
+
+  const [showCustom, setShowCustom] = useState(isCustomRange);
+  const [customStart, setCustomStart] = useState(startDate || today);
+  const [customEnd, setCustomEnd] = useState(endDate || today);
   const ref = useRef(null);
+
+  // Keep the custom inputs in step with the applied range.
+  useEffect(() => {
+    setCustomStart(startDate || today);
+    setCustomEnd(endDate || startDate || today);
+  }, [startDate, endDate, today]);
 
   useEffect(() => {
     const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
@@ -26,13 +47,9 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
   const selectPreset = (preset) => {
     if (preset.isCustom) {
       setShowCustom(true);
-      setActiveLabel('Custom Range');
       return;
     }
     setShowCustom(false);
-    setActiveLabel(preset.label);
-    setCustomStart(preset.start);
-    setCustomEnd(preset.end);
     onChange(preset.start, preset.end);
     setOpen(false);
   };
@@ -50,11 +67,11 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
     setOpen(false);
   };
 
-  const displayLabel = showCustom && startDate && endDate && startDate !== endDate
-    ? `${startDate} → ${endDate}`
-    : activeLabel === 'Custom Range' && startDate
-      ? `${startDate}${endDate !== startDate ? ` → ${endDate}` : ''}`
-      : activeLabel;
+  const resetToToday = () => {
+    setShowCustom(false);
+    onChange(today, today);
+    setOpen(false);
+  };
 
   return (
     <div className="relative animate-in fade-in duration-300 font-sans" ref={ref}>
@@ -72,27 +89,30 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
       {open && (
         <div className="absolute left-0 lg:right-0 lg:left-auto mt-1 w-64 bg-[#0A0E18] border border-slate-800 rounded-xl shadow-2xl z-50 overflow-hidden">
           <div className="p-1.5 space-y-0.5">
-            {presets.map((preset) => (
-              <button
-                key={preset.label}
-                onClick={() => selectPreset(preset)}
-                className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
-                  activeLabel === preset.label
-                    ? 'bg-amber-500/15 text-amber-300 font-semibold'
-                    : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
-                }`}
-              >
-                <div className="flex items-center justify-between">
-                  <span>{preset.label}</span>
-                  {!preset.isCustom && (
-                    <span className="text-[9px] text-slate-500 font-mono">
-                      {preset.start === preset.end ? preset.start : `${preset.start} – ${preset.end}`}
-                    </span>
-                  )}
-                  {preset.isCustom && <CalendarDays className="w-3.5 h-3.5 text-slate-500" />}
-                </div>
-              </button>
-            ))}
+            {presets.map((preset) => {
+              const active = preset.isCustom ? isCustomRange : (preset.start === startDate && preset.end === endDate);
+              return (
+                <button
+                  key={preset.label}
+                  onClick={() => selectPreset(preset)}
+                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                    active
+                      ? 'bg-amber-500/15 text-amber-300 font-semibold'
+                      : 'text-slate-300 hover:bg-slate-800/80 hover:text-white'
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span>{preset.label}</span>
+                    {!preset.isCustom && (
+                      <span className="text-[9px] text-slate-500 font-mono">
+                        {preset.start === preset.end ? preset.start : `${preset.start} – ${preset.end}`}
+                      </span>
+                    )}
+                    {preset.isCustom && <CalendarDays className="w-3.5 h-3.5 text-slate-500" />}
+                  </div>
+                </button>
+              );
+            })}
           </div>
 
           {showCustom && (
@@ -104,7 +124,7 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
                   <input
                     type="date"
                     value={customStart}
-                    max={customEnd || fmtLocal(new Date(getEstDateString(new Date()) + 'T00:00:00'))}
+                    max={customEnd || today}
                     onChange={e => setCustomStart(e.target.value)}
                     className="w-full bg-[#0D111D] border border-slate-700/80 text-slate-200 text-[10px] rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500/60 [color-scheme:dark]"
                   />
@@ -115,7 +135,7 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
                     type="date"
                     value={customEnd}
                     min={customStart}
-                    max={fmtLocal(new Date(getEstDateString(new Date()) + 'T00:00:00'))}
+                    max={today}
                     onChange={e => setCustomEnd(e.target.value)}
                     className="w-full bg-[#0D111D] border border-slate-700/80 text-slate-200 text-[10px] rounded-lg px-2 py-1.5 focus:outline-none focus:border-amber-500/60 [color-scheme:dark]"
                   />
@@ -129,10 +149,11 @@ export default function DateRangeDropdown({ startDate, endDate, onChange }) {
                   Apply
                 </button>
                 <button
-                  onClick={() => { setShowCustom(false); setActiveLabel('Yesterday'); }}
+                  onClick={resetToToday}
                   className="px-3 bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs rounded-lg py-1.5 transition-colors cursor-pointer"
+                  title="Reset the range back to today"
                 >
-                  Clear
+                  Today
                 </button>
               </div>
             </div>

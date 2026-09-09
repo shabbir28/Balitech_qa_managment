@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Play, Pause, Volume2, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
+import { getEstDateString } from '../utils/dateUtils';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -246,8 +247,9 @@ const EvaluationFormPage = () => {
     teams: teamParam || ''
   });
   const [qaStatus, setQaStatus] = useState('Accepted');
-  const [evaluationDate, setEvaluationDate] = useState(new Date().toISOString().split('T')[0]);
+  const [evaluationDate, setEvaluationDate] = useState(getEstDateString(new Date()));
   const [loading, setLoading] = useState(false);
+  const [loadError, setLoadError] = useState(null);
 
   // Dynamic Datalist options (synced with Backend DB + Local Storage)
   const [didOptions, setDidOptions] = useState([
@@ -352,6 +354,11 @@ const EvaluationFormPage = () => {
   };
 
   useEffect(() => {
+    if (!callId) {
+      setLoadError('No call selected. Open this form from an assignment or lead.');
+      return;
+    }
+    setLoadError(null);
     if (callId) {
       api.get(`/calls/${callId}`).then(async res => {
         const callData = res.data.data;
@@ -428,9 +435,12 @@ const EvaluationFormPage = () => {
           talkTime: prev.talkTime !== undefined && prev.talkTime !== '' ? prev.talkTime : (callData.call_duration || ''),
           dup: callData.is_duplicate ? (prev.dup || String(callData.duplicate_count || 2)) : prev.dup
         }));
-      }).catch(() => toast.error('Failed to load call details.'));
+      }).catch(() => {
+        toast.error('Failed to load call details.');
+        setLoadError('Failed to load call details.');
+      });
     }
-  }, [callId, leadIdParam, dialerParam, location.state, navigate]);
+  }, [callId, leadIdParam, dialerParam, location.state, navigate, exitPath]);
 
   const handleTogglePlay = (idx) => {
     if (playingIndex === idx) {
@@ -490,6 +500,14 @@ const EvaluationFormPage = () => {
     }
   };
 
+  if (loadError) {
+    return (
+      <div className="p-10 text-center">
+        <p className="text-slate-400 mb-4">{loadError}</p>
+        <button onClick={handleBack} className="btn-secondary">Go back</button>
+      </div>
+    );
+  }
   if (!call) return <div className="p-10 text-center text-slate-400">Loading call data...</div>;
 
   return (

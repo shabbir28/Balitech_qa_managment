@@ -138,8 +138,8 @@ const ProfilePage = () => {
       toast.error('New passwords do not match.');
       return;
     }
-    if (pwForm.new_password.length < 6) {
-      toast.error('Password must be at least 6 characters.');
+    if (pwForm.new_password.length < 8 || !/[a-zA-Z]/.test(pwForm.new_password) || !/[0-9]/.test(pwForm.new_password)) {
+      toast.error('Password must be at least 8 characters and contain a letter and a number.');
       return;
     }
     setSavingPw(true);

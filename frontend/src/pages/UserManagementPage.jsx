@@ -137,6 +137,11 @@ const UserManagementPage = () => {
         toast.success('User updated.');
       } else {
         if (!form.password) { toast.error('Password is required for new users.'); setSaving(false); return; }
+        if (form.password.length < 8 || !/[a-zA-Z]/.test(form.password) || !/[0-9]/.test(form.password)) {
+          toast.error('Password must be at least 8 characters and contain a letter and a number.');
+          setSaving(false);
+          return;
+        }
         await api.post('/auth/register', { ...form, campaign_id: form.campaign_id || null });
         toast.success('User created.');
       }
@@ -161,7 +166,10 @@ const UserManagementPage = () => {
   };
 
   const handleResetPw = async () => {
-    if (!newPw || newPw.length < 6) { toast.error('Password must be at least 6 characters.'); return; }
+    if (!newPw || newPw.length < 8 || !/[a-zA-Z]/.test(newPw) || !/[0-9]/.test(newPw)) {
+      toast.error('Password must be at least 8 characters and contain a letter and a number.');
+      return;
+    }
     try {
       await api.put(`/users/${resetId}/reset-password`, { new_password: newPw });
       toast.success('Password reset successfully.');
@@ -632,7 +640,7 @@ const UserManagementPage = () => {
             </div>
             <input
               className="w-full h-11 rounded-xl border border-slate-800 bg-[#0A0E18] px-4 text-sm font-semibold text-white outline-none transition-all placeholder:text-slate-600 focus:border-amber-500/50 focus:ring-2 focus:ring-amber-500/20 mb-5"
-              type="password" placeholder="Min 6 characters" value={newPw} onChange={e => setNewPw(e.target.value)}
+              type="password" placeholder="Min 8 characters, letter + number" value={newPw} onChange={e => setNewPw(e.target.value)}
             />
             <div className="flex gap-3 justify-end">
               <button onClick={() => setResetId(null)} className="px-4 py-2.5 rounded-xl text-sm font-bold text-slate-400 hover:text-white hover:bg-slate-800/60 transition-colors">Cancel</button>
