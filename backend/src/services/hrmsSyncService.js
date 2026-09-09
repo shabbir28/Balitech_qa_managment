@@ -8,6 +8,36 @@ const https = require('https');
 const http = require('http');
 
 /**
+ * Canonical QA statuses understood by HRMS and the Dialer Sales pages.
+ * Legacy / misspelt values from older evaluations are folded into these.
+ */
+const HRMS_QA_STATUSES = ['Pending', 'Accepted', 'Rejected', 'Flagged', 'Decline', 'Not Billable'];
+
+const QA_STATUS_ALIASES = {
+  pass: 'Accepted',
+  accepted: 'Accepted',
+  fail: 'Rejected',
+  rejected: 'Rejected',
+  flagged: 'Flagged',
+  flag: 'Flagged',
+  decline: 'Decline',
+  declined: 'Decline',
+  'not billable': 'Not Billable',
+  'not bilable': 'Not Billable',
+  notbillable: 'Not Billable',
+  pending: 'Pending',
+};
+
+/**
+ * Normalise any QA status spelling into one of HRMS_QA_STATUSES.
+ * Unknown values fall back to Pending so HRMS never receives garbage.
+ */
+function normalizeQaStatus(value) {
+  const key = String(value || '').trim().toLowerCase();
+  return QA_STATUS_ALIASES[key] || 'Pending';
+}
+
+/**
  * Map a QA dialer_sales_history row to the HRMS expected format.
  * @param {Object} row
  * @returns {Object}
@@ -16,7 +46,9 @@ function mapRowToHrms(row) {
   return {
     lead_id:          row.lead_id   || row.leadId || row.id || null,
     status:           row.disposition || row.status || null,
-    qa_status:        row.qa_status  || row.qaStatus || 'Pending',
+    qa_status:        normalizeQaStatus(row.qa_status || row.qaStatus),
+    // Empty string tells HRMS "no new note" so it keeps whatever it already has.
+    qa_notes:         row.qa_notes || row.qaNotes || '',
     phone_number:     row.phone_number || row.phone  || row.phoneNumber || null,
     customer_name:    row.customer_name || row.customerName || row.name || null,
     team:             row.team || row.campaign || '',
@@ -44,7 +76,11 @@ async function syncDialerTransfersToHRMS(records, alreadyMapped = false) {
     return;
   }
 
-  const mapped = alreadyMapped ? records : records.map(mapRowToHrms);
+  // Even pre-mapped payloads get their qa_status normalised so every caller
+  // speaks the same vocabulary to HRMS.
+  const mapped = alreadyMapped
+    ? records.map((r) => ({ ...r, qa_status: normalizeQaStatus(r.qa_status) }))
+    : records.map(mapRowToHrms);
 
   const payload = JSON.stringify({ secret, records: mapped });
 
@@ -103,4 +139,4 @@ async function syncDialerTransfersToHRMS(records, alreadyMapped = false) {
   });
 }
 
-module.exports = { syncDialerTransfersToHRMS, mapRowToHrms };
+module.exports = { syncDialerTransfersToHRMS, mapRowToHrms, normalizeQaStatus, HRMS_QA_STATUSES };

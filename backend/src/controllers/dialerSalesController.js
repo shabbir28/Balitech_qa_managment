@@ -1,6 +1,6 @@
 const { fetchAdminPage, extractLeadsFromHtml } = require('./dialerController');
 const { query } = require('../config/database');
-const { syncDialerTransfersToHRMS, mapRowToHrms } = require('../services/hrmsSyncService');
+const { syncDialerTransfersToHRMS, mapRowToHrms, normalizeQaStatus } = require('../services/hrmsSyncService');
 // Memory cache for statuses
 const saleStatusesCache = {
   pharmacy: { statuses: null, lastFetched: 0 },
@@ -326,6 +326,7 @@ exports.getSales = async (req, res) => {
             );
           });
 
+          // qa_status is intentionally not touched on conflict so QA decisions survive refreshes.
           const sql = `
             INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team)
             VALUES ${placeholders.join(', ')}
@@ -334,15 +335,18 @@ exports.getSales = async (req, res) => {
               agent = EXCLUDED.agent,
               sale_date = EXCLUDED.sale_date,
               team = EXCLUDED.team
+            RETURNING lead_id, qa_status
           `;
           
           // Fire and forget chunks — also sync to HRMS after each successful insert
-          query(sql, values).then(() => {
-            // Map chunk to HRMS format and sync (non-blocking, non-fatal)
+          query(sql, values).then((upsertRes) => {
+            // Send the persisted qa_status (not a hardcoded Pending) so HRMS never
+            // regresses a lead that QA has already evaluated.
+            const qaByLead = new Map(upsertRes.rows.map(r => [String(r.lead_id), r.qa_status]));
             const hrmsRecords = chunk.map(l => ({
               lead_id:           l.lead_id,
               status:            l.status,
-              qa_status:         'Pending',
+              qa_status:         qaByLead.get(String(l.lead_id)) || 'Pending',
               phone_number:      l.phone,
               customer_name:     l.name || null,
               team:              l.team || '',
@@ -780,13 +784,15 @@ exports.setQaStatus = async (req, res) => {
     if (!validStatuses.includes(qa_status)) {
       return res.status(400).json({ success: false, message: 'Invalid qa_status value' });
     }
+    // Store the canonical spelling (Pass -> Accepted, Fail -> Rejected) so DB and HRMS agree.
+    const canonicalStatus = normalizeQaStatus(qa_status);
 
     const result = await query(
       `UPDATE dialer_sales_history
        SET qa_status = $3
        WHERE lead_id = $1 AND dialer = $2
        RETURNING lead_id, dialer, qa_override, qa_status, phone, status, agent, team, sale_date`,
-      [lead_id, dialer, qa_status]
+      [lead_id, dialer, canonicalStatus]
     );
 
     if (result.rowCount === 0) {
@@ -795,7 +801,7 @@ exports.setQaStatus = async (req, res) => {
         `INSERT INTO dialer_sales_history (lead_id, dialer, qa_status, sale_date)
          VALUES ($1, $2, $3, CURRENT_DATE)
          RETURNING lead_id, dialer, qa_override, qa_status, phone, status, agent, team, sale_date`,
-        [lead_id, dialer, qa_status]
+        [lead_id, dialer, canonicalStatus]
       );
       // Sync skeleton record to HRMS (non-fatal)
       const skelRow = insResult.rows[0];

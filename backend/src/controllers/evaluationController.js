@@ -1,5 +1,6 @@
 const { query, getClient } = require('../config/database');
 const { nyDateStart } = require('../utils/timezone');
+const { applyEvaluationQaStatus, pushQaStatusToHrms } = require('../services/evaluationQaStatusSync');
 
 // Must stay in sync with the qa_evaluations_status_check constraint.
 const VALID_STATUSES = ['Pass', 'Fail', 'Flagged', 'Accepted', 'Rejected', 'Decline', 'Not Billable', 'Not Bilable'];
@@ -205,17 +206,18 @@ const createEvaluation = async (req, res, next) => {
       ]
     );
 
-    // Sync QA status to dialer_sales_history if phone matches
-    if (call.customer_phone) {
-      await client.query(
-        `UPDATE dialer_sales_history
-         SET qa_status = $1
-         WHERE phone = $2 OR phone = $3`,
-        [finalStatus, call.customer_phone, call.customer_phone.replace(/\D/g, '')]
-      );
-    }
+    // Propagate outcome to dialer_sales_history (matched by dialer lead id / phone)
+    const { rows: dialerRows } = await applyEvaluationQaStatus(
+      (sql, params) => client.query(sql, params),
+      call,
+      finalStatus,
+      metadata
+    );
 
     await client.query('COMMIT');
+
+    // Only notify HRMS once the local transaction is durable
+    pushQaStatusToHrms(dialerRows, 'evaluation create');
 
     res.status(201).json({
       success: true,
@@ -419,7 +421,19 @@ const updateEvaluation = async (req, res, next) => {
       );
     }
 
-    res.json({ success: true, message: 'Evaluation updated.', data: result.rows[0] });
+    // Re-propagate the (possibly changed) outcome to dialer_sales_history + HRMS
+    const updated = result.rows[0];
+    const callRes = await query('SELECT * FROM call_leads WHERE id = $1', [updated.call_lead_id]);
+    if (callRes.rows[0]) {
+      try {
+        const { rows: dialerRows } = await applyEvaluationQaStatus(query, callRes.rows[0], updated.status, updated.metadata);
+        pushQaStatusToHrms(dialerRows, 'evaluation update');
+      } catch (syncErr) {
+        console.warn('[QA Status Sync] update propagation failed:', syncErr.message);
+      }
+    }
+
+    res.json({ success: true, message: 'Evaluation updated.', data: updated });
   } catch (error) {
     next(error);
   }
@@ -516,7 +530,7 @@ const getAgentErrorReport = async (req, res, next) => {
         cl.agent_name as call_agent_name,
         cl.agent_id as call_agent_id,
         qe.id as evaluation_id,
-        qe.status as qa_status,
+        COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status) as qa_status,
         qe.total_score,
         qe.evaluation_date,
         qe.metadata->>'laSideErrorCategory' as la_error_category,
