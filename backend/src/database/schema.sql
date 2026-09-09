@@ -394,6 +394,20 @@ CREATE TABLE transfer_assignments (
 CREATE INDEX idx_transfer_assignments_assigned_to ON transfer_assignments(assigned_to);
 
 -- =============================================
+-- EVALUATION SHEET DROPDOWN OPTIONS
+-- User-editable option lists for the DID's, LA Side Error and Error Category
+-- dropdowns on the evaluation sheet. Seeded lazily by the backend on first use.
+-- =============================================
+CREATE TABLE IF NOT EXISTS evaluation_dropdown_options (
+  id SERIAL PRIMARY KEY,
+  field VARCHAR(50) NOT NULL,
+  value VARCHAR(255) NOT NULL,
+  created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  created_at TIMESTAMP DEFAULT NOW(),
+  UNIQUE (field, value)
+);
+
+-- =============================================
 -- SEED DATA
 -- =============================================
 

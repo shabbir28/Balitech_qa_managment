@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Phone, ClipboardCheck,
   Menu, X, Target,
   UsersRound, Send, ClipboardList, ListChecks, Database, CalendarDays, History,
-  ShieldAlert
+  ShieldAlert, XCircle
 } from 'lucide-react';
 import logoImage from '../assets/logo.png';
 import poweredByImage from '../assets/Go Connectivo 1.png';
@@ -28,7 +28,8 @@ const SidebarLayout = ({ children }) => {
     { name: 'Dialer Sales',     path: '/dialer-sales',         icon: Database,        roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
     { name: 'Sales History',    path: '/dialer-sales/history', icon: CalendarDays,    roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
     { name: 'Agent Wise Sales', path: '/dialer-sales/agent-sales', icon: UsersRound,  roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
-    { name: 'Agent QA Report',  path: '/agent-reports',        icon: ShieldAlert,     roles: ['Super Admin', 'QA Admin', 'Manager'] },
+    { name: 'Agent QA Report',  path: '/agent-reports',        icon: ShieldAlert,     roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
+    { name: 'Rejected Calls',   path: '/rejected-calls',       icon: XCircle,         roles: ['Super Admin', 'QA Admin', 'QA Agent', 'Manager'] },
     { name: 'Compare Sales',    path: '/dialer-sales/compare', icon: ListChecks,      roles: ['Super Admin', 'QA Admin', 'Manager'] },
     { name: 'Compare History',  path: '/dialer-sales/compare-history', icon: History, roles: ['Super Admin', 'QA Admin', 'Manager'] },
 

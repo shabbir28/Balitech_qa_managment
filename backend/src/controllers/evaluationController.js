@@ -481,9 +481,12 @@ const getAgentErrorReport = async (req, res, next) => {
     const params = [];
     let pc = 1;
 
-    if (qa_user_id) {
+    // QA Agents only ever see their own assignments; the qa_user_id filter is
+    // for managers/admins drilling into a specific evaluator.
+    const scopedQaUserId = req.user.role === 'QA Agent' ? req.user.id : qa_user_id;
+    if (scopedQaUserId) {
       conditions.push(`la.assigned_to = $${pc}`);
-      params.push(qa_user_id);
+      params.push(scopedQaUserId);
       pc++;
     }
 
@@ -631,27 +634,161 @@ const getAgentErrorReport = async (req, res, next) => {
 };
 
 /**
- * GET /api/evaluations/options/dropdowns
- * Returns unique DIDs and LA Side Error Categories collected from previous evaluations
+ * GET /api/evaluations/reports/rejected
+ * Every evaluation whose QA outcome is Rejected, one row per call, with the
+ * agent-side and LA-side feedback the QA wrote. QA Agents only see their own.
  */
-const getEvaluationDropdownOptions = async (req, res, next) => {
+const getRejectedCallsReport = async (req, res, next) => {
   try {
-    const didsRes = await query(`
-      SELECT DISTINCT TRIM(metadata->>'dids') as val
-      FROM qa_evaluations
-      WHERE metadata->>'dids' IS NOT NULL AND TRIM(metadata->>'dids') != ''
-      LIMIT 100
-    `);
+    const { from_date, to_date, search, campaign_name, qa_user_id, team, page = 1, limit = 50 } = req.query;
+    const pageNum = Math.max(1, parseInt(page) || 1);
+    const limitNum = Math.min(500, Math.max(1, parseInt(limit) || 50));
+    const offset = (pageNum - 1) * limitNum;
 
-    const laCatRes = await query(`
-      SELECT DISTINCT TRIM(metadata->>'laSideErrorCategory') as val
-      FROM qa_evaluations
-      WHERE metadata->>'laSideErrorCategory' IS NOT NULL AND TRIM(metadata->>'laSideErrorCategory') != ''
-      LIMIT 100
-    `);
+    const conditions = [
+      'qe.is_deleted = FALSE',
+      // UI stores the real outcome in metadata.qa_status; legacy rows only have status = Fail.
+      `LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('rejected', 'fail')`,
+    ];
+    const params = [];
+    let pc = 1;
 
-    const defaultDids = ['D1', 'D3', 'D4', 'D5', 'D6cpl', 'Hi', 'Hi main'];
-    const defaultLaCats = [
+    const scopedQaUserId = req.user.role === 'QA Agent' ? req.user.id : qa_user_id;
+    if (scopedQaUserId) {
+      conditions.push(`qe.evaluated_by = $${pc}`);
+      params.push(scopedQaUserId);
+      pc++;
+    }
+    if (from_date) { conditions.push(`qe.evaluation_date >= $${pc}::date`); params.push(from_date); pc++; }
+    if (to_date) { conditions.push(`qe.evaluation_date <= $${pc}::date`); params.push(to_date); pc++; }
+    if (campaign_name) {
+      conditions.push(`(qe.campaign_name ILIKE $${pc} OR cl.campaign_name ILIKE $${pc})`);
+      params.push(`%${campaign_name}%`);
+      pc++;
+    }
+    if (team) {
+      conditions.push(`COALESCE(NULLIF(qe.metadata->>'teams', ''), qe.campaign_name) ILIKE $${pc}`);
+      params.push(`%${team}%`);
+      pc++;
+    }
+    const term = String(search || '').trim();
+    if (term) {
+      const textClauses = [
+        `qe.agent_name ILIKE $${pc}`,
+        `qe.campaign_name ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'teams', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'dids', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'laSideErrorCategory', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'errorCategory', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'agentSideFeedback', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'laSideFeedback', '') ILIKE $${pc}`,
+        `u.name ILIKE $${pc}`,
+        `cl.customer_phone ILIKE $${pc}`,
+      ];
+      params.push(`%${term}%`);
+      pc++;
+
+      // Phone numbers are typed with/without dashes, spaces or +1; compare digits only.
+      const digits = term.replace(/\D/g, '');
+      if (digits.length >= 3) {
+        textClauses.push(`regexp_replace(COALESCE(cl.customer_phone, ''), '\\D', '', 'g') LIKE $${pc}`);
+        params.push(`%${digits}%`);
+        pc++;
+      }
+      conditions.push(`(${textClauses.join(' OR ')})`);
+    }
+
+    const where = 'WHERE ' + conditions.join(' AND ');
+    const fromClause = `
+      FROM qa_evaluations qe
+      JOIN call_leads cl ON cl.id = qe.call_lead_id
+      JOIN users u ON u.id = qe.evaluated_by
+    `;
+
+    // Range-wide summary for the KPI cards (independent of pagination).
+    const [summaryRes, topAgentRes] = await Promise.all([
+      query(
+        `SELECT
+           COUNT(*)::int                                                        AS total,
+           COUNT(DISTINCT LOWER(TRIM(qe.agent_name)))::int                      AS agents,
+           COUNT(DISTINCT LOWER(TRIM(COALESCE(NULLIF(qe.metadata->>'teams', ''), qe.campaign_name))))::int AS teams,
+           COUNT(*) FILTER (
+             WHERE COALESCE(qe.metadata->>'agentSideFeedback', '') = ''
+               AND COALESCE(qe.metadata->>'laSideFeedback', '') = ''
+           )::int                                                               AS missing_feedback
+         ${fromClause} ${where}`,
+        params
+      ),
+      query(
+        `SELECT qe.agent_name, COUNT(*)::int AS count
+         ${fromClause} ${where}
+         GROUP BY qe.agent_name
+         ORDER BY count DESC, qe.agent_name ASC
+         LIMIT 1`,
+        params
+      ),
+    ]);
+    const summary = {
+      ...summaryRes.rows[0],
+      top_agent: topAgentRes.rows[0] ? { name: topAgentRes.rows[0].agent_name, count: topAgentRes.rows[0].count } : null,
+    };
+    const total = summary.total;
+
+    const rowsRes = await query(
+      `SELECT
+         qe.id                                                        AS evaluation_id,
+         qe.call_lead_id,
+         qe.agent_name,
+         qe.agent_id,
+         COALESCE(NULLIF(qe.metadata->>'teams', ''), qe.campaign_name) AS team,
+         qe.campaign_name,
+         cl.customer_phone                                            AS phone,
+         NULLIF(qe.metadata->>'dids', '')                             AS dids,
+         NULLIF(qe.metadata->>'talkTime', '')                         AS talk_time,
+         NULLIF(qe.metadata->>'dup', '')                              AS dup,
+         'Rejected'                                                   AS qa_status,
+         COALESCE(qe.metadata->>'agentSideFeedback', '')              AS agent_feedback,
+         COALESCE(qe.metadata->>'laSideFeedback', '')                 AS la_feedback,
+         NULLIF(qe.metadata->>'laSideErrorCategory', '')              AS la_error_category,
+         NULLIF(qe.metadata->>'errorCategory', '')                    AS error_category,
+         qe.evaluation_date,
+         cl.call_date,
+         u.name                                                       AS qa_name,
+         qe.evaluated_by                                              AS qa_user_id,
+         qe.created_at
+       ${fromClause}
+       ${where}
+       ORDER BY qe.evaluation_date DESC, qe.created_at DESC
+       LIMIT $${pc} OFFSET $${pc + 1}`,
+      [...params, limitNum, offset]
+    );
+
+    res.json({
+      success: true,
+      data: rowsRes.rows,
+      summary,
+      pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/* ------------------------------------------------------------------ */
+/*  Editable dropdown options for the evaluation sheet                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Fields on the evaluation sheet whose dropdown lists users may edit.
+ * Keys are the metadata keys used by the sheet; the seed list is what the
+ * sheet used to hard-code so nothing disappears on first deploy.
+ */
+const DROPDOWN_FIELDS = {
+  dids: {
+    seed: ['D1', 'D3', 'D4', 'D5', 'D6cpl', 'Hi', 'Hi main'],
+  },
+  laSideErrorCategory: {
+    seed: [
       'Already in a good plan',
       'No plan Available',
       'Customer become not intrested',
@@ -660,21 +797,180 @@ const getEvaluationDropdownOptions = async (req, res, next) => {
       'DNQ Customer',
       'DNC Customer',
       'Not billable',
-      'Decline'
-    ];
+      'Decline',
+    ],
+  },
+  errorCategory: {
+    seed: [
+      'DNQ Customer',
+      'Under Buffer',
+      'Fake Sale',
+      'Skipping Qualifying Questions',
+      'Quoting Money',
+      'Falls Statement',
+      'Promoising Statement',
+      'DNC Customer',
+    ],
+  },
+};
 
-    const dbDids = didsRes.rows.map(r => r.val).filter(Boolean);
-    const dbLaCats = laCatRes.rows.map(r => r.val).filter(Boolean);
+const MAX_OPTION_LENGTH = 255;
 
-    const mergedDids = Array.from(new Set([...defaultDids, ...dbDids]));
-    const mergedLaCats = Array.from(new Set([...defaultLaCats, ...dbLaCats]));
+let dropdownTableReady = null;
+
+/**
+ * Create the options table on first use and seed it with the historic
+ * hard-coded lists plus anything QAs already typed into past evaluations,
+ * so production keeps working without a manual migration step.
+ */
+function ensureDropdownOptionsTable() {
+  if (dropdownTableReady) return dropdownTableReady;
+
+  dropdownTableReady = (async () => {
+    await query(`
+      CREATE TABLE IF NOT EXISTS evaluation_dropdown_options (
+        id SERIAL PRIMARY KEY,
+        field VARCHAR(50) NOT NULL,
+        value VARCHAR(255) NOT NULL,
+        created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        UNIQUE (field, value)
+      )
+    `);
+
+    for (const [field, cfg] of Object.entries(DROPDOWN_FIELDS)) {
+      const existing = await query(
+        'SELECT 1 FROM evaluation_dropdown_options WHERE field = $1 LIMIT 1',
+        [field]
+      );
+      if (existing.rowCount > 0) continue;
+
+      const historic = await query(
+        `SELECT DISTINCT TRIM(metadata->>$1) AS val
+         FROM qa_evaluations
+         WHERE TRIM(COALESCE(metadata->>$1, '')) <> ''
+         LIMIT 200`,
+        [field]
+      );
+      const values = Array.from(new Set([
+        ...cfg.seed,
+        ...historic.rows.map(r => r.val).filter(Boolean),
+      ]));
+
+      for (const value of values) {
+        await query(
+          `INSERT INTO evaluation_dropdown_options (field, value)
+           VALUES ($1, $2) ON CONFLICT (field, value) DO NOTHING`,
+          [field, value.slice(0, MAX_OPTION_LENGTH)]
+        );
+      }
+    }
+  })().catch((err) => {
+    // Let the next request retry instead of caching a failed promise.
+    dropdownTableReady = null;
+    throw err;
+  });
+
+  return dropdownTableReady;
+}
+
+async function loadDropdownOptions() {
+  const res = await query(
+    `SELECT field, value
+     FROM evaluation_dropdown_options
+     ORDER BY field, id`
+  );
+  const options = Object.fromEntries(Object.keys(DROPDOWN_FIELDS).map(f => [f, []]));
+  res.rows.forEach(r => {
+    if (options[r.field]) options[r.field].push(r.value);
+  });
+  return options;
+}
+
+function dropdownPayload(options) {
+  return {
+    options,
+    // Legacy keys kept for older frontend builds.
+    dids: options.dids,
+    laSideErrorCategories: options.laSideErrorCategory,
+  };
+}
+
+function parseOptionInput(body) {
+  const field = String(body?.field || '').trim();
+  const value = String(body?.value || '').trim().slice(0, MAX_OPTION_LENGTH);
+  if (!DROPDOWN_FIELDS[field]) {
+    return { error: `Unknown field. Must be one of: ${Object.keys(DROPDOWN_FIELDS).join(', ')}.` };
+  }
+  if (!value) return { error: 'Option value is required.' };
+  return { field, value };
+}
+
+/**
+ * GET /api/evaluations/options/dropdowns
+ */
+const getEvaluationDropdownOptions = async (req, res, next) => {
+  try {
+    await ensureDropdownOptionsTable();
+    res.json({ success: true, data: dropdownPayload(await loadDropdownOptions()) });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * POST /api/evaluations/options/dropdowns  { field, value }
+ * Any evaluator may add an option; duplicates (case-insensitive) are ignored.
+ */
+const addEvaluationDropdownOption = async (req, res, next) => {
+  try {
+    const parsed = parseOptionInput(req.body);
+    if (parsed.error) return res.status(400).json({ success: false, message: parsed.error });
+
+    await ensureDropdownOptionsTable();
+
+    const dup = await query(
+      `SELECT value FROM evaluation_dropdown_options
+       WHERE field = $1 AND LOWER(value) = LOWER($2) LIMIT 1`,
+      [parsed.field, parsed.value]
+    );
+    if (dup.rowCount === 0) {
+      await query(
+        `INSERT INTO evaluation_dropdown_options (field, value, created_by)
+         VALUES ($1, $2, $3) ON CONFLICT (field, value) DO NOTHING`,
+        [parsed.field, parsed.value, req.user.id]
+      );
+    }
+
+    res.status(dup.rowCount === 0 ? 201 : 200).json({
+      success: true,
+      message: dup.rowCount === 0 ? 'Option added.' : 'Option already exists.',
+      data: dropdownPayload(await loadDropdownOptions()),
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * DELETE /api/evaluations/options/dropdowns  { field, value }
+ * Restricted by the route to admins/managers.
+ */
+const removeEvaluationDropdownOption = async (req, res, next) => {
+  try {
+    const parsed = parseOptionInput(req.body);
+    if (parsed.error) return res.status(400).json({ success: false, message: parsed.error });
+
+    await ensureDropdownOptionsTable();
+    await query(
+      'DELETE FROM evaluation_dropdown_options WHERE field = $1 AND value = $2',
+      [parsed.field, parsed.value]
+    );
 
     res.json({
       success: true,
-      data: {
-        dids: mergedDids,
-        laSideErrorCategories: mergedLaCats
-      }
+      message: 'Option removed.',
+      data: dropdownPayload(await loadDropdownOptions()),
     });
   } catch (error) {
     next(error);
@@ -688,5 +984,8 @@ module.exports = {
   updateEvaluation,
   deleteEvaluation,
   getAgentErrorReport,
-  getEvaluationDropdownOptions
+  getRejectedCallsReport,
+  getEvaluationDropdownOptions,
+  addEvaluationDropdownOption,
+  removeEvaluationDropdownOption
 };

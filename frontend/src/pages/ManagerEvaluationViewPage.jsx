@@ -5,6 +5,8 @@ import toast from 'react-hot-toast';
 import { ArrowLeft, Play, Pause, Volume2, Save } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
+import useEvaluationOptions from '../hooks/useEvaluationOptions';
+import EditableOptionsInput from '../components/common/EditableOptionsInput';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -139,7 +141,9 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
 const ManagerEvaluationViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, hasRole } = useAuth();
+  const canRemoveOptions = hasRole('Super Admin', 'QA Admin', 'Manager');
+  const { options: dropdownOptions, addOption, removeOption } = useEvaluationOptions();
 
   const [evaluation, setEvaluation] = useState(null);
   const [metadata, setMetadata] = useState({});
@@ -410,22 +414,20 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
-                    <input 
-                      list="manager-did-options"
-                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] text-center font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
+                    <EditableOptionsInput
+                      id="manager-did-options"
+                      field="dids"
+                      label="DID's"
                       value={metadata.dids || ''}
-                      onChange={e => handleMetadataChange('dids', e.target.value)}
+                      onChange={v => handleMetadataChange('dids', v)}
+                      onBlur={e => addOption('dids', e.target.value)}
+                      options={dropdownOptions.dids}
+                      onAddOption={addOption}
+                      onRemoveOption={removeOption}
+                      canRemove={canRemoveOptions}
                       placeholder="Select or type DID..."
+                      className="px-2 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm min-h-[38px] text-center font-medium focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                     />
-                    <datalist id="manager-did-options">
-                      <option value="D1" />
-                      <option value="D3" />
-                      <option value="D4" />
-                      <option value="D5" />
-                      <option value="D6cpl" />
-                      <option value="Hi" />
-                      <option value="Hi main" />
-                    </datalist>
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
@@ -482,24 +484,20 @@ const ManagerEvaluationViewPage = () => {
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
-                    <input 
-                      list="manager-la-side-error-category-options"
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
+                    <EditableOptionsInput
+                      id="manager-la-side-error-category-options"
+                      field="laSideErrorCategory"
+                      label="LA Side Error"
                       value={metadata.laSideErrorCategory || ''}
-                      onChange={e => handleMetadataChange('laSideErrorCategory', e.target.value)}
+                      onChange={v => handleMetadataChange('laSideErrorCategory', v)}
+                      onBlur={e => addOption('laSideErrorCategory', e.target.value)}
+                      options={dropdownOptions.laSideErrorCategory}
+                      onAddOption={addOption}
+                      onRemoveOption={removeOption}
+                      canRemove={canRemoveOptions}
                       placeholder="Select or type LA Category..."
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600"
                     />
-                    <datalist id="manager-la-side-error-category-options">
-                      <option value="Already in a good plan" />
-                      <option value="No plan Available" />
-                      <option value="Customer become not intrested" />
-                      <option value="call Back arange" />
-                      <option value="call ended in no result" />
-                      <option value="DNQ Customer" />
-                      <option value="DNC Customer" />
-                      <option value="Not billable" />
-                      <option value="Decline" />
-                    </datalist>
                   </td>
 
                   {/* Checkboxes */}
@@ -529,24 +527,21 @@ const ManagerEvaluationViewPage = () => {
                   ))}
 
                   <td className="p-3 border-slate-800/50 align-top">
-                    <input 
-                      list="manager-error-category-options"
+                    <EditableOptionsInput
+                      id="manager-error-category-options"
+                      field="errorCategory"
+                      label="Error Category"
                       disabled={user?.role === 'QA Agent'}
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm w-full min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                       value={metadata.errorCategory || ''}
-                      onChange={e => handleMetadataChange('errorCategory', e.target.value)}
+                      onChange={v => handleMetadataChange('errorCategory', v)}
+                      onBlur={e => addOption('errorCategory', e.target.value)}
+                      options={dropdownOptions.errorCategory}
+                      onAddOption={addOption}
+                      onRemoveOption={removeOption}
+                      canRemove={canRemoveOptions}
                       placeholder="Select or type Category..."
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-300 text-sm min-h-[38px] focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all placeholder:text-slate-600 disabled:opacity-50"
                     />
-                    <datalist id="manager-error-category-options">
-                      <option value="Dnq master" />
-                      <option value="Under Buffer" />
-                      <option value="Fake Sale" />
-                      <option value="Skipping Qualifying Questions" />
-                      <option value="Quoting Money" />
-                      <option value="Falls Statement" />
-                      <option value="Promoising Statement" />
-                      <option value="DNC Customer" />
-                    </datalist>
                   </td>
                 </tr>
               </tbody>

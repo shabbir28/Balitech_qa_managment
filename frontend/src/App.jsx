@@ -20,6 +20,7 @@ import CompareHistoryPage from './pages/CompareHistoryPage';
 import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
 import AgentSalesPage from './pages/AgentSalesPage';
 import AgentErrorReportPage from './pages/AgentErrorReportPage';
+import RejectedCallsReportPage from './pages/RejectedCallsReportPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
@@ -122,8 +123,13 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/agent-reports" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
               <SidebarLayout><AgentErrorReportPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/rejected-calls" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+              <SidebarLayout><RejectedCallsReportPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 
