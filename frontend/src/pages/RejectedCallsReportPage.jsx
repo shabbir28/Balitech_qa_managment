@@ -16,29 +16,41 @@ import { useAuth } from '../context/AuthContext';
 const PAGE_SIZE = 25;
 
 /**
+ * Strips the blank lines and stray indentation QA leaves in the feedback boxes
+ * so the pasted block stays tight in chat.
+ */
+function tidyText(value) {
+  return String(value ?? '')
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .join('\n');
+}
+
+/**
  * Plain-text version of one rejected call, laid out the way QA shares it in
  * chat: tab-separated header line, then the two feedback sections.
  */
 function formatRecordAsText(r) {
   const header = [
-    r.agent_name || '',
-    r.team || '',
-    r.phone || '',
-    '',
-    r.dids || '',
-    r.talk_time || '',
+    r.agent_name,
+    r.team,
+    r.phone,
+    r.dids,
+    r.talk_time,
     r.qa_status || 'Rejected',
-  ].join('\t');
+  ]
+    .map((v) => String(v ?? '').trim())
+    .filter(Boolean)
+    .join('\t');
+
   return [
     header,
-    '',
     'Agent side:',
-    '',
-    r.agent_feedback || '—',
-    '',
+    tidyText(r.agent_feedback) || '—',
     'LA side:',
-    '',
-    r.la_feedback || '—',
+    tidyText(r.la_feedback) || '—',
   ].join('\n');
 }
 
@@ -172,7 +184,7 @@ export default function RejectedCallsReportPage() {
 
   const handleCopyAll = async () => {
     if (!rows.length) return toast.error('Nothing to copy.');
-    const ok = await copyText(rows.map(formatRecordAsText).join('\n\n----------------------------------------\n\n'));
+    const ok = await copyText(rows.map(formatRecordAsText).join('\n--------------------\n'));
     ok ? toast.success(`Copied ${rows.length} record(s)`) : toast.error('Copy failed.');
   };
 
