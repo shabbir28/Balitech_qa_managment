@@ -751,6 +751,7 @@ const getRejectedCallsReport = async (req, res, next) => {
          COALESCE(qe.metadata->>'laSideFeedback', '')                 AS la_feedback,
          NULLIF(qe.metadata->>'laSideErrorCategory', '')              AS la_error_category,
          NULLIF(qe.metadata->>'errorCategory', '')                    AS error_category,
+         COALESCE(NULLIF(qe.recording_url, ''), NULLIF(cl.recording_url, '')) AS recording_url,
          qe.evaluation_date,
          cl.call_date,
          u.name                                                       AS qa_name,

@@ -3,7 +3,8 @@ import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
 import { LoadingPage, Pagination, ConfirmModal } from '../components/ui';
-import PasswordInput, { isPasswordValid } from '../components/common/PasswordInput';
+import PasswordInput from '../components/common/PasswordInput';
+import { isPasswordValid } from '../utils/password';
 import {
   Users, Search, Edit2, Trash2, X, Save, Key, ClipboardList, Clock,
   CheckCircle, XCircle, Play, Pause, Volume2, SkipBack, SkipForward, Shield,

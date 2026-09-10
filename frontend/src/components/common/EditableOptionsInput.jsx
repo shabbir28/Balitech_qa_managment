@@ -45,9 +45,10 @@ export default function EditableOptionsInput({
       <button
         type="button"
         onClick={() => setOpen(true)}
+        disabled={disabled}
         title={`Edit ${label || 'options'}`}
         aria-label={`Edit ${label || 'options'}`}
-        className="shrink-0 px-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 transition-colors"
+        className="shrink-0 px-2 rounded-lg border border-slate-800 bg-slate-950 text-slate-400 hover:text-indigo-300 hover:border-indigo-500/50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:text-slate-400 disabled:hover:border-slate-800"
       >
         <Pencil size={14} />
       </button>

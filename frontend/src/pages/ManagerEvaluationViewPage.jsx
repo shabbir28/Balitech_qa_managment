@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+﻿import { useEffect, useState, useRef } from 'react';
+import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Play, Pause, Volume2, Save } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Volume2, Save, Lock, RefreshCw } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
@@ -141,14 +141,21 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
 const ManagerEvaluationViewPage = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, hasRole } = useAuth();
+  // Where "Back" should go: the page that linked here (e.g. Rejected Calls), else the role default.
+  const backPath = location.state?.from || (user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations');
+  const backLabel = location.state?.fromLabel || 'Back to List';
   const canRemoveOptions = hasRole('Super Admin', 'QA Admin', 'Manager');
+  // Super Admin / QA Admin / Manager can edit and save; QA Agents get a read-only sheet.
+  const canEdit = hasRole('Super Admin', 'QA Admin', 'Manager');
   const { options: dropdownOptions, addOption, removeOption } = useEvaluationOptions();
 
   const [evaluation, setEvaluation] = useState(null);
   const [metadata, setMetadata] = useState({});
   const [qaStatus, setQaStatus] = useState('Accepted');
   const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
   const [recordingsList, setRecordingsList] = useState([]);
   const [playingIndex, setPlayingIndex] = useState(null);
   const [loadError, setLoadError] = useState(null);
@@ -217,11 +224,32 @@ const ManagerEvaluationViewPage = () => {
   };
 
   const handleMetadataChange = (key, value) => {
+    if (!canEdit) return;
     setMetadata(prev => ({ ...prev, [key]: value }));
+    setDirty(true);
   };
 
+  const handleStatusChange = (value) => {
+    if (!canEdit) return;
+    setQaStatus(value);
+    setDirty(true);
+  };
+
+  const handleBack = () => {
+    if (dirty && !window.confirm('You have unsaved changes. Leave without saving?')) return;
+    navigate(backPath);
+  };
+
+  // Warn on tab close / refresh while there are unsaved edits.
+  useEffect(() => {
+    if (!dirty) return undefined;
+    const onBeforeUnload = (e) => { e.preventDefault(); e.returnValue = ''; };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [dirty]);
+
   const handleSave = async () => {
-    if (!evaluation) return;
+    if (!evaluation || !canEdit) return;
     setSaving(true);
     try {
       const finalBackendStatus = 
@@ -229,7 +257,7 @@ const ManagerEvaluationViewPage = () => {
         qaStatus === 'Rejected' ? 'Fail' : 
         qaStatus;
 
-      await api.put(`/evaluations/${id}`, {
+      const res = await api.put(`/evaluations/${id}`, {
         status: finalBackendStatus,
         qa_remarks: metadata.laSideFeedback || 'Updated via manager sheet',
         metadata: {
@@ -246,7 +274,16 @@ const ManagerEvaluationViewPage = () => {
         closing_score: evaluation.closing_score || 0,
         call_handling_score: evaluation.call_handling_score || 0
       });
-      toast.success('Evaluation changes saved successfully!');
+      if (res.data?.data) {
+        setEvaluation(prev => ({ ...prev, ...res.data.data, evaluator_name: prev?.evaluator_name }));
+      }
+      setDirty(false);
+      const cameFromRejected = location.state?.from === '/rejected-calls';
+      if (cameFromRejected && qaStatus !== 'Rejected') {
+        toast.success(`Saved. Status is now "${qaStatus}" — this call will no longer appear in Rejected Calls.`, { duration: 5000 });
+      } else {
+        toast.success('Evaluation changes saved successfully!');
+      }
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to save changes.');
     } finally {
@@ -258,7 +295,7 @@ const ManagerEvaluationViewPage = () => {
     return (
       <div className="p-10 text-center">
         <p className="text-slate-400 mb-4">{loadError}</p>
-        <button onClick={() => navigate(user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations')} className="btn-secondary">Go back</button>
+        <button onClick={() => navigate(backPath)} className="btn-secondary">Go back</button>
       </div>
     );
   }
@@ -268,20 +305,40 @@ const ManagerEvaluationViewPage = () => {
     <div className="w-full min-h-[90vh] pb-10 flex flex-col">
       <div className="px-8 mt-4 flex items-center justify-between mb-8 shrink-0">
         <div>
-          <h1 className="text-3xl font-extrabold text-white tracking-tight">Manager View: Call Evaluation</h1>
-          <p className="text-sm text-slate-400 mt-1 font-medium">Review and edit the submitted QA sheet</p>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-extrabold text-white tracking-tight">
+              {canEdit ? 'Manager View: Call Evaluation' : 'Call Evaluation'}
+            </h1>
+            {!canEdit && (
+              <span className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1.5">
+                <Lock className="w-3 h-3" /> Read only
+              </span>
+            )}
+            {canEdit && dirty && (
+              <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-300 inline-flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved changes
+              </span>
+            )}
+          </div>
+          <p className="text-sm text-slate-400 mt-1 font-medium">
+            {canEdit ? 'Review and edit the submitted QA sheet — changes sync to HRMS on save.' : 'Review the submitted QA sheet.'}
+          </p>
         </div>
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/evaluations')} className="btn-secondary px-5 py-2.5">
-            <ArrowLeft size={16} className="mr-2" /> Back to List
+          <button onClick={handleBack} className="btn-secondary px-5 py-2.5">
+            <ArrowLeft size={16} className="mr-2" /> {backLabel}
           </button>
-          {user?.role !== 'QA Agent' && (
+          {canEdit && (
             <button 
               onClick={handleSave} 
               disabled={saving}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold transition-all shadow-[0_0_15px_rgba(99,102,241,0.2)] hover:shadow-[0_0_25px_rgba(99,102,241,0.4)] disabled:opacity-50"
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold transition-all disabled:opacity-50 ${
+                dirty
+                  ? 'bg-indigo-500 hover:bg-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.35)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]'
+                  : 'bg-indigo-600/70 hover:bg-indigo-500'
+              }`}
             >
-              <Save className="w-4 h-4" />
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
           )}
@@ -383,7 +440,7 @@ const ManagerEvaluationViewPage = () => {
                       value={metadata.teams || ''}
                       onChange={e => handleMetadataChange('teams', e.target.value)}
                       placeholder="Enter Team..."
-                      disabled={user?.role === 'QA Agent'}
+                      disabled={!canEdit}
                     />
                   </td>
 
@@ -396,7 +453,7 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top text-center">
                     <div className="flex flex-col items-center gap-1">
                       <input 
-                        className={`px-2 py-2 bg-slate-950 border rounded-lg text-sm w-full min-h-[38px] text-center font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all ${
+                        className={`px-2 py-2 bg-slate-950 border rounded-lg text-sm w-full min-h-[38px] text-center font-bold focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50 ${
                           metadata.dup && metadata.dup !== '1' && metadata.dup !== '0'
                             ? 'border-amber-500/50 text-amber-400 bg-amber-500/10'
                             : 'border-slate-700 text-slate-300'
@@ -404,6 +461,7 @@ const ManagerEvaluationViewPage = () => {
                         value={metadata.dup || ''}
                         onChange={e => handleMetadataChange('dup', e.target.value)}
                         placeholder="—"
+                        disabled={!canEdit}
                       />
                       {metadata.dup && metadata.dup !== '1' && metadata.dup !== '0' && (
                         <span className="text-[9px] font-extrabold uppercase tracking-wider text-amber-400/90">
@@ -418,6 +476,7 @@ const ManagerEvaluationViewPage = () => {
                       id="manager-did-options"
                       field="dids"
                       label="DID's"
+                      disabled={!canEdit}
                       value={metadata.dids || ''}
                       onChange={v => handleMetadataChange('dids', v)}
                       onBlur={e => addOption('dids', e.target.value)}
@@ -432,16 +491,17 @@ const ManagerEvaluationViewPage = () => {
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <input 
-                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] text-center font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all"
+                      className="px-3 py-2 bg-slate-950 border border-slate-700 rounded-lg text-slate-200 text-sm w-full min-h-[38px] text-center font-mono focus:ring-2 focus:ring-indigo-500 focus:outline-none transition-all disabled:opacity-50"
                       value={metadata.talkTime !== undefined ? metadata.talkTime : (evaluation.call_duration || '')}
                       onChange={e => handleMetadataChange('talkTime', e.target.value)}
                       placeholder="0"
+                      disabled={!canEdit}
                     />
                   </td>
 
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <select
-                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 cursor-pointer text-center ${
+                      className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed ${
                         qaStatus === 'Accepted'
                           ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500'
                           : qaStatus === 'Flagged'
@@ -453,7 +513,8 @@ const ManagerEvaluationViewPage = () => {
                                 : 'text-rose-400 border-rose-500/30 bg-rose-500/10 focus:ring-rose-500'
                       }`}
                       value={qaStatus}
-                      onChange={e => setQaStatus(e.target.value)}
+                      onChange={e => handleStatusChange(e.target.value)}
+                      disabled={!canEdit}
                     >
                       <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
                       <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>
@@ -469,7 +530,7 @@ const ManagerEvaluationViewPage = () => {
                       value={metadata.agentSideFeedback || ''}
                       onChange={e => handleMetadataChange('agentSideFeedback', e.target.value)}
                       placeholder="Enter agent feedback..."
-                      disabled={user?.role === 'QA Agent'}
+                      disabled={!canEdit}
                     />
                   </td>
 
@@ -479,7 +540,7 @@ const ManagerEvaluationViewPage = () => {
                       value={metadata.laSideFeedback || ''}
                       onChange={e => handleMetadataChange('laSideFeedback', e.target.value)}
                       placeholder="Enter LA side feedback..."
-                      disabled={user?.role === 'QA Agent'}
+                      disabled={!canEdit}
                     />
                   </td>
 
@@ -504,10 +565,10 @@ const ManagerEvaluationViewPage = () => {
                   {CHECKBOX_FIELDS.map(f => (
                     <td key={f.key} className="p-3 border-r border-slate-800/50 align-top pt-5">
                       <div className="flex justify-center w-full">
-                        <label className={`relative flex items-center p-1 rounded-full ${user?.role === 'QA Agent' ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-slate-800'}`}>
+                        <label className={`relative flex items-center p-1 rounded-full ${!canEdit ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-slate-800'}`}>
                           <input 
                             type="checkbox" 
-                            disabled={user?.role === 'QA Agent'}
+                            disabled={!canEdit}
                             checked={metadata[f.key] || false} 
                             onChange={e => handleMetadataChange(f.key, e.target.checked)}
                             className="peer relative appearance-none w-6 h-6 border-2 border-slate-600 rounded-md bg-slate-950 checked:bg-indigo-500 checked:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/50 transition-all cursor-pointer disabled:cursor-not-allowed"
@@ -531,7 +592,7 @@ const ManagerEvaluationViewPage = () => {
                       id="manager-error-category-options"
                       field="errorCategory"
                       label="Error Category"
-                      disabled={user?.role === 'QA Agent'}
+                      disabled={!canEdit}
                       value={metadata.errorCategory || ''}
                       onChange={v => handleMetadataChange('errorCategory', v)}
                       onBlur={e => addOption('errorCategory', e.target.value)}

@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { Link } from 'react-router-dom';
 import {
   XCircle, Search, RefreshCw, Download, Clock, Copy, Check,
-  Phone, Users, Headset, ClipboardList, Hash, CalendarDays, X, ChevronDown, ShieldCheck, Inbox
+  Phone, Users, Headset, ClipboardList, Hash, CalendarDays, X, ChevronDown, ShieldCheck, Inbox,
+  Play, ExternalLink
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import api from '../services/api';
@@ -400,6 +402,8 @@ export default function RejectedCallsReportPage() {
         ) : (
           rows.map((r, idx) => {
             const copied = copiedId === r.evaluation_id;
+            const viewPath = `/evaluations/view/${r.evaluation_id}`;
+            const viewState = { from: '/rejected-calls', fromLabel: 'Back to Rejected Calls' };
             return (
               <article
                 key={r.evaluation_id}
@@ -410,12 +414,19 @@ export default function RejectedCallsReportPage() {
                 <div className="px-3.5 py-2.5 border-b border-slate-800/70 bg-[#0B1120]/60 flex flex-wrap items-center gap-x-3 gap-y-1.5">
                   <span className="text-[10px] font-mono text-slate-600 w-6 shrink-0">#{startIndex + idx + 1}</span>
 
-                  <div className="flex items-center gap-2 min-w-0">
+                  <Link
+                    to={viewPath}
+                    state={viewState}
+                    className="flex items-center gap-2 min-w-0 group/name"
+                    title="Open this evaluation"
+                  >
                     <span className="w-7 h-7 rounded-lg bg-gradient-to-br from-rose-500/30 to-rose-700/30 border border-rose-500/30 text-rose-200 text-[10px] font-black flex items-center justify-center shrink-0">
                       {initialsOf(r.agent_name)}
                     </span>
-                    <span className="text-[13px] font-bold text-white capitalize truncate">{r.agent_name || '—'}</span>
-                  </div>
+                    <span className="text-[13px] font-bold text-white capitalize truncate group-hover/name:text-rose-300 group-hover/name:underline decoration-rose-500/50 underline-offset-2 transition-colors">
+                      {r.agent_name || '—'}
+                    </span>
+                  </Link>
 
                   {r.team && (
                     <span className="px-1.5 py-0.5 rounded-md bg-slate-800/80 border border-slate-700/60 text-[10px] font-semibold text-slate-300 uppercase tracking-wide">
@@ -462,6 +473,19 @@ export default function RejectedCallsReportPage() {
                       <CalendarDays className="w-3 h-3 text-slate-600" />
                       {prettyDate(r.evaluation_date)}
                     </span>
+                    <Link
+                      to={viewPath}
+                      state={viewState}
+                      className={`h-7 px-2.5 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                        r.recording_url
+                          ? 'bg-indigo-500/10 border-indigo-500/30 text-indigo-300 hover:bg-indigo-500/20 hover:text-white'
+                          : 'bg-slate-800/60 border-slate-700/60 text-slate-300 hover:bg-slate-700 hover:text-white'
+                      }`}
+                      title={r.recording_url ? 'Open evaluation and listen to the recording' : 'Open evaluation (no recording attached)'}
+                    >
+                      {r.recording_url ? <Play className="w-3 h-3" /> : <ExternalLink className="w-3 h-3" />}
+                      {r.recording_url ? 'Listen' : 'Open'}
+                    </Link>
                     <button
                       onClick={() => handleCopy(r)}
                       className={`h-7 w-7 rounded-lg border flex items-center justify-center transition-colors ${
