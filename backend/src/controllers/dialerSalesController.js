@@ -1,6 +1,7 @@
 const { fetchAdminPage, extractLeadsFromHtml } = require('./dialerController');
 const { query } = require('../config/database');
 const { syncDialerTransfersToHRMS, mapRowToHrms, normalizeQaStatus } = require('../services/hrmsSyncService');
+const { agentCanAccessCampaign } = require('../utils/campaignAccess');
 // Memory cache for statuses
 const saleStatusesCache = {
   pharmacy: { statuses: null, lastFetched: 0 },
@@ -892,6 +893,23 @@ exports.assignSales = async (req, res) => {
       });
     }
 
+    const assigneeRes = await query(
+      `SELECT u.id, u.name, u.campaign_id, r.name AS role, c.name AS campaign_name
+       FROM users u JOIN roles r ON r.id = u.role_id
+       LEFT JOIN campaigns c ON c.id = u.campaign_id
+       WHERE u.id = $1`,
+      [assigned_to]
+    );
+    if (assigneeRes.rows[0]) {
+      const access = agentCanAccessCampaign(assigneeRes.rows[0], { dialer });
+      if (!access.ok) {
+        return res.status(403).json({
+          success: false,
+          message: `${assigneeRes.rows[0].name} is assigned to "${assigneeRes.rows[0].campaign_name || 'no campaign'}" and cannot receive ${dialer} dialer work.`,
+        });
+      }
+    }
+
     // Verify campaign (case-insensitive search)
     const campaignName = dialer === 'medicare' ? 'Medicare' : 'Pharmacy';
     let campRes = await query(
@@ -1054,12 +1072,22 @@ exports.getCompareHistory = async (req, res) => {
     }
 
     const { query } = require('../config/database');
+    // Uploaded/result blobs hold customer data, so non-leadership roles only
+    // ever see the comparisons they ran themselves.
+    const isLeadership = ['Super Admin', 'QA Admin', 'Manager'].includes(req.user.role);
+    const params = [startDate, endDate];
+    let ownerFilter = '';
+    if (!isLeadership) {
+      params.push(req.user.id);
+      ownerFilter = ` AND user_id = $${params.length}`;
+    }
+
     const result = await query(
       `SELECT id, user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, created_at, uploaded_data, result_data
        FROM compare_history
-       WHERE compare_date >= $1 AND compare_date <= $2
+       WHERE compare_date >= $1 AND compare_date <= $2${ownerFilter}
        ORDER BY created_at DESC`,
-      [startDate, endDate]
+      params
     );
 
     res.json({ success: true, data: result.rows });
@@ -1256,63 +1284,79 @@ exports.recheckCompareHistory = async (req, res) => {
       WHERE id = $5
       RETURNING *
     `;
-    const updateSourceResult = await query(updateSourceSql, [
-      JSON.stringify(newResultData), 
-      JSON.stringify(newUploadedData), 
-      newNotFound, 
-      newTotalUploaded, 
-      id
-    ]);
+    // Removing the phones from the source and adding them to the target dates
+    // must be all-or-nothing, otherwise a mid-loop failure loses those numbers.
+    const { getClient } = require('../config/database');
+    const client = await getClient();
+    let updateSourceResult;
+    try {
+      await client.query('BEGIN');
 
-    // 6. Process Target Records (Move to specific dates)
-    for (const [dateStr, items] of Object.entries(foundByDate)) {
-      const itemsCount = items.length;
-      const justPhones = items.map(i => i.phone);
-      
-      // Look for an existing record for this date and dialer
-      const targetQuery = await query(`
-        SELECT * FROM compare_history 
-        WHERE compare_date = $1 AND dialer_type = $2 
-        ORDER BY created_at DESC LIMIT 1
-      `, [dateStr, dialerType]);
+      updateSourceResult = await client.query(updateSourceSql, [
+        JSON.stringify(newResultData),
+        JSON.stringify(newUploadedData),
+        newNotFound,
+        newTotalUploaded,
+        id
+      ]);
 
-      if (targetQuery.rowCount > 0) {
-        // Append to existing record
-        const targetRecord = targetQuery.rows[0];
-        let tResult = typeof targetRecord.result_data === 'string' ? JSON.parse(targetRecord.result_data) : (targetRecord.result_data || []);
-        let tUploaded = typeof targetRecord.uploaded_data === 'string' ? JSON.parse(targetRecord.uploaded_data) : (targetRecord.uploaded_data || []);
-        
-        tResult = [...tResult, ...items];
-        tUploaded = [...tUploaded, ...justPhones];
-        
-        const tTotalUploaded = targetRecord.total_uploaded + itemsCount;
-        const tTotalFound = targetRecord.total_found + itemsCount;
-        
-        await query(`
-          UPDATE compare_history 
-          SET result_data = $1, uploaded_data = $2, total_uploaded = $3, total_found = $4
-          WHERE id = $5
-        `, [JSON.stringify(tResult), JSON.stringify(tUploaded), tTotalUploaded, tTotalFound, targetRecord.id]);
-        
-      } else {
-        // Create new record
-        const fileName = `Backfilled from ${record.file_name}`;
-        await query(`
-          INSERT INTO compare_history 
-          (user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data)
-          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-        `, [
-          record.user_id, 
-          fileName, 
-          dialerType, 
-          dateStr, 
-          itemsCount, 
-          itemsCount, 
-          0, 
-          JSON.stringify(justPhones), 
-          JSON.stringify(items)
-        ]);
+      // 6. Process Target Records (Move to specific dates)
+      for (const [dateStr, items] of Object.entries(foundByDate)) {
+        const itemsCount = items.length;
+        const justPhones = items.map(i => i.phone);
+
+        // Look for an existing record for this date and dialer
+        const targetQuery = await client.query(`
+          SELECT * FROM compare_history 
+          WHERE compare_date = $1 AND dialer_type = $2 
+          ORDER BY created_at DESC LIMIT 1
+        `, [dateStr, dialerType]);
+
+        if (targetQuery.rowCount > 0) {
+          // Append to existing record
+          const targetRecord = targetQuery.rows[0];
+          let tResult = typeof targetRecord.result_data === 'string' ? JSON.parse(targetRecord.result_data) : (targetRecord.result_data || []);
+          let tUploaded = typeof targetRecord.uploaded_data === 'string' ? JSON.parse(targetRecord.uploaded_data) : (targetRecord.uploaded_data || []);
+
+          tResult = [...tResult, ...items];
+          tUploaded = [...tUploaded, ...justPhones];
+
+          const tTotalUploaded = targetRecord.total_uploaded + itemsCount;
+          const tTotalFound = targetRecord.total_found + itemsCount;
+
+          await client.query(`
+            UPDATE compare_history 
+            SET result_data = $1, uploaded_data = $2, total_uploaded = $3, total_found = $4
+            WHERE id = $5
+          `, [JSON.stringify(tResult), JSON.stringify(tUploaded), tTotalUploaded, tTotalFound, targetRecord.id]);
+
+        } else {
+          // Create new record
+          const fileName = `Backfilled from ${record.file_name}`;
+          await client.query(`
+            INSERT INTO compare_history 
+            (user_id, file_name, dialer_type, compare_date, total_uploaded, total_found, not_found, uploaded_data, result_data)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+          `, [
+            record.user_id,
+            fileName,
+            dialerType,
+            dateStr,
+            itemsCount,
+            itemsCount,
+            0,
+            JSON.stringify(justPhones),
+            JSON.stringify(items)
+          ]);
+        }
       }
+
+      await client.query('COMMIT');
+    } catch (txError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw txError;
+    } finally {
+      client.release();
     }
 
     res.json({ 

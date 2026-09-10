@@ -3,6 +3,8 @@ const fs = require('fs');
 const { query } = require('../config/database');
 const { parseFile, normalizeRow } = require('./callController');
 const { NY_DAY_START, nyDateStart } = require('../utils/timezone');
+const { agentCanAccessCampaign, agentCampaignSql, campaignFamily } = require('../utils/campaignAccess');
+const { parsePagination } = require('../utils/pagination');
 
 /* ─── TEAMS ─────────────────────────────────────────────────────────── */
 
@@ -206,8 +208,8 @@ const getAssignments = async (req, res, next) => {
     try { await expireStaleAssignments(); } catch (e) { console.error('Assignment expiration failed:', e.message); }
 
     const role = req.user.role;
-    const { page = 1, limit = 50, status, user_id, start_date, end_date } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { status, user_id, start_date, end_date } = req.query;
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 50, maxLimit: 500 });
     
     let conditions = [];
     let params = [];
@@ -218,11 +220,10 @@ const getAssignments = async (req, res, next) => {
     if (!isLeadership) {
       conditions.push(`la.assigned_to = $${paramCount++}`);
       params.push(req.user.id);
-      // If the user has an assigned campaign, filter leads to that campaign only
-      if (req.user.campaign_id) {
-        conditions.push(`cl.campaign_id = $${paramCount++}`);
-        params.push(req.user.campaign_id);
-      }
+      const camp = agentCampaignSql(req.user, 'cl', paramCount);
+      conditions.push(camp.sql);
+      params.push(...camp.params);
+      paramCount = camp.next;
     } else {
       // For Admins/Managers:
       if (user_id) {
@@ -300,7 +301,7 @@ const getAssignments = async (req, res, next) => {
       ${statsWhere}
     `, statsParams);
 
-    params.push(parseInt(limit));
+    params.push(limit);
     params.push(offset);
 
     const result = await query(
@@ -331,9 +332,9 @@ const getAssignments = async (req, res, next) => {
       stats: statsResult.rows[0],
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit))
+        page,
+        limit,
+        pages: Math.ceil(total / limit)
       }
     });
   } catch (err) { next(err); }
@@ -355,14 +356,43 @@ const createAssignments = async (req, res, next) => {
     const results = [];
 
     // Fetch assigned evaluator name for status tagging
-    const qaUser = await query('SELECT name FROM users WHERE id = $1', [assigned_to]);
+    const qaUser = await query(
+      `SELECT u.id, u.name, u.campaign_id, r.name AS role, c.name AS campaign_name
+       FROM users u
+       JOIN roles r ON r.id = u.role_id
+       LEFT JOIN campaigns c ON c.id = u.campaign_id
+       WHERE u.id = $1`,
+      [assigned_to]
+    );
     const qaName = qaUser.rows[0] ? qaUser.rows[0].name : 'QA Evaluator';
+    const assignee = qaUser.rows[0];
+    if (assignee && campaign_name) {
+      const access = agentCanAccessCampaign(assignee, { campaign_name });
+      if (!access.ok) {
+        return res.status(403).json({
+          success: false,
+          message: `${assignee.name} is assigned to "${assignee.campaign_name || 'no campaign'}" and cannot be given ${campaign_name} work.`,
+        });
+      }
+    }
     
     // If dialer_leads are provided, do not double-process call_lead_ids
     const effectiveCallLeadIds = dialer_leads.length > 0 ? [] : call_lead_ids;
 
     // Process selected existing call_leads IDs
     for (const lead_id of effectiveCallLeadIds) {
+      if (assignee) {
+        const leadCamp = await query('SELECT campaign_id, campaign_name FROM call_leads WHERE id = $1', [lead_id]);
+        if (leadCamp.rows[0]) {
+          const access = agentCanAccessCampaign(assignee, leadCamp.rows[0]);
+          if (!access.ok) {
+            return res.status(403).json({
+              success: false,
+              message: `${assignee.name} is assigned to "${assignee.campaign_name || 'no campaign'}" and cannot be given this lead.`,
+            });
+          }
+        }
+      }
       const existing = await query('SELECT id FROM lead_assignments WHERE call_lead_id = $1 LIMIT 1', [lead_id]);
       if (existing.rows.length) continue;
       const r = await query(
@@ -435,11 +465,17 @@ const createAssignments = async (req, res, next) => {
           [qaName, dLead.id]
         );
       } else if (dLead.lead_id) {
+        // lead_id is only unique per dialer, so scope the update whenever the
+        // dialer can be derived — otherwise both dialers' rows would flip.
+        const dialerName = campaignFamily(dLead.dialer || dLead.campaign_name || campaign_name);
+        const scoped = dialerName === 'medicare' || dialerName === 'pharmacy';
         await query(
           `UPDATE dialer_sales_history 
            SET is_assigned = TRUE, assigned_qa_name = $1 
-           WHERE lead_id = $2`,
-          [qaName, String(dLead.lead_id)]
+           WHERE lead_id = $2${scoped ? ' AND dialer = $3' : ''}`,
+          scoped
+            ? [qaName, String(dLead.lead_id), dialerName]
+            : [qaName, String(dLead.lead_id)]
         );
       }
     }

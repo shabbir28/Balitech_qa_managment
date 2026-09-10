@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
 import api from '../services/api';
 
 const AuthContext = createContext(null);
@@ -32,27 +32,33 @@ export const AuthProvider = ({ children }) => {
 
   useEffect(() => { loadUser(); }, [loadUser]);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
     const res = await api.post('/auth/login', { email, password });
     localStorage.setItem('token', res.data.token);
     localStorage.setItem('user', JSON.stringify(res.data.user));
     setUser(res.data.user);
     return res.data;
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-  };
+  }, []);
 
-  const hasRole = (...roles) => user && roles.includes(user.role);
-
-  return (
-    <AuthContext.Provider value={{ user, loading, login, logout, hasRole, loadUser }}>
-      {children}
-    </AuthContext.Provider>
+  // Stable identity: pages put hasRole in useCallback/useEffect dependency
+  // arrays, so a fresh function each render would re-fetch forever.
+  const hasRole = useCallback(
+    (...roles) => Boolean(user) && roles.includes(user.role),
+    [user]
   );
+
+  const value = useMemo(
+    () => ({ user, loading, login, logout, hasRole, loadUser }),
+    [user, loading, login, logout, hasRole, loadUser]
+  );
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 // eslint-disable-next-line react-refresh/only-export-components

@@ -46,12 +46,11 @@ function csvCell(v) {
   return `"${String(v ?? '').replace(/"/g, '""')}"`;
 }
 
+// Talk time is always shown in raw seconds to match the dialer report.
 function formatTalkTime(sec) {
   const n = Number(sec);
   if (!Number.isFinite(n) || n <= 0) return sec || '';
-  const m = Math.floor(n / 60);
-  const s = Math.round(n % 60);
-  return m ? `${m}m ${String(s).padStart(2, '0')}s` : `${s}s`;
+  return `${Math.round(n)}s`;
 }
 
 function prettyDate(iso) {

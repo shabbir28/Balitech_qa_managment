@@ -62,14 +62,17 @@ async function applyEvaluationQaStatus(exec, call, finalStatus, metadata) {
 
   const leadId = extractDialerLeadId(call.notes);
   const phoneDigits = String(call.customer_phone || '').replace(/\D/g, '');
+  // lead_id is only unique per dialer (UNIQUE (lead_id, dialer)), and a phone
+  // can appear in both dialers, so every match must be scoped to one dialer.
+  const dialer = detectDialer(call);
   let rows = [];
 
   if (leadId) {
     const res = await exec(
       `UPDATE dialer_sales_history SET qa_status = $1
-       WHERE lead_id = $2
+       WHERE lead_id = $2 AND dialer = $3
        RETURNING ${RETURNING_COLS}`,
-      [qaStatus, leadId]
+      [qaStatus, leadId, dialer]
     );
     rows = res.rows;
   }
@@ -79,8 +82,9 @@ async function applyEvaluationQaStatus(exec, call, finalStatus, metadata) {
     const res = await exec(
       `UPDATE dialer_sales_history SET qa_status = $1
        WHERE right(regexp_replace(COALESCE(phone, ''), '\\D', '', 'g'), 10) = right($2, 10)
+         AND dialer = $3
        RETURNING ${RETURNING_COLS}`,
-      [qaStatus, phoneDigits]
+      [qaStatus, phoneDigits, dialer]
     );
     rows = res.rows;
   }
@@ -93,7 +97,7 @@ async function applyEvaluationQaStatus(exec, call, finalStatus, metadata) {
        RETURNING ${RETURNING_COLS}`,
       [
         leadId,
-        detectDialer(call),
+        dialer,
         call.customer_phone || null,
         call.agent_name || null,
         call.campaign_name || null,

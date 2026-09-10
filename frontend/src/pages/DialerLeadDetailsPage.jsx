@@ -41,7 +41,7 @@ export default function DialerLeadDetailsPage() {
         }
 
         if (recRes.status === 'fulfilled' && recRes.value.data.success) {
-          setRecordings(recRes.value.data.data);
+          setRecordings(recRes.value.data.data ?? []);
         }
       } catch (error) {
         console.error('Error fetching lead details:', error);

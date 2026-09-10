@@ -4,6 +4,7 @@ import { Search, Phone, User, Activity, Hash, ChevronRight, AlertTriangle, Setti
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { lockedDialerForUser } from '../utils/campaignAccess';
 
 export default function DialerSearchPage() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -12,19 +13,14 @@ export default function DialerSearchPage() {
   const { user } = useAuth();
   
   const [phone, setPhone]       = useState(initialPhone);
-  const [dialerType, setDialerType] = useState(searchParams.get('dialer') || 'pharmacy');
+  const lockedDialer = lockedDialerForUser(user);
+  const [dialerType, setDialerType] = useState(
+    lockedDialer || searchParams.get('dialer') || 'pharmacy'
+  );
 
-  // Sync dialerType state with user's assigned campaign
   useEffect(() => {
-    if (user && user.role === 'QA Agent') {
-      const camp = (user.campaign_name || '').toLowerCase();
-      if (camp.includes('medicare')) {
-        setDialerType('medicare');
-      } else if (camp.includes('pharmacy')) {
-        setDialerType('pharmacy');
-      }
-    }
-  }, [user]);
+    if (lockedDialer) setDialerType(lockedDialer);
+  }, [lockedDialer]);
   const [leads, setLeads]       = useState([]);
   const [loading, setLoading]   = useState(false);
   const [searched, setSearched] = useState(false);
@@ -44,9 +40,10 @@ export default function DialerSearchPage() {
     try {
       const response = await api.get(`/dialer/search?phone=${encodeURIComponent(searchPhone)}&dialer=${encodeURIComponent(dialerType)}`);
       if (response.data.success) {
-        setLeads(response.data.data.leads || []);
+        const found = Array.isArray(response.data.data?.leads) ? response.data.data.leads : [];
+        setLeads(found);
         setSearched(true);
-        const count = response.data.data.leads.length;
+        const count = found.length;
         if (count === 0) {
           toast.error('No leads found for this number');
         } else {

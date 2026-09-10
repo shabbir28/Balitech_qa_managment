@@ -2,11 +2,12 @@
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Play, Pause, Volume2, Save, Lock, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Volume2, Save, Lock, RefreshCw, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
 import EditableOptionsInput from '../components/common/EditableOptionsInput';
+import { downloadRecording } from '../utils/recordingDownload';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -29,6 +30,7 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(rec.length ? parseFloat(rec.length) : 0);
   const [playbackRate, setPlaybackRate] = useState(1);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
     if (!audioRef.current) return;
@@ -39,11 +41,33 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
     }
   }, [isPlaying]);
 
+  const handleDownload = async (e) => {
+    e.stopPropagation();
+    if (downloading) return;
+    setDownloading(true);
+    try {
+      await downloadRecording(rec, index);
+      toast.success('Download started');
+    } catch (err) {
+      toast.error(err.message || 'Failed to download recording.');
+    } finally {
+      setDownloading(false);
+    }
+  };
+
+  // Dialer reports call length in raw seconds; show the same unit everywhere
+  // so the player matches the "Talk Time (sec)" column and the dialer report.
+  const reportedLength =
+    rec.length !== undefined && rec.length !== null && String(rec.length).trim() !== ''
+      ? Math.round(parseFloat(rec.length))
+      : null;
+  const displayDuration =
+    reportedLength != null && !isNaN(reportedLength) ? reportedLength : Math.round(duration || 0);
+
   const formatTime = (sec) => {
-    if (!sec || isNaN(sec)) return '0:00';
-    const m = Math.floor(sec / 60);
-    const s = Math.floor(sec % 60);
-    return `${m}:${s.toString().padStart(2, '0')}`;
+    const n = Number(sec);
+    if (!Number.isFinite(n) || n < 0) return '0s';
+    return `${Math.round(n)}s`;
   };
 
   const handleRateChange = (newRate) => {
@@ -95,9 +119,9 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
           </div>
 
           <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(currentTime)}</span>
+            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(Math.min(currentTime, displayDuration || currentTime))}</span>
             <span className="text-xs text-slate-500">/</span>
-            <span className="text-xs font-mono text-slate-400">{formatTime(duration)}</span>
+            <span className="text-xs font-mono text-slate-400">{formatTime(displayDuration)}</span>
             
             <select
               value={playbackRate}
@@ -109,6 +133,21 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
               <option value={1.5}>1.5x</option>
               <option value={2}>2x</option>
             </select>
+
+            <button
+              type="button"
+              onClick={handleDownload}
+              disabled={downloading}
+              title="Download this recording"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white text-[11px] font-semibold transition-all disabled:opacity-50 disabled:cursor-wait"
+            >
+              {downloading ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+              ) : (
+                <Download className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              {downloading ? 'Downloading…' : 'Download'}
+            </button>
           </div>
         </div>
 

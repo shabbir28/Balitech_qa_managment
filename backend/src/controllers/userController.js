@@ -72,6 +72,20 @@ const updateUser = async (req, res, next) => {
     }
 
     const hasCampaignId = campaign_id !== undefined;
+    // An unparseable campaign_id would reach $8::integer as NaN and 500.
+    let parsedCampaignId = null;
+    if (campaign_id !== undefined && campaign_id !== null && campaign_id !== '') {
+      parsedCampaignId = parseInt(campaign_id, 10);
+      if (!Number.isFinite(parsedCampaignId) || parsedCampaignId < 1) {
+        return res.status(400).json({ success: false, message: 'Invalid campaign_id.' });
+      }
+    }
+
+    const parsedUserId = parseInt(req.params.id, 10);
+    if (!Number.isFinite(parsedUserId)) {
+      return res.status(400).json({ success: false, message: 'Invalid user id.' });
+    }
+
     const result = await query(
       `UPDATE users SET
         name = COALESCE($1, name),
@@ -92,8 +106,8 @@ const updateUser = async (req, res, next) => {
         is_active,
         agent_id ? String(agent_id).trim().substring(0, 50) : null,
         hasCampaignId,
-        campaign_id ? parseInt(campaign_id, 10) : null,
-        req.params.id,
+        parsedCampaignId,
+        parsedUserId,
       ]
     );
     if (result.rows.length === 0) {
@@ -217,6 +231,12 @@ const getManagedUsersStats = async (req, res, next) => {
     let laConditions = 'la.assigned_to = u.id';
     if (isManager) {
       laConditions += ` AND la.assigned_by = $${paramIdx++}`;
+      params.push(req.user.id);
+    }
+
+    // A QA Agent may only ever see their own performance card.
+    if (req.user.role === 'QA Agent') {
+      whereClause = `u.deleted_at IS NULL AND u.id = $${paramIdx++}`;
       params.push(req.user.id);
     }
 

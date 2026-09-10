@@ -15,7 +15,7 @@ const CampaignsPage = () => {
   const fetchCampaigns = useCallback(async () => {
     try {
       const res = await api.get('/campaigns');
-      setCampaigns(res.data.data);
+      setCampaigns(res.data.data ?? []);
     } catch {
       toast.error('Failed to load campaigns.');
     } finally {

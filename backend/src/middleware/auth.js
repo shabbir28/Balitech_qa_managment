@@ -1,5 +1,6 @@
 const jwt = require('jsonwebtoken');
 const { query } = require('../config/database');
+const { agentCanAccessCampaign } = require('../utils/campaignAccess');
 
 /**
  * Authentication middleware - verifies JWT token
@@ -80,36 +81,15 @@ const checkDialerAccess = (req, res, next) => {
 
   // Find dialer type from query, body, or params
   // Express 5 leaves req.body undefined on requests without a JSON payload (e.g. GET).
-  let dialer = req.query?.dialer || req.body?.dialer || req.params?.dialer;
+  const dialer = req.query?.dialer || req.body?.dialer || req.params?.dialer;
 
   if (!dialer) {
     return next();
   }
 
-  dialer = dialer.toLowerCase();
-  const userCampaign = (req.user.campaign_name || '').toLowerCase();
-
-  // If QA Agent has no campaign assigned, deny access
-  if (!req.user.campaign_id || !userCampaign) {
-    return res.status(403).json({
-      success: false,
-      message: 'Access denied. You have no campaign assigned. Contact your administrator.'
-    });
-  }
-
-  // Validate campaign mapping
-  let hasAccess = false;
-  if (dialer === 'medicare' && userCampaign.includes('medicare')) {
-    hasAccess = true;
-  } else if (dialer === 'pharmacy' && userCampaign.includes('pharmacy')) {
-    hasAccess = true;
-  }
-
-  if (!hasAccess) {
-    return res.status(403).json({
-      success: false,
-      message: `Access denied. You are assigned to the "${req.user.campaign_name}" campaign and cannot access the "${dialer}" dialer.`
-    });
+  const access = agentCanAccessCampaign(req.user, { dialer });
+  if (!access.ok) {
+    return res.status(403).json({ success: false, message: access.message });
   }
 
   next();

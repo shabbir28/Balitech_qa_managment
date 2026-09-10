@@ -2,6 +2,8 @@ const path = require('path');
 const fs = require('fs');
 const XLSX = require('xlsx');
 const { query, getClient } = require('../config/database');
+const { agentCanAccessCampaign, agentCampaignSql } = require('../utils/campaignAccess');
+const { parsePagination } = require('../utils/pagination');
 
 const csv = require('csv-parser');
 
@@ -217,8 +219,6 @@ const uploadCalls = async (req, res, next) => {
 const getCalls = async (req, res, next) => {
   try {
     const {
-      page = 1,
-      limit = 20,
       search,
       agent_id,
       campaign_name,
@@ -227,15 +227,16 @@ const getCalls = async (req, res, next) => {
       to_date,
     } = req.query;
 
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 20 });
     const conditions = ['cl.is_deleted = FALSE'];
     const params = [];
     let paramCount = 1;
 
-    if (req.user && req.user.role === 'QA Agent' && req.user.campaign_id) {
-      conditions.push(`cl.campaign_id = $${paramCount}`);
-      params.push(req.user.campaign_id);
-      paramCount++;
+    if (req.user && req.user.role === 'QA Agent') {
+      const camp = agentCampaignSql(req.user, 'cl', paramCount);
+      conditions.push(camp.sql);
+      params.push(...camp.params);
+      paramCount = camp.next;
     }
 
     if (search) {
@@ -274,7 +275,7 @@ const getCalls = async (req, res, next) => {
     const countResult = await query(`SELECT COUNT(*) FROM call_leads cl ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    params.push(parseInt(limit));
+    params.push(limit);
     params.push(offset);
 
     const result = await query(
@@ -292,9 +293,9 @@ const getCalls = async (req, res, next) => {
       data: result.rows,
       pagination: {
         total,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(total / parseInt(limit)),
+        page,
+        limit,
+        pages: Math.ceil(total / limit),
       },
     });
   } catch (error) {
@@ -320,6 +321,14 @@ const getCallById = async (req, res, next) => {
     }
 
     const callData = result.rows[0];
+
+    const campAccess = agentCanAccessCampaign(req.user, {
+      campaign_id: callData.campaign_id,
+      campaign_name: callData.campaign_name,
+    });
+    if (!campAccess.ok) {
+      return res.status(403).json({ success: false, message: campAccess.message });
+    }
 
     // Check duplicate phone occurrences (excluding current call)
     let is_duplicate = false;
@@ -438,8 +447,7 @@ const deleteCall = async (req, res, next) => {
  */
 const getUploadBatches = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 10 });
 
     const countResult = await query('SELECT COUNT(*) FROM upload_batches');
     const total = parseInt(countResult.rows[0].count);
@@ -450,13 +458,13 @@ const getUploadBatches = async (req, res, next) => {
        JOIN users u ON ub.uploaded_by = u.id
        ORDER BY ub.created_at DESC
        LIMIT $1 OFFSET $2`,
-      [parseInt(limit), offset]
+      [limit, offset]
     );
 
     res.json({
       success: true,
       data: result.rows,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     next(error);
@@ -471,6 +479,23 @@ const updateCallRecording = async (req, res, next) => {
     }
 
     const recsJson = JSON.stringify(Array.isArray(recordings) ? recordings : []);
+
+    const existing = await query(
+      'SELECT id, campaign_id, campaign_name FROM call_leads WHERE id = $1 AND is_deleted = FALSE',
+      [req.params.id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Call/lead not found.' });
+    }
+
+    // A QA Agent may only attach recordings to their own campaign's leads.
+    const campAccess = agentCanAccessCampaign(req.user, {
+      campaign_id: existing.rows[0].campaign_id,
+      campaign_name: existing.rows[0].campaign_name,
+    });
+    if (!campAccess.ok) {
+      return res.status(403).json({ success: false, message: campAccess.message });
+    }
 
     const result = await query(
       `UPDATE call_leads 

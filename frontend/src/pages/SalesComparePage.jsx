@@ -182,9 +182,13 @@ export default function SalesComparePage() {
       });
 
       if (res.data.success) {
-        const foundPhones = new Set(res.data.data.map(d => d.phone));
-        const notFound = uniquePhones.filter(p => !foundPhones.has(p));
-        
+        const foundRows = Array.isArray(res.data.data) ? res.data.data : [];
+        // The backend matches on the last 10 digits, so compare the same way —
+        // a formatted "(555) 123-4567" row must not be reported as Not Found.
+        const last10 = (v) => String(v || '').replace(/\D/g, '').slice(-10);
+        const foundPhones = new Set(foundRows.map(d => last10(d.phone)));
+        const notFound = uniquePhones.filter(p => !foundPhones.has(last10(p)));
+
         const notFoundData = notFound.map(p => ({
            phone: p,
            status: 'Not Found',
@@ -193,15 +197,15 @@ export default function SalesComparePage() {
            sale_date: '-'
         }));
 
-        const combinedData = [...res.data.data, ...notFoundData];
+        const combinedData = [...foundRows, ...notFoundData];
         
         setResult({
           data: combinedData,
           summary: res.data.summary,
           notFoundCount: notFound.length
         });
-        
-        toast.success(`Found ${res.data.summary.total_found} matches out of ${uniquePhones.length} numbers.`);
+
+        toast.success(`Found ${foundRows.length} matches out of ${uniquePhones.length} numbers.`);
 
         try {
           const saveRes = await api.post('/dialer-sales/compare-history', {

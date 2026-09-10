@@ -95,21 +95,19 @@ const EvaluationListPage = () => {
   // Sub-modals
   const [audioAssignment, setAudioAssignment] = useState(null);
 
-  const { hasRole } = useAuth();
+  const { user, hasRole } = useAuth();
+  const isAgent = user?.role === 'QA Agent';
   const navigate = useNavigate();
 
   useEffect(() => {
-    api.get('/campaigns').then(res => setCampaigns(res.data.data)).catch(() => {});
-  }, []);
+    if (isAgent) return; // agents cannot list campaigns
+    api.get('/campaigns').then(res => setCampaigns(res.data.data ?? [])).catch(() => {});
+  }, [isAgent]);
 
   const fetchManagedUsers = useCallback(async () => {
-    // QA Agents don't manage other users — skip to avoid a 403
-    if (!hasRole('Super Admin', 'QA Admin', 'Manager')) {
-      setLoadingUsers(false);
-      return;
-    }
     setLoadingUsers(true);
     try {
+      // The backend scopes this to the caller's own row for QA Agents.
       const res = await api.get('/users/managed-stats', { params: filters });
       setManagedUsers(res.data.data || []);
     } catch {
@@ -117,7 +115,7 @@ const EvaluationListPage = () => {
     } finally {
       setLoadingUsers(false);
     }
-  }, [filters, hasRole]);
+  }, [filters]);
 
   useEffect(() => {
     fetchManagedUsers();
@@ -156,7 +154,7 @@ const EvaluationListPage = () => {
 
 
 
-  if (!hasRole('Super Admin', 'QA Admin', 'Manager')) {
+  if (!hasRole('Super Admin', 'QA Admin', 'Manager', 'QA Agent')) {
     return <div className="p-10 text-center text-slate-500">You do not have access to this page.</div>;
   }
 
@@ -170,28 +168,41 @@ const EvaluationListPage = () => {
     <div>
       <div className="page-header flex-wrap gap-3 mb-6">
         <div>
-          <h1 className="page-title">QA Performance</h1>
-          <p className="page-subtitle">Track your QA evaluators' performance and listen to their accepted/rejected calls</p>
+          <h1 className="page-title">{isAgent ? 'My QA Performance' : 'QA Performance'}</h1>
+          <p className="page-subtitle">
+            {isAgent
+              ? 'Your evaluated, accepted and rejected calls — click the card to review them'
+              : "Track your QA evaluators' performance and listen to their accepted/rejected calls"}
+          </p>
         </div>
       </div>
 
       {/* Main Filters */}
       <div className="card p-4 mb-8 !overflow-visible z-50">
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
-            <input className="input pl-9" placeholder="Search QA user name..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} />
-          </div>
-          <select className="input w-48" value={filters.campaign} onChange={e => setFilters(f => ({ ...f, campaign: e.target.value }))}>
-            <option value="">All Campaigns</option>
-            {campaigns.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-          </select>
+          {!isAgent && (
+            <>
+              <div className="relative flex-1 min-w-[200px]">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-500" />
+                <input className="input pl-9" placeholder="Search QA user name..." value={filters.search} onChange={e => setFilters(f => ({ ...f, search: e.target.value }))} />
+              </div>
+              <select className="input w-48" value={filters.campaign} onChange={e => setFilters(f => ({ ...f, campaign: e.target.value }))}>
+                <option value="">All Campaigns</option>
+                {campaigns.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
+            </>
+          )}
+          {isAgent && (
+            <div className="flex-1 min-w-[200px] text-sm text-slate-400">
+              Showing your own performance
+            </div>
+          )}
           <DateRangeDropdown
             startDate={filters.from_date}
             endDate={filters.to_date}
             onChange={(start, end) => setFilters(f => ({ ...f, from_date: start || '', to_date: end || '' }))}
           />
-          {(filters.search || filters.campaign || filters.from_date || filters.to_date) && (
+          {!isAgent && (filters.search || filters.campaign || filters.from_date || filters.to_date) && (
             <button onClick={() => setFilters({ search: '', campaign: '', from_date: '', to_date: '' })} className="btn-ghost text-sm">
               <X size={14} /> Clear
             </button>

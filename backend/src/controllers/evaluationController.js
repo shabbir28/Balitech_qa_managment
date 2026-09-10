@@ -1,6 +1,8 @@
 const { query, getClient } = require('../config/database');
 const { nyDateStart } = require('../utils/timezone');
 const { applyEvaluationQaStatus, pushQaStatusToHrms } = require('../services/evaluationQaStatusSync');
+const { agentCanAccessCampaign, agentCampaignSql, campaignFamily } = require('../utils/campaignAccess');
+const { parsePagination } = require('../utils/pagination');
 
 // Must stay in sync with the qa_evaluations_status_check constraint.
 const VALID_STATUSES = ['Pass', 'Fail', 'Flagged', 'Accepted', 'Rejected', 'Decline', 'Not Billable', 'Not Bilable'];
@@ -57,6 +59,9 @@ const validateAllScores = (body) => {
  */
 const createEvaluation = async (req, res, next) => {
   const client = await getClient();
+  // The validation/lookup phase below runs before BEGIN, so a failure there
+  // must not issue a ROLLBACK ("no transaction in progress" masks the cause).
+  let inTransaction = false;
   try {
     const {
       call_lead_id,
@@ -92,6 +97,14 @@ const createEvaluation = async (req, res, next) => {
 
     const call = callResult.rows[0];
 
+    const campAccess = agentCanAccessCampaign(req.user, {
+      campaign_id: call.campaign_id,
+      campaign_name: call.campaign_name,
+    });
+    if (!campAccess.ok) {
+      return res.status(403).json({ success: false, message: campAccess.message });
+    }
+
     // Check already evaluated for THIS call
     const alreadyEvalCall = await query(
       `SELECT q.id FROM qa_evaluations q WHERE q.call_lead_id = $1 AND q.is_deleted = FALSE`,
@@ -126,6 +139,7 @@ const createEvaluation = async (req, res, next) => {
       : (recordings.length > 0 ? recordings : (metadata?.recordings || []));
 
     await client.query('BEGIN');
+    inTransaction = true;
 
     const evalResult = await client.query(
       `INSERT INTO qa_evaluations (
@@ -225,7 +239,9 @@ const createEvaluation = async (req, res, next) => {
       data: evaluation,
     });
   } catch (error) {
-    await client.query('ROLLBACK');
+    if (inTransaction) {
+      await client.query('ROLLBACK').catch(() => {});
+    }
     next(error);
   } finally {
     client.release();
@@ -237,8 +253,8 @@ const createEvaluation = async (req, res, next) => {
  */
 const getEvaluations = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, agent_id, campaign_name, status, from_date, to_date, search } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { agent_id, campaign_name, status, from_date, to_date, search } = req.query;
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 20 });
 
     const conditions = ['qe.is_deleted = FALSE'];
     const params = [];
@@ -249,12 +265,10 @@ const getEvaluations = async (req, res, next) => {
       conditions.push(`qe.evaluated_by = $${pc}`);
       params.push(req.user.id);
       pc++;
-      // If user has an assigned campaign, restrict to that campaign only
-      if (req.user.campaign_id) {
-        conditions.push(`qe.campaign_id = $${pc}`);
-        params.push(req.user.campaign_id);
-        pc++;
-      }
+      const camp = agentCampaignSql(req.user, 'qe', pc);
+      conditions.push(camp.sql);
+      params.push(...camp.params);
+      pc = camp.next;
     }
 
     if (search) {
@@ -272,7 +286,7 @@ const getEvaluations = async (req, res, next) => {
     const countResult = await query(`SELECT COUNT(*) FROM qa_evaluations qe ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    params.push(parseInt(limit)); params.push(offset);
+    params.push(limit); params.push(offset);
 
     const result = await query(
       `SELECT qe.*, u.name as evaluator_name
@@ -287,7 +301,7 @@ const getEvaluations = async (req, res, next) => {
     res.json({
       success: true,
       data: result.rows,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     next(error);
@@ -496,8 +510,18 @@ const getAgentErrorReport = async (req, res, next) => {
       pc++;
     }
     if (campaign_name) {
-      conditions.push(`(la.campaign_name ILIKE $${pc} OR qe.campaign_name ILIKE $${pc})`);
-      params.push(`%${campaign_name}%`);
+      // Match the whole campaign family, not just the stored label — the same
+      // campaign appears as a team name or "<name> Dialer" across tables.
+      const family = campaignFamily(campaign_name) || String(campaign_name).trim().toLowerCase();
+      conditions.push(`(
+        LOWER(COALESCE(la.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(qe.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(cl.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(uc.name, '')) LIKE $${pc}
+        OR cl.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+        OR qe.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+      )`);
+      params.push(`%${family}%`);
       pc++;
     }
     // A row belongs to the window when either the assignment or the evaluation
@@ -542,6 +566,7 @@ const getAgentErrorReport = async (req, res, next) => {
       FROM lead_assignments la
       JOIN users u ON la.assigned_to = u.id
       JOIN call_leads cl ON la.call_lead_id = cl.id
+      LEFT JOIN campaigns uc ON uc.id = u.campaign_id
       LEFT JOIN qa_evaluations qe ON qe.call_lead_id = la.call_lead_id AND qe.is_deleted = FALSE
       ${where}
       ORDER BY la.assigned_at DESC
@@ -662,8 +687,19 @@ const getRejectedCallsReport = async (req, res, next) => {
     if (from_date) { conditions.push(`qe.evaluation_date >= $${pc}::date`); params.push(from_date); pc++; }
     if (to_date) { conditions.push(`qe.evaluation_date <= $${pc}::date`); params.push(to_date); pc++; }
     if (campaign_name) {
-      conditions.push(`(qe.campaign_name ILIKE $${pc} OR cl.campaign_name ILIKE $${pc})`);
-      params.push(`%${campaign_name}%`);
+      // Evaluations often store a team ("TeamBrad") or a dialer name
+      // ("Medicare Dialer") instead of the campaign row's name, so match the
+      // whole campaign family: names, campaign ids, and the evaluator's
+      // assigned campaign. Mirrors getDailyQaReport.
+      const family = campaignFamily(campaign_name) || String(campaign_name).trim().toLowerCase();
+      conditions.push(`(
+        LOWER(COALESCE(qe.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(cl.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(uc.name, '')) LIKE $${pc}
+        OR qe.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+        OR cl.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+      )`);
+      params.push(`%${family}%`);
       pc++;
     }
     if (team) {
@@ -703,6 +739,7 @@ const getRejectedCallsReport = async (req, res, next) => {
       FROM qa_evaluations qe
       JOIN call_leads cl ON cl.id = qe.call_lead_id
       JOIN users u ON u.id = qe.evaluated_by
+      LEFT JOIN campaigns uc ON uc.id = u.campaign_id
     `;
 
     // Range-wide summary for the KPI cards (independent of pagination).
@@ -770,6 +807,385 @@ const getRejectedCallsReport = async (req, res, next) => {
       summary,
       pagination: { total, page: pageNum, limit: limitNum, pages: Math.ceil(total / limitNum) },
     });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/evaluations/reports/medicare-daily
+ * Every submitted evaluation sheet, one row per form, exactly as the QA filled
+ * it in — the same columns the team keeps in their daily Excel workbook.
+ * Defaults to the Medicare campaign family; pass campaign_name to widen or
+ * switch, or `all` for every campaign.
+ */
+const getMedicareDailyEvaluations = async (req, res, next) => {
+  try {
+    const { from_date, to_date, qa_user_id, search, campaign_name } = req.query;
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 100, maxLimit: 1000 });
+
+    const conditions = ['qe.is_deleted = FALSE'];
+    const params = [];
+    let pc = 1;
+
+    const scopedQaUserId = req.user.role === 'QA Agent' ? req.user.id : qa_user_id;
+    if (scopedQaUserId) {
+      conditions.push(`qe.evaluated_by = $${pc}`);
+      params.push(scopedQaUserId);
+      pc++;
+    }
+    if (from_date) { conditions.push(`qe.evaluation_date >= $${pc}::date`); params.push(from_date); pc++; }
+    if (to_date) { conditions.push(`qe.evaluation_date <= $${pc}::date`); params.push(to_date); pc++; }
+
+    // The sheet is Medicare's, so scope to that family unless asked otherwise.
+    // Teams are stored as free text ("TEAM BRAD"), hence the wide match that
+    // also looks at campaign ids and the evaluator's assigned campaign.
+    const requested = String(campaign_name || 'Medicare').trim();
+    if (requested.toLowerCase() !== 'all') {
+      const family = campaignFamily(requested) || requested.toLowerCase();
+      conditions.push(`(
+        LOWER(COALESCE(qe.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(cl.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(qe.metadata->>'teams', '')) LIKE $${pc}
+        OR LOWER(COALESCE(uc.name, '')) LIKE $${pc}
+        OR qe.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+        OR cl.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+      )`);
+      params.push(`%${family}%`);
+      pc++;
+    }
+
+    const term = String(search || '').trim();
+    if (term) {
+      const clauses = [
+        `qe.agent_name ILIKE $${pc}`,
+        `u.name ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'teams', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'dids', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'laSideErrorCategory', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'agentSideFeedback', '') ILIKE $${pc}`,
+        `COALESCE(qe.metadata->>'laSideFeedback', '') ILIKE $${pc}`,
+        `cl.customer_phone ILIKE $${pc}`,
+      ];
+      params.push(`%${term}%`);
+      pc++;
+
+      const digits = term.replace(/\D/g, '');
+      if (digits.length >= 3) {
+        clauses.push(`regexp_replace(COALESCE(cl.customer_phone, ''), '\\D', '', 'g') LIKE $${pc}`);
+        params.push(`%${digits}%`);
+        pc++;
+      }
+      conditions.push(`(${clauses.join(' OR ')})`);
+    }
+
+    const where = 'WHERE ' + conditions.join(' AND ');
+    const fromClause = `
+      FROM qa_evaluations qe
+      JOIN call_leads cl ON cl.id = qe.call_lead_id
+      JOIN users u ON u.id = qe.evaluated_by
+      LEFT JOIN campaigns uc ON uc.id = u.campaign_id
+    `;
+
+    // Range-wide totals for the KPI strip, independent of the current page.
+    const normStatus = `
+      CASE
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('accepted', 'pass') THEN 'Accepted'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('rejected', 'fail') THEN 'Rejected'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) = 'flagged' THEN 'Flagged'
+        ELSE 'Other'
+      END`;
+
+    const [summaryRes, topReasonRes] = await Promise.all([
+      query(
+        `SELECT
+           COUNT(*)::int                                                   AS total,
+           COUNT(*) FILTER (WHERE ${normStatus} = 'Accepted')::int         AS accepted,
+           COUNT(*) FILTER (WHERE ${normStatus} = 'Rejected')::int         AS rejected,
+           COUNT(*) FILTER (WHERE ${normStatus} = 'Flagged')::int          AS flagged,
+           COUNT(DISTINCT LOWER(TRIM(qe.agent_name)))::int                 AS agents,
+           COUNT(DISTINCT qe.evaluated_by)::int                            AS qa_executives,
+           COUNT(DISTINCT LOWER(TRIM(COALESCE(NULLIF(qe.metadata->>'teams', ''), qe.campaign_name))))::int AS teams
+         ${fromClause} ${where}`,
+        params
+      ),
+      query(
+        `SELECT NULLIF(TRIM(qe.metadata->>'laSideErrorCategory'), '') AS reason, COUNT(*)::int AS count
+         ${fromClause} ${where}
+           AND NULLIF(TRIM(qe.metadata->>'laSideErrorCategory'), '') IS NOT NULL
+         GROUP BY 1
+         ORDER BY count DESC, reason ASC
+         LIMIT 1`,
+        params
+      ),
+    ]);
+
+    const summary = {
+      ...summaryRes.rows[0],
+      top_reason: topReasonRes.rows[0]
+        ? { reason: topReasonRes.rows[0].reason, count: topReasonRes.rows[0].count }
+        : null,
+    };
+    const total = summary.total;
+
+    const rowsRes = await query(
+      `SELECT
+         qe.id                                                         AS evaluation_id,
+         qe.call_lead_id,
+         qe.evaluation_date,
+         qe.agent_name,
+         COALESCE(NULLIF(qe.metadata->>'teams', ''), qe.campaign_name) AS team,
+         cl.customer_phone                                             AS phone,
+         NULLIF(qe.metadata->>'dids', '')                              AS dids,
+         NULLIF(qe.metadata->>'talkTime', '')                          AS talk_time,
+         NULLIF(qe.metadata->>'dup', '')                               AS dup,
+         COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)     AS status,
+         COALESCE(qe.metadata->>'agentSideFeedback', '')               AS agent_side,
+         COALESCE(qe.metadata->>'laSideFeedback', '')                  AS la_side,
+         NULLIF(qe.metadata->>'laSideErrorCategory', '')               AS dropping_reason,
+         NULLIF(qe.metadata->>'errorCategory', '')                     AS error_category,
+         u.name                                                        AS qa_name,
+         qe.evaluated_by                                               AS qa_user_id,
+         qe.created_at
+       ${fromClause}
+       ${where}
+       ORDER BY qe.evaluation_date DESC, qe.created_at DESC
+       LIMIT $${pc} OFFSET $${pc + 1}`,
+      [...params, limit, offset]
+    );
+
+    res.json({
+      success: true,
+      data: rowsRes.rows,
+      summary,
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/evaluations/reports/daily
+ * Per-QA-agent daily productivity report. Because QA listens to both the agent
+ * side and the LA side of every call, each evaluated call counts twice for the
+ * "calls evaluated" volume (agent-side = N, LA-side = N, total = 2N), while the
+ * Accepted / Rejected / Flagged outcome counts stay at N (one outcome per call).
+ * QA Agents only ever see their own numbers.
+ */
+const getDailyQaReport = async (req, res, next) => {
+  try {
+    const { from_date, to_date, campaign_name, qa_user_id } = req.query;
+
+    const conditions = ['qe.is_deleted = FALSE'];
+    const params = [];
+    let pc = 1;
+
+    const scopedQaUserId = req.user.role === 'QA Agent' ? req.user.id : qa_user_id;
+    if (scopedQaUserId) {
+      conditions.push(`qe.evaluated_by = $${pc}`);
+      params.push(scopedQaUserId);
+      pc++;
+    }
+    if (req.user.role === 'QA Agent') {
+      const camp = agentCampaignSql(req.user, 'qe', pc);
+      conditions.push(camp.sql);
+      params.push(...camp.params);
+      pc = camp.next;
+    }
+    if (from_date) { conditions.push(`qe.evaluation_date >= $${pc}::date`); params.push(from_date); pc++; }
+    if (to_date) { conditions.push(`qe.evaluation_date <= $${pc}::date`); params.push(to_date); pc++; }
+    if (campaign_name) {
+      const family = campaignFamily(campaign_name) || String(campaign_name).trim().toLowerCase();
+      conditions.push(`(
+        LOWER(COALESCE(qe.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(cl.campaign_name, '')) LIKE $${pc}
+        OR LOWER(COALESCE(uc.name, '')) LIKE $${pc}
+        OR qe.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+        OR cl.campaign_id IN (SELECT id FROM campaigns WHERE LOWER(name) LIKE $${pc})
+      )`);
+      params.push(`%${family}%`);
+      pc++;
+    }
+
+    const where = 'WHERE ' + conditions.join(' AND ');
+    // Normalise the many status spellings into the five outcomes the UI shows.
+    const normStatus = `
+      CASE
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('accepted', 'pass') THEN 'Accepted'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('rejected', 'fail') THEN 'Rejected'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) = 'flagged' THEN 'Flagged'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) = 'decline' THEN 'Decline'
+        WHEN LOWER(COALESCE(NULLIF(qe.metadata->>'qa_status', ''), qe.status)) IN ('not billable', 'not bilable') THEN 'Not Billable'
+        ELSE 'Other'
+      END`;
+
+    const baseCte = `
+      WITH evals AS (
+        SELECT
+          qe.evaluated_by                                   AS qa_user_id,
+          u.name                                            AS qa_name,
+          uc.name                                           AS qa_campaign,
+          ${normStatus}                                     AS norm_status,
+          NULLIF(qe.metadata->>'laSideErrorCategory', '')   AS la_error_category
+        FROM qa_evaluations qe
+        JOIN users u ON u.id = qe.evaluated_by
+        LEFT JOIN campaigns uc ON uc.id = u.campaign_id
+        LEFT JOIN call_leads cl ON cl.id = qe.call_lead_id
+        ${where}
+      )`;
+
+    const [agentsRes, catsRes] = await Promise.all([
+      query(
+        `${baseCte}
+         SELECT
+           qa_user_id,
+           qa_name,
+           qa_campaign,
+           COUNT(*)::int                                          AS evaluated,
+           COUNT(*) FILTER (WHERE norm_status = 'Accepted')::int  AS accepted,
+           COUNT(*) FILTER (WHERE norm_status = 'Rejected')::int  AS rejected,
+           COUNT(*) FILTER (WHERE norm_status = 'Flagged')::int   AS flagged,
+           COUNT(*) FILTER (WHERE norm_status = 'Decline')::int   AS decline,
+           COUNT(*) FILTER (WHERE norm_status = 'Not Billable')::int AS not_billable
+         FROM evals
+         GROUP BY qa_user_id, qa_name, qa_campaign
+         ORDER BY evaluated DESC, qa_name ASC`,
+        params
+      ),
+      query(
+        `${baseCte}
+         SELECT qa_user_id, la_error_category AS category, COUNT(*)::int AS count
+         FROM evals
+         WHERE la_error_category IS NOT NULL
+         GROUP BY qa_user_id, la_error_category
+         ORDER BY count DESC`,
+        params
+      ),
+    ]);
+
+    const catsByAgent = {};
+    catsRes.rows.forEach((row) => {
+      (catsByAgent[row.qa_user_id] = catsByAgent[row.qa_user_id] || []).push({
+        category: row.category,
+        count: row.count,
+      });
+    });
+
+    const rate = (num, den) => (den > 0 ? parseFloat(((num / den) * 100).toFixed(2)) : 0);
+
+    const agents = agentsRes.rows.map((r) => ({
+      qa_user_id: r.qa_user_id,
+      qa_name: r.qa_name,
+      campaign_name: r.qa_campaign || null,
+      evaluated: r.evaluated,
+      agent_side: r.evaluated,
+      la_side: r.evaluated,
+      total: r.evaluated * 2,
+      accepted: r.accepted,
+      rejected: r.rejected,
+      flagged: r.flagged,
+      decline: r.decline,
+      not_billable: r.not_billable,
+      pass_rate: rate(r.accepted, r.evaluated),
+      fail_rate: rate(r.rejected, r.evaluated),
+      top_categories: (catsByAgent[r.qa_user_id] || []).slice(0, 5),
+    }));
+
+    const sum = (key) => agents.reduce((acc, a) => acc + a[key], 0);
+    const totalEvaluated = sum('evaluated');
+    const totals = {
+      qa_agents: agents.length,
+      evaluated: totalEvaluated,
+      agent_side: totalEvaluated,
+      la_side: totalEvaluated,
+      total: totalEvaluated * 2,
+      accepted: sum('accepted'),
+      rejected: sum('rejected'),
+      flagged: sum('flagged'),
+      decline: sum('decline'),
+      not_billable: sum('not_billable'),
+      pass_rate: rate(sum('accepted'), totalEvaluated),
+      fail_rate: rate(sum('rejected'), totalEvaluated),
+    };
+
+    await ensureDailySummariesTable();
+    const campaignKey = String(campaign_name || '').trim();
+    const fromKey = from_date || '1900-01-01';
+    const toKey = to_date || '9999-12-31';
+    const sumRes = await query(
+      `SELECT qa_user_id, summary
+       FROM qa_daily_report_summaries
+       WHERE from_date = $1::date AND to_date = $2::date AND campaign_key = $3`,
+      [fromKey, toKey, campaignKey]
+    );
+    const summaries = {};
+    sumRes.rows.forEach((row) => {
+      summaries[String(row.qa_user_id)] = row.summary || '';
+    });
+
+    res.json({
+      success: true,
+      range: { from: from_date || null, to: to_date || null },
+      agents,
+      totals,
+      summaries,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+async function ensureDailySummariesTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS qa_daily_report_summaries (
+      id SERIAL PRIMARY KEY,
+      qa_user_id INTEGER NOT NULL DEFAULT 0,
+      from_date DATE NOT NULL,
+      to_date DATE NOT NULL,
+      campaign_key TEXT NOT NULL DEFAULT '',
+      summary TEXT NOT NULL DEFAULT '',
+      updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      UNIQUE (qa_user_id, from_date, to_date, campaign_key)
+    )
+  `);
+}
+
+/**
+ * PUT /api/evaluations/reports/daily/summary
+ * Save the handwritten Summary block for one QA executive (or the team rollup).
+ */
+const saveDailyQaSummary = async (req, res, next) => {
+  try {
+    const { from_date, to_date, campaign_name, summary } = req.body || {};
+    let qaUserId = Number(req.body?.qa_user_id);
+    if (!Number.isFinite(qaUserId)) qaUserId = 0;
+
+    if (req.user.role === 'QA Agent') {
+      qaUserId = req.user.id;
+    }
+
+    const text = String(summary || '');
+    if (text.length > 8000) {
+      return res.status(400).json({ success: false, message: 'Summary must be 8000 characters or less.' });
+    }
+
+    await ensureDailySummariesTable();
+    const fromKey = from_date || '1900-01-01';
+    const toKey = to_date || '9999-12-31';
+    const campaignKey = String(campaign_name || '').trim();
+
+    const result = await query(
+      `INSERT INTO qa_daily_report_summaries (qa_user_id, from_date, to_date, campaign_key, summary, updated_by, updated_at)
+       VALUES ($1, $2::date, $3::date, $4, $5, $6, NOW())
+       ON CONFLICT (qa_user_id, from_date, to_date, campaign_key)
+       DO UPDATE SET summary = EXCLUDED.summary, updated_by = EXCLUDED.updated_by, updated_at = NOW()
+       RETURNING qa_user_id, summary, updated_at`,
+      [qaUserId, fromKey, toKey, campaignKey, text, req.user.id]
+    );
+
+    res.json({ success: true, message: 'Summary saved.', data: result.rows[0] });
   } catch (error) {
     next(error);
   }
@@ -986,6 +1402,9 @@ module.exports = {
   deleteEvaluation,
   getAgentErrorReport,
   getRejectedCallsReport,
+  getDailyQaReport,
+  getMedicareDailyEvaluations,
+  saveDailyQaSummary,
   getEvaluationDropdownOptions,
   addEvaluationDropdownOption,
   removeEvaluationDropdownOption

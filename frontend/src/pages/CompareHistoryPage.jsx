@@ -115,7 +115,7 @@ export default function CompareHistoryPage() {
         params: { startDate, endDate }
       });
       if (res.data.success) {
-        setHistory(res.data.data);
+        setHistory(res.data.data ?? []);
       } else {
         toast.error('Failed to fetch history');
       }

@@ -1,4 +1,5 @@
 const { query } = require('../config/database');
+const { parsePagination } = require('../utils/pagination');
 
 /**
  * GET /api/feedback
@@ -6,8 +7,8 @@ const { query } = require('../config/database');
  */
 const getAllFeedback = async (req, res, next) => {
   try {
-    const { page = 1, limit = 20, agent_id, status, from_date, to_date, search } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { agent_id, status, from_date, to_date, search } = req.query;
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 20 });
 
     const conditions = [];
     const params = [];
@@ -28,7 +29,7 @@ const getAllFeedback = async (req, res, next) => {
     const countResult = await query(`SELECT COUNT(*) FROM feedback f ${where}`, params);
     const total = parseInt(countResult.rows[0].count);
 
-    params.push(parseInt(limit)); params.push(offset);
+    params.push(limit); params.push(offset);
 
     const result = await query(
       `SELECT f.*, qe.evaluation_date, qe.total_score, qe.has_critical_error
@@ -43,7 +44,7 @@ const getAllFeedback = async (req, res, next) => {
     res.json({
       success: true,
       data: result.rows,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     next(error);
@@ -56,8 +57,7 @@ const getAllFeedback = async (req, res, next) => {
  */
 const getMyFeedback = async (req, res, next) => {
   try {
-    const { page = 1, limit = 10 } = req.query;
-    const offset = (parseInt(page) - 1) * parseInt(limit);
+    const { page, limit, offset } = parsePagination(req.query, { defaultLimit: 10 });
 
     // Support both agent_id-based (legacy) and user_id-based feedback lookup
     const agentId = req.user.agent_id;
@@ -67,7 +67,7 @@ const getMyFeedback = async (req, res, next) => {
       ? '(f.agent_id = $1 OR f.agent_user_id = $2)'
       : 'f.agent_user_id = $1';
     const countParams = agentId ? [agentId, userId] : [userId];
-    const queryParams = agentId ? [agentId, userId, parseInt(limit), offset] : [userId, parseInt(limit), offset];
+    const queryParams = agentId ? [agentId, userId, limit, offset] : [userId, limit, offset];
     const limitIdx = agentId ? 3 : 2;
 
     const countResult = await query(
@@ -98,7 +98,7 @@ const getMyFeedback = async (req, res, next) => {
     res.json({
       success: true,
       data: result.rows,
-      pagination: { total, page: parseInt(page), limit: parseInt(limit), pages: Math.ceil(total / parseInt(limit)) },
+      pagination: { total, page, limit, pages: Math.ceil(total / limit) },
     });
   } catch (error) {
     next(error);

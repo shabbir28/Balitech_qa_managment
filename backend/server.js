@@ -91,7 +91,15 @@ if (NODE_ENV === 'development') {
 }
 
 // ── Static Uploads ────────────────────────────────────────────────────
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+// Batch files hold customer data, so they are never served anonymously —
+// a leaked or guessed filename must not be enough to download them.
+const { authenticate, authorize } = require('./src/middleware/auth');
+app.use(
+  '/uploads',
+  authenticate,
+  authorize('Super Admin', 'QA Admin', 'Manager'),
+  express.static(path.join(__dirname, 'uploads'))
+);
 
 // ── Health Check ──────────────────────────────────────────────────────
 const healthPayload = () => ({

@@ -19,12 +19,13 @@ router.get('/compare-history', authenticate, checkDialerAccess, dialerSalesContr
 router.post('/compare-history/:id/preview-recheck', authenticate, checkDialerAccess, dialerSalesController.previewRecheckCompareHistory);
 router.post('/compare-history/:id/recheck', authenticate, checkDialerAccess, dialerSalesController.recheckCompareHistory);
 
-// Conditional auth for test route
+// Conditional auth for test route. NODE_ENV defaults to production (same as
+// server.js) so an unset variable can never leave this route open.
 const conditionalTestAuth = (req, res, next) => {
-  if (process.env.NODE_ENV !== 'production') {
+  const isProduction = (process.env.NODE_ENV || 'production') === 'production';
+  if (!isProduction) {
     return next();
   }
-  // Apply auth in production
   authenticate(req, res, (err) => {
     if (err) return next(err);
     checkDialerAccess(req, res, next);

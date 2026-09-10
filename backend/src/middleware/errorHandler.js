@@ -61,7 +61,10 @@ const errorHandler = (err, req, res, next) => {
   }
 
   const statusCode = err.statusCode || err.status || 500;
-  const message = err.message || 'Internal server error';
+  const rawMessage = err.message || 'Internal server error';
+  // Unexpected 5xx messages are usually raw driver output (e.g. `column "x"
+  // does not exist`), so they stay server-side only. 4xx messages are ours.
+  const message = statusCode >= 500 && !isDev ? 'Internal server error' : rawMessage;
 
   res.status(statusCode).json({
     success: false,

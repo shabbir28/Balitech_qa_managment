@@ -21,6 +21,8 @@ import DialerSalesHistoryPage from './pages/DialerSalesHistoryPage';
 import AgentSalesPage from './pages/AgentSalesPage';
 import AgentErrorReportPage from './pages/AgentErrorReportPage';
 import RejectedCallsReportPage from './pages/RejectedCallsReportPage';
+import QaDailyReportPage from './pages/QaDailyReportPage';
+import MedicareDailyEvaluationPage from './pages/MedicareDailyEvaluationPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
@@ -67,7 +69,7 @@ function App() {
             </ProtectedRoute>
           } />
           <Route path="/evaluations" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
               <SidebarLayout><EvaluationListPage /></SidebarLayout>
             </ProtectedRoute>
           } />
@@ -130,6 +132,16 @@ function App() {
           <Route path="/rejected-calls" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
               <SidebarLayout><RejectedCallsReportPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/qa-daily-report" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+              <SidebarLayout><QaDailyReportPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/medicare-daily-evaluation" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+              <SidebarLayout><MedicareDailyEvaluationPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 

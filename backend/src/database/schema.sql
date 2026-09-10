@@ -407,6 +407,20 @@ CREATE TABLE IF NOT EXISTS evaluation_dropdown_options (
   UNIQUE (field, value)
 );
 
+-- Handwritten Summary text on the QA Daily Report (qa_user_id = 0 is the team rollup).
+-- Auto-created by the backend on first save if missing.
+CREATE TABLE IF NOT EXISTS qa_daily_report_summaries (
+  id SERIAL PRIMARY KEY,
+  qa_user_id INTEGER NOT NULL DEFAULT 0,
+  from_date DATE NOT NULL,
+  to_date DATE NOT NULL,
+  campaign_key TEXT NOT NULL DEFAULT '',
+  summary TEXT NOT NULL DEFAULT '',
+  updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (qa_user_id, from_date, to_date, campaign_key)
+);
+
 -- =============================================
 -- SEED DATA
 -- =============================================

@@ -4,6 +4,7 @@ import { Loader2, RefreshCw, AlertCircle, Database, Filter, ChevronDown, Calenda
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { lockedDialerForUser } from '../utils/campaignAccess';
 
 // Status dropdown cell — allows QA to mark as Not a Sale or any other status
 function StatusCell({ lead, dialerType, qaOverride, onOverrideChange, statuses = [] }) {
@@ -419,19 +420,12 @@ function AssignLeadsModal({ onClose, dialer, selectedLeads = [], onDeselectLead,
 export default function DialerSalesPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [dialerType, setDialerType] = useState('medicare');
+  const lockedDialer = lockedDialerForUser(user);
+  const [dialerType, setDialerType] = useState(lockedDialer || 'medicare');
 
-  // Sync dialerType state with user's assigned campaign
   useEffect(() => {
-    if (user && user.role === 'QA Agent') {
-      const camp = (user.campaign_name || '').toLowerCase();
-      if (camp.includes('medicare')) {
-        setDialerType('medicare');
-      } else if (camp.includes('pharmacy')) {
-        setDialerType('pharmacy');
-      }
-    }
-  }, [user]);
+    if (lockedDialer) setDialerType(lockedDialer);
+  }, [lockedDialer]);
 
   const [loading, setLoading] = useState(false);
   const [syncing, setSyncing] = useState(false);
@@ -490,7 +484,7 @@ export default function DialerSalesPage() {
     try {
       const res = await api.post('/dialer-sales/sync', { dialer: dialerType });
       if (res.data.success) {
-        toast.success(`Synced statuses: ${res.data.statuses.join(', ')}`);
+        toast.success(`Synced statuses: ${(res.data.statuses ?? []).join(', ')}`);
         fetchSales();
       } else {
         toast.error('Failed to sync statuses');

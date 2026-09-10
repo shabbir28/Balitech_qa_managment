@@ -512,7 +512,7 @@ export default function AgentErrorReportPage() {
                               <div className="flex items-center justify-between">
                                 <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-2">
                                   <Phone className="w-3.5 h-3.5 text-indigo-400" />
-                                  Audit Records for {item.name} ({item.records?.length} records)
+                                  Audit Records for {item.name} ({item.records?.length ?? 0} records)
                                 </h4>
                               </div>
 
@@ -530,7 +530,7 @@ export default function AgentErrorReportPage() {
                                     </tr>
                                   </thead>
                                   <tbody className="divide-y divide-slate-800/40">
-                                    {item.records.map(rec => (
+                                    {(item.records ?? []).map(rec => (
                                       <tr key={rec.id} className="hover:bg-slate-800/20 transition-colors">
                                         <td className="py-2 px-3 font-mono text-slate-200">
                                           {rec.phone || '—'}

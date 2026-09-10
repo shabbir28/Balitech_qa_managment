@@ -1,6 +1,15 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+// Without VITE_API_URL a production build must talk to its own origin — a
+// hardcoded localhost fallback only ever works on the server itself.
+const isLocalHost = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+const configuredUrl = (import.meta.env.VITE_API_URL || '').trim().replace(/\/+$/, '');
+// Every backend route is mounted under /api, so tolerate the suffix being
+// omitted from the env var rather than 404-ing every request.
+const normalizedUrl = configuredUrl && !/\/api$/.test(configuredUrl)
+  ? `${configuredUrl}/api`
+  : configuredUrl;
+const API_BASE_URL = normalizedUrl || (isLocalHost ? 'http://localhost:5000/api' : '/api');
 
 // Default API instance — 30 second timeout for normal requests
 const api = axios.create({

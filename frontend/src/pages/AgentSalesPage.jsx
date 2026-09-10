@@ -7,6 +7,7 @@ import {
 import toast from 'react-hot-toast';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { lockedDialerForUser } from '../utils/campaignAccess';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
 import { getEstDateString, fmtLocal } from '../utils/dateUtils';
 
@@ -307,19 +308,12 @@ export default function AgentSalesPage() {
   const initDialer = searchParams.get('dialer') || 'medicare';
   const initQaStatus = searchParams.get('qaStatus') || 'All';
 
-  const [dialerType, setDialerType]     = useState(initDialer);
+  const lockedDialer = lockedDialerForUser(user);
+  const [dialerType, setDialerType] = useState(lockedDialer || initDialer);
 
-  // Sync dialerType state with user's assigned campaign, but allow URL to override if valid
   useEffect(() => {
-    if (user && user.role === 'QA Agent' && !searchParams.get('dialer')) {
-      const camp = (user.campaign_name || '').toLowerCase();
-      if (camp.includes('medicare')) {
-        setDialerType('medicare');
-      } else if (camp.includes('pharmacy')) {
-        setDialerType('pharmacy');
-      }
-    }
-  }, [user, searchParams]);
+    if (lockedDialer) setDialerType(lockedDialer);
+  }, [lockedDialer]);
 
   const [startDate, setStartDate]       = useState(initStart);
   const [endDate, setEndDate]           = useState(initEnd);

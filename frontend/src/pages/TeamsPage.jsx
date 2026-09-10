@@ -152,7 +152,7 @@ const AddMemberModal = ({ teamId, onClose, onAdded }) => {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    api.get('/teams/members/available').then(r => setUsers(r.data.data)).catch(() => {});
+    api.get('/teams/members/available').then(r => setUsers(r.data.data ?? [])).catch(() => {});
   }, []);
 
   const submit = async () => {
@@ -205,7 +205,7 @@ const TeamCard = ({ team, onDeleted }) => {
 
   const loadMembers = useCallback(async () => {
     const r = await api.get(`/teams/${team.id}/members`);
-    setMembers(r.data.data);
+    setMembers(r.data.data ?? []);
   }, [team.id]);
 
   useEffect(() => {
@@ -309,9 +309,9 @@ const TeamsPage = () => {
         api.get('/roles'),
         api.get('/campaigns'),
       ]);
-      setTeams(teamsRes.data.data);
-      setRoles(rolesRes.data.data);
-      setCampaigns(campaignsRes.data.data);
+      setTeams(teamsRes.data.data ?? []);
+      setRoles(rolesRes.data.data ?? []);
+      setCampaigns(campaignsRes.data.data ?? []);
     } catch { toast.error('Failed to load teams.'); }
     finally { setLoading(false); }
   }, []);

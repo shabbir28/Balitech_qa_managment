@@ -8,6 +8,9 @@ const {
   deleteEvaluation,
   getAgentErrorReport,
   getRejectedCallsReport,
+  getDailyQaReport,
+  getMedicareDailyEvaluations,
+  saveDailyQaSummary,
   getEvaluationDropdownOptions,
   addEvaluationDropdownOption,
   removeEvaluationDropdownOption
@@ -18,6 +21,9 @@ router.post('/', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 
 router.get('/', authenticate, getEvaluations);
 router.get('/reports/agent-errors', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getAgentErrorReport);
 router.get('/reports/rejected', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getRejectedCallsReport);
+router.get('/reports/daily', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getDailyQaReport);
+router.get('/reports/medicare-daily', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getMedicareDailyEvaluations);
+router.put('/reports/daily/summary', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), saveDailyQaSummary);
 router.get('/options/dropdowns', authenticate, getEvaluationDropdownOptions);
 router.post('/options/dropdowns', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), addEvaluationDropdownOption);
 router.delete('/options/dropdowns', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), removeEvaluationDropdownOption);

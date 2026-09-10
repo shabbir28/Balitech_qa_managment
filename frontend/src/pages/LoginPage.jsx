@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import toast from 'react-hot-toast';
-import { Eye, EyeOff, Lock, Mail, ArrowRight, Headphones, BarChart2, PieChart, User, ShieldCheck } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ArrowRight, Headphones, BarChart2, PieChart, User } from 'lucide-react';
 import logoImage from '../assets/logo.png';
 
 const LoginPage = () => {
@@ -26,15 +26,6 @@ const LoginPage = () => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const fillDemo = (role) => {
-    const demos = {
-      manager: { email: 'manager@bpoqa.com', password: 'Admin@123' },
-      user: { email: 'user@bpoqa.com', password: 'Admin@123' },
-    };
-    setEmail(demos[role].email);
-    setPassword(demos[role].password);
   };
 
   return (
@@ -158,32 +149,7 @@ const LoginPage = () => {
               </div>
             </form>
 
-            {/* Quick Access */}
-            <div className="mt-8 pt-6 border-t border-slate-800 relative">
-              <span className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-[#111827] px-4 text-xs font-medium text-slate-500">
-                Quick Access
-              </span>
-              <div className="flex gap-3 justify-center">
-                <button
-                  type="button"
-                  onClick={() => fillDemo('manager')}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/50 hover:border-orange-500/30 transition-all"
-                >
-                  <ShieldCheck className="w-4 h-4 text-emerald-500" />
-                  Manager
-                </button>
-                <button
-                  type="button"
-                  onClick={() => fillDemo('user')}
-                  className="flex-1 flex items-center justify-center gap-2 py-2.5 border border-slate-800 rounded-xl text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800/50 hover:border-orange-500/30 transition-all"
-                >
-                  <User className="w-4 h-4 text-teal-500" />
-                  User
-                </button>
-              </div>
-            </div>
-
-            <div className="mt-8 flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
+            <div className="mt-8 pt-6 border-t border-slate-800 flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
               <Lock className="w-3 h-3" />
               Secure access for authorized Balitech staff only
             </div>

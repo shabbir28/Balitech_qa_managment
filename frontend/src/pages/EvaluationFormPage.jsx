@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
-import api, { uploadApi } from '../services/api';
+import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Play, Pause, Volume2, Download, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
@@ -8,6 +8,8 @@ import { useAuth } from '../context/AuthContext';
 import { getEstDateString } from '../utils/dateUtils';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
 import EditableOptionsInput from '../components/common/EditableOptionsInput';
+import { downloadRecording } from '../utils/recordingDownload';
+import { agentCanEvaluateCall, lockedDialerForUser } from '../utils/campaignAccess';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -73,59 +75,13 @@ function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnd
 
   const handleDownload = async (e) => {
     e.stopPropagation();
-    if (!rec.location) {
-      toast.error('No recording URL found.');
-      return;
-    }
-    const cleanFilename = rec.filename || `recording_${index + 1}.mp3`;
-    const finalFilename = cleanFilename.endsWith('.mp3') || cleanFilename.endsWith('.wav') ? cleanFilename : `${cleanFilename}.mp3`;
-    
+    if (downloading) return;
     setDownloading(true);
     try {
-      // First try proxy endpoint to bypass CORS and force direct attachment download
-      // Use uploadApi (5 min timeout) to avoid 30s timeout on large audio files
-      const response = await uploadApi.get('/dialer/download-recording', {
-        params: {
-          url: rec.location,
-          filename: finalFilename
-        },
-        responseType: 'blob'
-      });
-      
-      const blobUrl = window.URL.createObjectURL(new Blob([response.data], { type: 'audio/mpeg' }));
-      const link = document.createElement('a');
-      link.href = blobUrl;
-      link.setAttribute('download', finalFilename);
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(blobUrl);
+      await downloadRecording(rec, index);
       toast.success('Download started');
-    } catch {
-      // Fallback: direct fetch or hidden iframe download without opening new tab
-      try {
-        const directRes = await fetch(rec.location);
-        if (!directRes.ok) throw new Error('Direct fetch failed');
-        const blob = await directRes.blob();
-        const blobUrl = window.URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = blobUrl;
-        link.setAttribute('download', finalFilename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        window.URL.revokeObjectURL(blobUrl);
-        toast.success('Download started');
-      } catch {
-        // Safe hidden trigger to prevent opening new tab
-        const link = document.createElement('a');
-        link.href = rec.location;
-        link.setAttribute('download', finalFilename);
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        toast.success('Download initiated');
-      }
+    } catch (err) {
+      toast.error(err.message || 'Failed to download recording.');
     } finally {
       setDownloading(false);
     }
@@ -308,10 +264,19 @@ const EvaluationFormPage = () => {
     setLoadError(null);
     if (callId) {
       api.get(`/calls/${callId}`).then(async res => {
-        const callData = res.data.data;
+        const callData = res.data?.data;
+        if (!callData) {
+          setLoadError('This call could not be loaded. It may have been deleted.');
+          return;
+        }
         if (callData.is_evaluated) {
           toast.error('This call has already been evaluated! You cannot edit it.');
           navigate(exitPath);
+          return;
+        }
+        if (!agentCanEvaluateCall(user, callData)) {
+          toast.error(`You can only evaluate ${user?.campaign_name || 'your assigned'} campaign calls.`);
+          setLoadError(`This call belongs to ${callData.campaign_name || 'another campaign'}. You are assigned to ${user?.campaign_name || 'a different campaign'}.`);
           return;
         }
         setCall(callData);
@@ -356,9 +321,11 @@ const EvaluationFormPage = () => {
         );
 
         // Detect dialer type
-        const detectedDialer = dialerParam !== 'pharmacy' && dialerParam 
-          ? dialerParam 
-          : ((callData.team || callData.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy');
+        const locked = lockedDialerForUser(user);
+        const detectedDialer = locked
+          || (dialerParam !== 'pharmacy' && dialerParam
+            ? dialerParam
+            : ((callData.team || callData.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy'));
         setCurrentDialer(detectedDialer);
 
         // Resolve lead ID from params or notes (supporting both VICI_LEAD: and Lead ID: formats)
@@ -411,7 +378,7 @@ const EvaluationFormPage = () => {
         setLoadError('Failed to load call details.');
       });
     }
-  }, [callId, leadIdParam, dialerParam, location.state, navigate, exitPath]);
+  }, [callId, leadIdParam, dialerParam, location.state, navigate, exitPath, user]);
 
   const handleTogglePlay = (idx) => {
     if (playingIndex === idx) {
