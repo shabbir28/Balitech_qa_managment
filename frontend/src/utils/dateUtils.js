@@ -51,6 +51,24 @@ export const getEstDateTimeString = (dateInput) => {
   }).format(d);
 };
 
+/**
+ * Splits a timestamp into EST date and time strings for two-line displays.
+ * Returns null when the input is missing or unparseable.
+ */
+export const getEstDateTimeParts = (dateInput) => {
+  if (!dateInput) return null;
+  const d = new Date(dateInput);
+  if (isNaN(d.getTime())) return null;
+  return {
+    date: new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', month: 'short', day: '2-digit', year: 'numeric',
+    }).format(d),
+    time: new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true,
+    }).format(d),
+  };
+};
+
 export const getPresets = () => {
   const now = new Date();
   const todayStr = getEstDateString(now); // EST today

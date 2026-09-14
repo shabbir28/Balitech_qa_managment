@@ -105,6 +105,9 @@ export default function RejectedCallsReportPage() {
   const [selectedQa, setSelectedQa] = useState('');
   const [dateRange, setDateRange] = useState({ start: today?.start || '', end: today?.end || '' });
   const [copiedId, setCopiedId] = useState(null);
+  const [copyingAll, setCopyingAll] = useState(false);
+  // evaluation_id → record, so a selection survives page changes and copies with full data.
+  const [selected, setSelected] = useState(() => new Map());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search.trim()), 350);
@@ -123,18 +126,23 @@ export default function RejectedCallsReportPage() {
     }
   }, [isAgent]);
 
-  // Filters changed → back to first page.
-  useEffect(() => { setPage(1); }, [debouncedSearch, selectedCampaign, selectedQa, dateRange]);
+  // Filters changed → back to first page and drop the selection (the result set changed).
+  useEffect(() => { setPage(1); setSelected(new Map()); }, [debouncedSearch, selectedCampaign, selectedQa, dateRange]);
+
+  const filterParams = useCallback(() => {
+    const params = {};
+    if (debouncedSearch) params.search = debouncedSearch;
+    if (selectedCampaign) params.campaign_name = selectedCampaign;
+    if (selectedQa) params.qa_user_id = selectedQa;
+    if (dateRange.start) params.from_date = dateRange.start;
+    if (dateRange.end) params.to_date = dateRange.end;
+    return params;
+  }, [debouncedSearch, selectedCampaign, selectedQa, dateRange]);
 
   const fetchData = useCallback(async () => {
     setLoading(true);
     try {
-      const params = { page, limit: PAGE_SIZE };
-      if (debouncedSearch) params.search = debouncedSearch;
-      if (selectedCampaign) params.campaign_name = selectedCampaign;
-      if (selectedQa) params.qa_user_id = selectedQa;
-      if (dateRange.start) params.from_date = dateRange.start;
-      if (dateRange.end) params.to_date = dateRange.end;
+      const params = { ...filterParams(), page, limit: PAGE_SIZE };
 
       const res = await api.get('/evaluations/reports/rejected', { params });
       if (res.data.success) {
@@ -147,7 +155,7 @@ export default function RejectedCallsReportPage() {
     } finally {
       setLoading(false);
     }
-  }, [page, debouncedSearch, selectedCampaign, selectedQa, dateRange]);
+  }, [page, filterParams]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
@@ -182,10 +190,77 @@ export default function RejectedCallsReportPage() {
     setTimeout(() => setCopiedId((id) => (id === r.evaluation_id ? null : id)), 1500);
   };
 
+  const RECORD_SEPARATOR = '\n--------------------\n';
+
+  const selectedCount = selected.size;
+  const allOnPageSelected = rows.length > 0 && rows.every((r) => selected.has(r.evaluation_id));
+  const someOnPageSelected = rows.some((r) => selected.has(r.evaluation_id));
+
+  const toggleSelect = (r) => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (next.has(r.evaluation_id)) next.delete(r.evaluation_id);
+      else next.set(r.evaluation_id, r);
+      return next;
+    });
+  };
+
+  const togglePageSelection = () => {
+    setSelected((prev) => {
+      const next = new Map(prev);
+      if (allOnPageSelected) rows.forEach((r) => next.delete(r.evaluation_id));
+      else rows.forEach((r) => next.set(r.evaluation_id, r));
+      return next;
+    });
+  };
+
+  const clearSelection = () => setSelected(new Map());
+
+  const handleCopySelected = async () => {
+    const list = [...selected.values()];
+    if (!list.length) return toast.error('Select at least one call first.');
+    const ok = await copyText(list.map(formatRecordAsText).join(RECORD_SEPARATOR));
+    ok
+      ? toast.success(`Copied ${list.length} selected call${list.length === 1 ? '' : 's'}`)
+      : toast.error('Copy failed.');
+  };
+
   const handleCopyAll = async () => {
     if (!rows.length) return toast.error('Nothing to copy.');
-    const ok = await copyText(rows.map(formatRecordAsText).join('\n--------------------\n'));
+    const ok = await copyText(rows.map(formatRecordAsText).join(RECORD_SEPARATOR));
     ok ? toast.success(`Copied ${rows.length} record(s)`) : toast.error('Copy failed.');
+  };
+
+  /**
+   * Copies every rejected call in the current filters, not just this page.
+   * The report endpoint caps a page at 500 rows, so walk the pages.
+   */
+  const handleCopyEverything = async () => {
+    if (!total) return toast.error('Nothing to copy.');
+    setCopyingAll(true);
+    try {
+      const all = [];
+      const limit = 500;
+      const hardCap = 5000;
+      for (let p = 1; ; p++) {
+        const res = await api.get('/evaluations/reports/rejected', {
+          params: { ...filterParams(), page: p, limit },
+        });
+        const chunk = res.data?.data ?? [];
+        all.push(...chunk);
+        const pages = res.data?.pagination?.pages ?? 1;
+        if (p >= pages || chunk.length === 0 || all.length >= hardCap) break;
+      }
+      if (!all.length) return toast.error('Nothing to copy.');
+      const ok = await copyText(all.map(formatRecordAsText).join(RECORD_SEPARATOR));
+      ok
+        ? toast.success(`Copied all ${all.length} rejected call${all.length === 1 ? '' : 's'}`)
+        : toast.error('Copy failed.');
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to load all rejected calls.');
+    } finally {
+      setCopyingAll(false);
+    }
   };
 
   const exportCsv = () => {
@@ -240,9 +315,20 @@ export default function RejectedCallsReportPage() {
           <button
             onClick={handleCopyAll}
             className="h-8 px-3 rounded-lg bg-[#111827] hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-800 transition-all flex items-center gap-1.5"
-            title="Copy all records on this page as text"
+            title="Copy the records on this page as text"
           >
             <Copy className="w-3.5 h-3.5" /> Copy page
+          </button>
+          <button
+            onClick={handleCopyEverything}
+            disabled={copyingAll || loading || !total}
+            className="h-8 px-3 rounded-lg bg-[#111827] hover:bg-slate-800 text-slate-300 hover:text-white text-xs font-medium border border-slate-800 disabled:opacity-40 disabled:hover:bg-[#111827] transition-all flex items-center gap-1.5"
+            title="Copy every rejected call in the current filters (all pages)"
+          >
+            {copyingAll
+              ? <RefreshCw className="w-3.5 h-3.5 animate-spin text-rose-400" />
+              : <Copy className="w-3.5 h-3.5" />}
+            {copyingAll ? 'Copying…' : `Copy all${total ? ` (${total})` : ''}`}
           </button>
           <button
             onClick={exportCsv}
@@ -381,6 +467,51 @@ export default function RejectedCallsReportPage() {
         </div>
       </div>
 
+      {/* ── Selection bar ── */}
+      {!loading && rows.length > 0 && (
+        <div className={`flex flex-wrap items-center gap-2 px-3 h-10 rounded-xl border transition-colors ${
+          selectedCount
+            ? 'bg-rose-500/10 border-rose-500/30'
+            : 'bg-[#111827] border-slate-800'
+        }`}>
+          <label className="inline-flex items-center gap-2 cursor-pointer select-none text-xs text-slate-300">
+            <input
+              type="checkbox"
+              checked={allOnPageSelected}
+              ref={(el) => { if (el) el.indeterminate = !allOnPageSelected && someOnPageSelected; }}
+              onChange={togglePageSelection}
+              className="w-3.5 h-3.5 rounded accent-rose-500 cursor-pointer"
+            />
+            {allOnPageSelected ? 'Unselect page' : 'Select page'}
+          </label>
+
+          {selectedCount > 0 ? (
+            <>
+              <span className="text-xs font-semibold text-rose-200">
+                {selectedCount} selected
+              </span>
+              <div className="ml-auto flex items-center gap-1.5">
+                <button
+                  onClick={handleCopySelected}
+                  className="h-7 px-2.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-semibold shadow-md shadow-rose-600/20 transition-all inline-flex items-center gap-1.5"
+                  title="Copy the selected calls as text"
+                >
+                  <Copy className="w-3 h-3" /> Copy selected ({selectedCount})
+                </button>
+                <button
+                  onClick={clearSelection}
+                  className="h-7 px-2 rounded-lg text-[11px] font-medium text-slate-300 hover:text-white hover:bg-slate-800 transition-colors inline-flex items-center gap-1"
+                >
+                  <X className="w-3 h-3" /> Clear
+                </button>
+              </div>
+            </>
+          ) : (
+            <span className="text-[11px] text-slate-500">Tick calls to copy only those.</span>
+          )}
+        </div>
+      )}
+
       {/* ── Records ── */}
       <div className="space-y-2.5">
         {loading ? (
@@ -413,17 +544,33 @@ export default function RejectedCallsReportPage() {
         ) : (
           rows.map((r, idx) => {
             const copied = copiedId === r.evaluation_id;
+            const isSelected = selected.has(r.evaluation_id);
             const viewPath = `/evaluations/view/${r.evaluation_id}`;
             const viewState = { from: '/rejected-calls', fromLabel: 'Back to Rejected Calls' };
             return (
               <article
                 key={r.evaluation_id}
-                className="group relative bg-[#111827] border border-slate-800 hover:border-rose-500/30 rounded-xl overflow-hidden transition-all hover:shadow-lg hover:shadow-rose-950/30"
+                className={`group relative bg-[#111827] border rounded-xl overflow-hidden transition-all hover:shadow-lg hover:shadow-rose-950/30 ${
+                  isSelected
+                    ? 'border-rose-500/60 ring-1 ring-rose-500/30'
+                    : 'border-slate-800 hover:border-rose-500/30'
+                }`}
               >
                 <span className="absolute left-0 top-0 bottom-0 w-[3px] bg-gradient-to-b from-rose-500 to-rose-700/60" />
                 {/* Header row */}
-                <div className="px-3.5 py-2.5 border-b border-slate-800/70 bg-[#0B1120]/60 flex flex-wrap items-center gap-x-3 gap-y-1.5">
-                  <span className="text-[10px] font-mono text-slate-600 w-6 shrink-0">#{startIndex + idx + 1}</span>
+                <div className={`px-3.5 py-2.5 border-b border-slate-800/70 flex flex-wrap items-center gap-x-3 gap-y-1.5 ${isSelected ? 'bg-rose-500/5' : 'bg-[#0B1120]/60'}`}>
+                  <label
+                    className="inline-flex items-center gap-1.5 shrink-0 cursor-pointer select-none"
+                    title={isSelected ? 'Unselect this call' : 'Select this call'}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isSelected}
+                      onChange={() => toggleSelect(r)}
+                      className="w-3.5 h-3.5 rounded accent-rose-500 cursor-pointer"
+                    />
+                    <span className="text-[10px] font-mono text-slate-600 w-6">#{startIndex + idx + 1}</span>
+                  </label>
 
                   <Link
                     to={viewPath}

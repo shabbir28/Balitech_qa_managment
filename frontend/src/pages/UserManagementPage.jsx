@@ -11,7 +11,8 @@ import {
   UserPlus, User, Mail, Phone as PhoneIcon, Activity,
   RefreshCw, ChevronDown, Target, ShieldCheck, Crown, Headset, UserCog, BadgeCheck
 } from 'lucide-react';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
+import { getEstDateTimeParts } from '../utils/dateUtils';
 
 /* ─── Helpers ───────────────────────────────────────────────────────── */
 
@@ -604,7 +605,8 @@ const UserManagementPage = () => {
                     <tr>
                       <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Phone</th>
                       <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Campaign</th>
-                      <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Date</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned On</th>
+                      <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Assigned By</th>
                       <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Status</th>
                       <th className="px-5 py-3 text-left text-[10px] font-bold text-slate-400 uppercase tracking-wider">Recording</th>
                     </tr>
@@ -614,7 +616,24 @@ const UserManagementPage = () => {
                       <tr key={a.id} className="hover:bg-slate-800/20 transition-colors">
                         <td className="px-5 py-3 font-mono text-sm font-bold text-white">{a.customer_phone}</td>
                         <td className="px-5 py-3 text-sm text-slate-300">{a.campaign_name}</td>
-                        <td className="px-5 py-3 text-sm text-slate-400">{a.assigned_at ? format(new Date(a.assigned_at), 'MMM d, yyyy') : '—'}</td>
+                        <td className="px-5 py-3">
+                          {(() => {
+                            const parts = getEstDateTimeParts(a.assigned_at);
+                            if (!parts) return <span className="text-slate-500">—</span>;
+                            return (
+                              <div className="leading-tight">
+                                <p className="text-sm text-slate-200 font-medium">{parts.date}</p>
+                                <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+                                  <Clock className="w-3 h-3 text-slate-500" />
+                                  {parts.time} EST
+                                  <span className="text-slate-600">·</span>
+                                  <span className="text-slate-500">{formatDistanceToNow(new Date(a.assigned_at), { addSuffix: true })}</span>
+                                </p>
+                              </div>
+                            );
+                          })()}
+                        </td>
+                        <td className="px-5 py-3 text-sm text-slate-300">{a.assigned_by_name || <span className="text-slate-500">—</span>}</td>
                         <td className="px-5 py-3">
                           <span className={`px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider ${
                             a.status === 'accepted' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :

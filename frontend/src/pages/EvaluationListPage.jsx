@@ -4,13 +4,31 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
-import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye } from 'lucide-react';
+import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { format } from 'date-fns';
-import { getEstDateString } from '../utils/dateUtils';
+import { formatDistanceToNow } from 'date-fns';
+import { getEstDateString, getEstDateTimeParts } from '../utils/dateUtils';
 
 const isRejectedStatus = (status) =>
   status === 'rejected' || status === 'rejected (declined task)';
+
+/* Date, exact time (EST) and how long ago a lead was handed out. */
+const AssignedAtCell = ({ value }) => {
+  const parts = getEstDateTimeParts(value);
+  if (!parts) return <span className="text-slate-500">—</span>;
+  const ago = formatDistanceToNow(new Date(value), { addSuffix: true });
+  return (
+    <div className="leading-tight">
+      <p className="text-sm text-slate-200 font-medium">{parts.date}</p>
+      <p className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-1">
+        <Clock className="w-3 h-3 text-slate-500" />
+        {parts.time} EST
+        <span className="text-slate-600">·</span>
+        <span className="text-slate-500">{ago}</span>
+      </p>
+    </div>
+  );
+};
 
 /* ─── Mini Audio Player Modal ───────────────────────────────────────── */
 const AudioModal = ({ url, phone, onClose }) => {
@@ -354,7 +372,8 @@ const EvaluationListPage = () => {
                         <tr>
                           <th className="th">Phone</th>
                           <th className="th">Campaign</th>
-                          <th className="th">Assigned Date</th>
+                          <th className="th">Assigned On</th>
+                          <th className="th">Assigned By</th>
                           <th className="th">Status</th>
                           <th className="th">Actions</th>
                         </tr>
@@ -364,10 +383,11 @@ const EvaluationListPage = () => {
                           <tr key={a.id} className="tr">
                             <td className="td font-mono text-sm font-bold text-white">{a.customer_phone}</td>
                             <td className="td text-sm text-slate-300">{a.campaign_name}</td>
-                            <td className="td text-sm text-slate-400">
-                              {a.assigned_at && !isNaN(new Date(a.assigned_at).getTime())
-                                ? format(new Date(a.assigned_at), 'MMM d, yyyy')
-                                : '—'}
+                            <td className="td">
+                              <AssignedAtCell value={a.assigned_at} />
+                            </td>
+                            <td className="td text-sm text-slate-300">
+                              {a.assigned_by_name || <span className="text-slate-500">—</span>}
                             </td>
                             <td className="td">
                               <span className={`px-2.5 py-1.5 rounded-lg text-xs font-bold uppercase tracking-wider ${
