@@ -700,19 +700,21 @@ export default function DialerSalesPage() {
             Sync
           </button>
 
-          <button
-            onClick={() => setShowAssign(true)}
-            disabled={loading || filteredSales.length === 0}
-            className={`flex items-center gap-1.5 px-3 h-[34px] rounded-lg transition-all text-xs font-semibold shadow-md cursor-pointer ${
-              selectedLeadIds.length > 0
-                ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ring-2 ring-emerald-400/40'
-                : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50'
-            }`}
-            title="Assign leads to QA"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            {selectedLeadIds.length > 0 ? `Assign (${selectedLeadIds.length}) Selected` : 'Assign to QA'}
-          </button>
+          {user?.role !== 'QA Agent' && (
+            <button
+              onClick={() => setShowAssign(true)}
+              disabled={loading || filteredSales.length === 0}
+              className={`flex items-center gap-1.5 px-3 h-[34px] rounded-lg transition-all text-xs font-semibold shadow-md cursor-pointer ${
+                selectedLeadIds.length > 0
+                  ? 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold ring-2 ring-emerald-400/40'
+                  : 'bg-emerald-600 hover:bg-emerald-500 text-white disabled:opacity-50'
+              }`}
+              title="Assign leads to QA"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              {selectedLeadIds.length > 0 ? `Assign (${selectedLeadIds.length}) Selected` : 'Assign to QA'}
+            </button>
+          )}
         </div>
       </div>
 

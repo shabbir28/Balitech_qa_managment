@@ -33,4 +33,14 @@ const nyDateStart = (placeholder, dayOffset = 0) => `
     AT TIME ZONE '${BUSINESS_TIMEZONE}') AT TIME ZONE current_setting('TimeZone'))
 `;
 
-module.exports = { BUSINESS_TIMEZONE, NY_DAY_START, nyDateStart };
+/**
+ * Re-reads a naive session-timezone timestamp column as New York wall clock,
+ * e.g. `DATE(${nyLocal('f.created_at')})` for the NY calendar day of a row.
+ * (Writing `col AT TIME ZONE 'UTC'` instead would silently mislabel the value.)
+ *
+ * @param {string} column SQL expression of a `timestamp without time zone`
+ */
+const nyLocal = (column) =>
+  `((${column} AT TIME ZONE current_setting('TimeZone')) AT TIME ZONE '${BUSINESS_TIMEZONE}')`;
+
+module.exports = { BUSINESS_TIMEZONE, NY_DAY_START, nyDateStart, nyLocal };

@@ -104,13 +104,14 @@ function App() {
               <SidebarLayout><DialerLeadDetailsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
+          {/* Compare tools are leadership-only in the sidebar; keep the routes in step. */}
           <Route path="/dialer-sales/compare" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
               <SidebarLayout><SalesComparePage /></SidebarLayout>
             </ProtectedRoute>
           } />
           <Route path="/dialer-sales/compare-history" element={
-            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'QA Agent', 'Manager']}>
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
               <SidebarLayout><CompareHistoryPage /></SidebarLayout>
             </ProtectedRoute>
           } />

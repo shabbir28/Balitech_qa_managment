@@ -3,6 +3,17 @@ import api from '../services/api';
 
 const AuthContext = createContext(null);
 
+// The cached copy is only a fallback when /auth/me is unreachable; refuse
+// anything that is not a real user object so a corrupt entry can't grant a role.
+const readCachedUser = () => {
+  try {
+    const parsed = JSON.parse(localStorage.getItem('user') || 'null');
+    if (parsed && typeof parsed === 'object' && parsed.id && typeof parsed.role === 'string') return parsed;
+  } catch { /* fall through */ }
+  localStorage.removeItem('user');
+  return null;
+};
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -20,10 +31,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('user');
         setUser(null);
       } else {
-        const cached = localStorage.getItem('user');
-        if (cached) {
-          try { setUser(JSON.parse(cached)); } catch { setUser(null); }
-        }
+        setUser(readCachedUser());
       }
     } finally {
       setLoading(false);

@@ -1096,6 +1096,11 @@ exports.getCompareHistory = async (req, res) => {
     res.status(500).json({ success: false, message: 'Server Error' });
   }
 };
+// Mirrors the ownership rule in getCompareHistory: leadership sees every
+// comparison, everyone else only the ones they ran.
+const canTouchCompareRecord = (user, record) =>
+  ['Super Admin', 'QA Admin', 'Manager'].includes(user.role) || record.user_id === user.id;
+
 // POST /dialer-sales/compare-history/:id/preview-recheck
 // Previews missing numbers against a new date range without modifying DB
 exports.previewRecheckCompareHistory = async (req, res) => {
@@ -1115,12 +1120,15 @@ exports.previewRecheckCompareHistory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Record not found' });
     }
     const record = recordResult.rows[0];
+    if (!canTouchCompareRecord(req.user, record)) {
+      return res.status(403).json({ success: false, message: 'Not authorised to access this comparison.' });
+    }
     const dialerType = record.dialer_type;
     let resultData = typeof record.result_data === 'string' ? JSON.parse(record.result_data) : record.result_data;
 
     // Cap the search endDate to the file's compare_date so we never match future sales
-    const compareDateStr = record.compare_date instanceof Date 
-      ? record.compare_date.toISOString().split('T')[0] 
+    const compareDateStr = record.compare_date instanceof Date
+      ? record.compare_date.toISOString().split('T')[0]
       : String(record.compare_date).split('T')[0];
     const maxEndDate = endDate > compareDateStr ? compareDateStr : endDate;
 
@@ -1207,6 +1215,9 @@ exports.recheckCompareHistory = async (req, res) => {
       return res.status(404).json({ success: false, message: 'Record not found' });
     }
     const record = recordResult.rows[0];
+    if (!canTouchCompareRecord(req.user, record)) {
+      return res.status(403).json({ success: false, message: 'Not authorised to access this comparison.' });
+    }
     const dialerType = record.dialer_type;
     let resultData = typeof record.result_data === 'string' ? JSON.parse(record.result_data) : record.result_data;
     let uploadedData = typeof record.uploaded_data === 'string' ? JSON.parse(record.uploaded_data) : (record.uploaded_data || []);

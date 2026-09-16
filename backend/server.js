@@ -146,13 +146,48 @@ initSalesSyncCron();
 initAssignmentExpirationCron();
 
 // ── Start Server ──────────────────────────────────────────────────────
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`\n🚀 BPO QA Management System API`);
   console.log(`   Server running on http://localhost:${PORT}`);
   console.log(`   Environment: ${NODE_ENV}`);
   console.log(`   Database: ${process.env.DB_NAME}@${process.env.DB_HOST}:${process.env.DB_PORT}\n`);
 });
 
+// ── Process safety ────────────────────────────────────────────────────
+// A rejected promise nobody awaited (cron, fire-and-forget sync) should be
+// logged, not silently dropped or allowed to crash the process without a trace.
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ Unhandled promise rejection:', reason instanceof Error ? reason.stack : reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('❌ Uncaught exception, shutting down:', err.stack || err);
+  shutdown('uncaughtException', 1);
+});
+
+// Drain in-flight requests and close DB connections on PM2/systemd restarts.
+let shuttingDown = false;
+function shutdown(signal, exitCode = 0) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.log(`\n${signal} received — closing server...`);
+  const forceExit = setTimeout(() => {
+    console.error('Forced exit: connections did not close in time.');
+    process.exit(exitCode || 1);
+  }, 10000).unref();
+
+  server.close(async () => {
+    try {
+      const { pool } = require('./src/config/database');
+      await pool.end();
+    } catch (e) {
+      console.error('Error closing database pool:', e.message);
+    }
+    clearTimeout(forceExit);
+    process.exit(exitCode);
+  });
+}
+process.on('SIGTERM', () => shutdown('SIGTERM'));
+process.on('SIGINT', () => shutdown('SIGINT'));
+
 module.exports = app;
-// Triggered restart for new .env variables
 

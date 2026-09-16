@@ -21,12 +21,17 @@ const getAllFeedback = async (req, res, next) => {
     }
     if (agent_id) { conditions.push(`f.agent_id = $${pc}`); params.push(agent_id); pc++; }
     if (status) { conditions.push(`f.feedback_status = $${pc}`); params.push(status); pc++; }
-    if (from_date) { conditions.push(`f.created_at >= $${pc}`); params.push(from_date); pc++; }
-    if (to_date) { conditions.push(`f.created_at <= $${pc}`); params.push(to_date); pc++; }
+    if (from_date) { conditions.push(`f.created_at >= $${pc}::date`); params.push(from_date); pc++; }
+    // created_at is a timestamp, so the end day must be an exclusive bound on the next midnight.
+    if (to_date) { conditions.push(`f.created_at < ($${pc}::date + 1)`); params.push(to_date); pc++; }
+    conditions.push('qe.is_deleted = FALSE');
 
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
-    const countResult = await query(`SELECT COUNT(*) FROM feedback f ${where}`, params);
+    const countResult = await query(
+      `SELECT COUNT(*) FROM feedback f JOIN qa_evaluations qe ON f.evaluation_id = qe.id ${where}`,
+      params
+    );
     const total = parseInt(countResult.rows[0].count);
 
     params.push(limit); params.push(offset);

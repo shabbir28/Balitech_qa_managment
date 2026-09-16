@@ -88,7 +88,7 @@ export function DateRangeDropdown({ startDate, endDate, onChange, customTrigger,
       )}
 
       {open && (
-        <div className={`absolute ${placement === 'right' ? 'right-0' : 'left-0'} mt-1 w-72 bg-slate-900 border border-slate-750 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden`}>
+        <div className={`absolute ${placement === 'right' ? 'right-0' : 'left-0'} mt-1 w-72 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl shadow-black/60 z-50 overflow-hidden`}>
           <div className="p-1">
             {presets.map((preset) => {
               const active = preset.isCustom ? isCustomRange : (preset.start === startDate && preset.end === endDate);

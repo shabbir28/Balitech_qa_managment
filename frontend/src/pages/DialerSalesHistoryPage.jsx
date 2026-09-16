@@ -519,15 +519,17 @@ export default function DialerSalesHistoryPage() {
             {syncing ? 'Syncing...' : 'Sync Dialer'}
           </button>
 
-          <button
-            onClick={() => setShowAssign(true)}
-            disabled={loading || filteredSales.length === 0}
-            className="flex items-center gap-1.5 px-3 h-[34px] bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors disabled:opacity-50 text-xs font-semibold shadow-md cursor-pointer"
-            title="Assign these leads to QA"
-          >
-            <UserCheck className="w-3.5 h-3.5" />
-            Assign to QA
-          </button>
+          {user?.role !== 'QA Agent' && (
+            <button
+              onClick={() => setShowAssign(true)}
+              disabled={loading || filteredSales.length === 0}
+              className="flex items-center gap-1.5 px-3 h-[34px] bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors disabled:opacity-50 text-xs font-semibold shadow-md cursor-pointer"
+              title="Assign these leads to QA"
+            >
+              <UserCheck className="w-3.5 h-3.5" />
+              Assign to QA
+            </button>
+          )}
         </div>
       </div>
 

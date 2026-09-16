@@ -1,5 +1,5 @@
 const { query } = require('../config/database');
-const { NY_DAY_START } = require('../utils/timezone');
+const { NY_DAY_START, nyLocal } = require('../utils/timezone');
 
 /**
  * GET /api/dashboard/stats
@@ -55,10 +55,10 @@ const getDashboardStats = async (req, res, next) => {
         : `SELECT COUNT(ece.*) FROM evaluation_critical_errors ece JOIN qa_evaluations qe ON ece.evaluation_id = qe.id WHERE qe.is_deleted = FALSE AND DATE(qe.evaluation_date) BETWEEN $1 AND $2`, params),
       query(isUser
         ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND agent_user_id = $1`
-        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`, isUser ? [userId] : params),
+        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Pending' AND DATE(${nyLocal('created_at')}) BETWEEN $1 AND $2`, isUser ? [userId] : params),
       query(isUser
         ? `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND agent_user_id = $1`
-        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $1 AND $2`, isUser ? [userId] : params),
+        : `SELECT COUNT(*) FROM feedback WHERE feedback_status = 'Acknowledged by Agent' AND DATE(${nyLocal('created_at')}) BETWEEN $1 AND $2`, isUser ? [userId] : params),
       query(`
         SELECT 
           COUNT(*) as total_sales,
@@ -409,7 +409,7 @@ const getDashboardCharts = async (req, res, next) => {
     }
 
     // Feedback status distribution
-    const fbDateCond = (startDate && endDate) ? ` AND DATE(created_at AT TIME ZONE 'America/New_York') BETWEEN $${isUser ? 2 : 1} AND $${isUser ? 3 : 2}` : '';
+    const fbDateCond = (startDate && endDate) ? ` AND DATE(${nyLocal('created_at')}) BETWEEN $${isUser ? 2 : 1} AND $${isUser ? 3 : 2}` : '';
     const feedbackStatusQuery = isUser
       ? `SELECT feedback_status, COUNT(*) as count FROM feedback WHERE agent_user_id = $1${fbDateCond} GROUP BY feedback_status ORDER BY count DESC`
       : `SELECT feedback_status, COUNT(*) as count FROM feedback WHERE 1=1${fbDateCond} GROUP BY feedback_status ORDER BY count DESC`;

@@ -28,18 +28,23 @@ export default function DashboardPage() {
   const [dialer, setDialer] = useState('medicare');
 
   useEffect(() => {
+    // Ignore results from a superseded filter change (or after unmount).
+    let cancelled = false;
     setLoading(true);
-    const dialerParam = dialer !== 'all' ? `&dialer=${dialer}` : '';
+    const params = { startDate, endDate };
+    if (dialer !== 'all') params.dialer = dialer;
     Promise.all([
-      api.get(`/dashboard/stats?startDate=${startDate}&endDate=${endDate}${dialerParam}`), 
-      api.get(`/dashboard/charts?startDate=${startDate}&endDate=${endDate}${dialerParam}`)
+      api.get('/dashboard/stats', { params }),
+      api.get('/dashboard/charts', { params }),
     ])
-      .then(([s, c]) => { 
-        setStats(s.data.data); 
-        setCharts(c.data.data); 
+      .then(([s, c]) => {
+        if (cancelled) return;
+        setStats(s.data.data);
+        setCharts(c.data.data);
       })
-      .catch(() => toast.error('Failed to load dashboard data.'))
-      .finally(() => setLoading(false));
+      .catch(() => { if (!cancelled) toast.error('Failed to load dashboard data.'); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [startDate, endDate, dialer]);
 
   if (loading) return (

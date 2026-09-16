@@ -1,3 +1,4 @@
+import { useState, useEffect, useRef } from 'react';
 /* eslint-disable-next-line react-refresh/only-export-components */
 export * from './DateRangeDropdown';
 // Stat Card
@@ -30,10 +31,10 @@ export const Badge = ({ status }) => {
     High: 'badge-orange',
     Medium: 'badge-yellow',
     Low: 'badge-blue',
-    Admin: 'badge-purple',
-    'QA Officer': 'badge-blue',
-    'Team Lead': 'badge-blue',
-    Agent: 'badge-gray',
+    'Super Admin': 'badge-purple',
+    'QA Admin': 'badge-blue',
+    Manager: 'badge-orange',
+    'QA Agent': 'badge-green',
     completed: 'badge-green',
     processing: 'badge-yellow',
     failed: 'badge-red',
@@ -118,16 +119,40 @@ export const Pagination = ({ pagination, onPageChange }) => {
 
 // Confirm Modal
 export const ConfirmModal = ({ open, title, message, onConfirm, onCancel, danger }) => {
+  // Guards against a double click firing the (often destructive) action twice.
+  const [busy, setBusy] = useState(false);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
+  useEffect(() => { if (!open) setBusy(false); }, [open]);
+
   if (!open) return null;
+
+  const confirm = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await onConfirm?.();
+    } finally {
+      if (mounted.current) setBusy(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm p-4">
       <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl max-w-md w-full p-6 relative overflow-hidden">
         <h3 className="text-xl font-bold text-white mb-2">{title}</h3>
         <p className="text-sm text-slate-400 mb-8">{message}</p>
         <div className="flex gap-3 justify-end">
-          <button onClick={onCancel} className="btn-secondary">Cancel</button>
-          <button onClick={onConfirm} className={danger ? 'btn-danger' : 'btn-primary'}>
-            Confirm
+          <button onClick={onCancel} disabled={busy} className="btn-secondary disabled:opacity-50">Cancel</button>
+          <button
+            onClick={confirm}
+            disabled={busy}
+            className={`${danger ? 'btn-danger' : 'btn-primary'} disabled:opacity-60 disabled:cursor-not-allowed`}
+          >
+            {busy ? 'Please wait…' : 'Confirm'}
           </button>
         </div>
       </div>

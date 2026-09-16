@@ -23,8 +23,7 @@ const pool = new Pool({
   max: 20,                        // max pool connections
   min: 2,                         // keep minimum connections alive
   idleTimeoutMillis: 30000,       // close idle connections after 30s
-  connectionTimeoutMillis: 5000,  // wait 5s before timing out connection attempt
-  acquireTimeoutMillis: 10000,    // wait 10s to acquire a client from pool
+  connectionTimeoutMillis: 5000,  // wait 5s before timing out connection attempt (also bounds pool checkout)
   // Enable SSL in production environments
   ssl: isProduction && process.env.DB_SSL !== 'false'
     ? { rejectUnauthorized: false }

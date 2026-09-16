@@ -196,18 +196,21 @@ const UserManagementPage = () => {
     }
   }, []);
 
+  const usersReqSeq = useRef(0);
   const fetchUsers = useCallback(async () => {
+    const seq = ++usersReqSeq.current;
     try {
       const params = { page, limit: PAGE_SIZE };
       if (debouncedSearch) params.search = debouncedSearch;
       if (roleFilter) params.role_id = roleFilter;
       const res = await api.get('/users', { params });
+      if (seq !== usersReqSeq.current) return;
       setUsers(res.data.data || []);
       setPagination(res.data.pagination || null);
     } catch {
-      toast.error('Failed to load users.');
+      if (seq === usersReqSeq.current) toast.error('Failed to load users.');
     } finally {
-      setLoading(false);
+      if (seq === usersReqSeq.current) setLoading(false);
     }
   }, [page, debouncedSearch, roleFilter]);
 

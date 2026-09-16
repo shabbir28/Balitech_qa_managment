@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import api from '../services/api';
 import toast from 'react-hot-toast';
+import { copyText } from '../utils/clipboard';
 import {
   Send, Search, Phone, CheckSquare, Square, Upload, FileText,
   ChevronDown, UserCheck, Target, X,
@@ -251,7 +252,12 @@ const AssignLeadsPage = () => {
     toast.success(`Selected top ${Math.min(n, displayedLeads.length)} leads`);
   };
 
-  const copyPhone = (ph, e) => { e.stopPropagation(); if (!ph) return; navigator.clipboard.writeText(ph); toast.success(`Copied ${ph}`); };
+  const copyPhone = async (ph, e) => {
+    e.stopPropagation();
+    if (!ph) return;
+    const ok = await copyText(ph);
+    ok ? toast.success(`Copied ${ph}`) : toast.error('Copy failed.');
+  };
 
   const handleFileUpload = (e) => {
     const f = e.target.files[0];

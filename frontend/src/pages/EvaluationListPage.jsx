@@ -102,7 +102,14 @@ const EvaluationListPage = () => {
   // Filters
   const todayEst = getEstDateString(new Date());
   const [filters, setFilters] = useState({ search: '', campaign: '', from_date: todayEst, to_date: todayEst });
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [campaigns, setCampaigns] = useState([]);
+  const requestSeq = useRef(0);
+
+  useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(filters.search.trim()), 350);
+    return () => clearTimeout(t);
+  }, [filters.search]);
 
   // Detail Modal State
   const [selectedUser, setSelectedUser] = useState(null);
@@ -122,18 +129,25 @@ const EvaluationListPage = () => {
     api.get('/campaigns').then(res => setCampaigns(res.data.data ?? [])).catch(() => {});
   }, [isAgent]);
 
+  const { campaign, from_date, to_date } = filters;
   const fetchManagedUsers = useCallback(async () => {
+    // Drop responses from superseded requests so a slow older call can't
+    // overwrite fresher results after a quick filter change.
+    const seq = ++requestSeq.current;
     setLoadingUsers(true);
     try {
       // The backend scopes this to the caller's own row for QA Agents.
-      const res = await api.get('/users/managed-stats', { params: filters });
+      const res = await api.get('/users/managed-stats', {
+        params: { search: debouncedSearch, campaign, from_date, to_date },
+      });
+      if (seq !== requestSeq.current) return;
       setManagedUsers(res.data.data || []);
     } catch {
-      toast.error('Failed to load QA users.');
+      if (seq === requestSeq.current) toast.error('Failed to load QA users.');
     } finally {
-      setLoadingUsers(false);
+      if (seq === requestSeq.current) setLoadingUsers(false);
     }
-  }, [filters]);
+  }, [debouncedSearch, campaign, from_date, to_date]);
 
   useEffect(() => {
     fetchManagedUsers();

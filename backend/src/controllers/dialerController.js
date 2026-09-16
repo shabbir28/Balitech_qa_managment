@@ -432,12 +432,13 @@ exports.downloadAudio = async (req, res, next) => {
     allowedDomainSuffixes.add('vicidial.net');
     allowedDomainSuffixes.add('vicidial.org');
 
-    const hostname = parsedUrl.hostname;
-    const domainParts = hostname.split('.');
-    const parentDomain = domainParts.slice(-2).join('.');
-    const isAllowed = allowedHosts.has(hostname) || allowedDomainSuffixes.has(parentDomain);
+    const isHostAllowed = (hostname) => {
+      const parentDomain = hostname.split('.').slice(-2).join('.');
+      return allowedHosts.has(hostname) || allowedDomainSuffixes.has(parentDomain);
+    };
 
-    if (!isAllowed) {
+    const hostname = parsedUrl.hostname;
+    if (!isHostAllowed(hostname)) {
       return res.status(403).json({
         success: false,
         message: `Recording URL hostname '${hostname}' is not an allowed recording source`
@@ -454,11 +455,19 @@ exports.downloadAudio = async (req, res, next) => {
     let currentUrl = url;
     let redirectCount = 0;
     const MAX_REDIRECTS = 5;
+    // A hung recording server must not pin a connection forever.
+    const UPSTREAM_TIMEOUT_MS = 120000;
+    let upstreamReq = null;
+
+    // If the browser goes away mid-download, stop pulling from the dialer.
+    res.on('close', () => {
+      if (upstreamReq && !upstreamReq.destroyed) upstreamReq.destroy();
+    });
 
     const doStream = () => {
       const client = currentUrl.startsWith('https://') ? require('https') : require('http');
 
-      client.get(currentUrl, (streamRes) => {
+      upstreamReq = client.get(currentUrl, { timeout: UPSTREAM_TIMEOUT_MS }, (streamRes) => {
         // Handle redirects properly (no recursive req spread)
         if (streamRes.statusCode >= 300 && streamRes.statusCode < 400 && streamRes.headers.location) {
           streamRes.resume(); // consume and discard body
@@ -470,11 +479,12 @@ exports.downloadAudio = async (req, res, next) => {
           }
           redirectCount++;
           // Resolve relative redirects
+          let nextUrl;
           try {
-            currentUrl = new URL(streamRes.headers.location, currentUrl).toString();
+            nextUrl = new URL(streamRes.headers.location, currentUrl);
             // Fix https to http for bare IPs on redirects too
-            if (currentUrl.startsWith('https://') && /^\d+\.\d+\.\d+\.\d+/.test(new URL(currentUrl).hostname)) {
-              currentUrl = currentUrl.replace('https://', 'http://');
+            if (nextUrl.protocol === 'https:' && /^\d+\.\d+\.\d+\.\d+$/.test(nextUrl.hostname)) {
+              nextUrl.protocol = 'http:';
             }
           } catch {
             if (!res.headersSent) {
@@ -482,6 +492,15 @@ exports.downloadAudio = async (req, res, next) => {
             }
             return;
           }
+          // The allowlist applies to every hop, otherwise a redirect could
+          // turn this proxy into a tunnel to internal hosts.
+          if (!['http:', 'https:'].includes(nextUrl.protocol) || !isHostAllowed(nextUrl.hostname)) {
+            if (!res.headersSent) {
+              return res.status(403).json({ success: false, message: 'Redirect target is not an allowed recording source' });
+            }
+            return;
+          }
+          currentUrl = nextUrl.toString();
           return doStream();
         }
 
@@ -505,11 +524,23 @@ exports.downloadAudio = async (req, res, next) => {
         streamRes.pipe(res);
         streamRes.on('error', (err) => {
           console.error('Error piping audio stream:', err.message);
+          if (!res.headersSent) {
+            res.status(502).json({ success: false, message: 'Audio stream interrupted.' });
+          } else {
+            res.destroy();
+          }
         });
-      }).on('error', (err) => {
+      });
+
+      upstreamReq.on('timeout', () => {
+        upstreamReq.destroy(new Error('Upstream recording server timed out'));
+      });
+      upstreamReq.on('error', (err) => {
         console.error('Error in downloadAudio proxy:', err.message);
         if (!res.headersSent) {
           res.status(502).json({ success: false, message: 'Audio stream download failed: ' + err.message });
+        } else {
+          res.destroy();
         }
       });
     };

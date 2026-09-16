@@ -1,5 +1,5 @@
 const { query, getClient } = require('../config/database');
-const { nyDateStart } = require('../utils/timezone');
+const { nyDateStart, nyLocal } = require('../utils/timezone');
 const { applyEvaluationQaStatus, pushQaStatusToHrms } = require('../services/evaluationQaStatusSync');
 const { agentCanAccessCampaign, agentCampaignSql, campaignFamily } = require('../utils/campaignAccess');
 const { parsePagination } = require('../utils/pagination');
@@ -552,7 +552,7 @@ const getAgentErrorReport = async (req, res, next) => {
         la.campaign_name,
         la.status as assignment_status,
         la.assigned_at,
-        TO_CHAR(la.assigned_at AT TIME ZONE 'UTC' AT TIME ZONE 'America/New_York', 'YYYY-MM-DD') as assigned_at_est,
+        TO_CHAR(${nyLocal('la.assigned_at')}, 'YYYY-MM-DD') as assigned_at_est,
         cl.customer_phone,
         cl.agent_name as call_agent_name,
         cl.agent_id as call_agent_id,

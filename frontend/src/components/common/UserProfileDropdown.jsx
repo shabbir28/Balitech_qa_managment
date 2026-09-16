@@ -60,17 +60,19 @@ export default function UserProfileDropdown() {
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-sm font-extrabold text-white truncate leading-tight">
-                {user?.name || 'System Manager'}
+                {user?.name || '—'}
               </p>
               <p className="text-[11px] text-slate-400 truncate mt-0.5 font-medium">
-                {user?.email || 'manager@bpoqa.com'}
+                {user?.email || '—'}
               </p>
-              <div className="mt-1.5 flex items-center gap-1.5">
-                <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[9px] font-bold uppercase tracking-wider">
-                  <Shield className="w-2.5 h-2.5 mr-1 text-amber-400" />
-                  {user?.role || 'Super Admin'}
-                </span>
-              </div>
+              {user?.role && (
+                <div className="mt-1.5 flex items-center gap-1.5">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-md border border-amber-500/40 bg-amber-500/10 text-amber-400 text-[9px] font-bold uppercase tracking-wider">
+                    <Shield className="w-2.5 h-2.5 mr-1 text-amber-400" />
+                    {user.role}
+                  </span>
+                </div>
+              )}
             </div>
           </div>
 

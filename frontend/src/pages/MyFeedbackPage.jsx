@@ -18,7 +18,7 @@ const MyFeedbackPage = () => {
   const fetchFeedback = useCallback(async () => {
     try {
       const res = await api.get('/feedback/my-feedback', { params: { page, limit: 10 } });
-      setFeedback(res.data.data);
+      setFeedback(res.data.data || []);
       setPagination(res.data.pagination);
     } catch {
       toast.error('Failed to load your feedback.');

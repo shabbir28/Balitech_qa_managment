@@ -63,7 +63,7 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
         total_sales: parseInt(s.total_sales || 0),
         accepted: parseInt(s.accepted || 0),
         rejected: parseInt(s.rejected || 0),
-        avg_score: Math.round(Number(s.avg_score) || 92)
+        avg_score: Math.round(Number(s.avg_score) || 0)
       };
     });
   }, [charts]);
@@ -83,13 +83,19 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
   const activeChartData = useMemo(() => {
     if (chartTimeframe === 'daily') {
       if (charts?.dailyPerformance?.length) {
-        return charts.dailyPerformance.map(d => ({
-          period: d.short_date || d.day_label,
-          full_label: d.day_label,
-          volume: parseInt(d.total_volume || 0),
-          passed: parseInt(d.passed || 0),
-          avg_score: 92,
-        }));
+        return charts.dailyPerformance.map(d => {
+          const passed = parseInt(d.passed || 0);
+          const failed = parseInt(d.failed || 0);
+          const judged = passed + failed;
+          return {
+            period: d.short_date || d.day_label,
+            full_label: d.day_label,
+            volume: parseInt(d.total_volume || 0),
+            passed,
+            // Daily rows carry no score column; the pass rate is the honest stand-in.
+            avg_score: judged ? Math.round((passed / judged) * 100) : 0,
+          };
+        });
       }
     }
 
@@ -100,7 +106,7 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
         full_label: `${m.month} Trends`,
         volume: parseInt(m.total_volume || m.total || 0),
         passed: parseInt(m.passed || 0),
-        avg_score: Math.round(Number(m.avg_score) || 88),
+        avg_score: Math.round(Number(m.avg_score) || 0),
       }));
     }
 
@@ -119,15 +125,17 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
     const peak = chartMetric === 'volume' ? Math.max(...volumes) : Math.max(...scores);
     const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length);
 
-    const lastVal = activeChartData[activeChartData.length - 1]?.[chartMetric === 'volume' ? 'volume' : 'avg_score'] || 0;
-    const prevVal = activeChartData[activeChartData.length - 2]?.[chartMetric === 'volume' ? 'volume' : 'avg_score'] || lastVal;
+    const metricKey = chartMetric === 'volume' ? 'volume' : 'avg_score';
+    const lastVal = activeChartData[activeChartData.length - 1]?.[metricKey] || 0;
+    const prevVal = activeChartData[activeChartData.length - 2]?.[metricKey] ?? lastVal;
     const isUp = lastVal >= prevVal;
+    const delta = prevVal ? ((lastVal - prevVal) / prevVal) * 100 : 0;
 
     return {
       totalVolume: totalVol,
       peakMetric: peak,
       overallAvgScore: avgScore,
-      trendPercent: '+14.2%',
+      trendPercent: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`,
       isTrendUp: isUp,
     };
   }, [activeChartData, chartMetric]);

@@ -64,10 +64,33 @@ const deleteTeam = async (req, res, next) => {
 /* ─── TEAM MEMBERS ──────────────────────────────────────────────────── */
 
 /**
+ * A Manager may only touch teams they own; admins see everything.
+ * Sends the 404/403 itself and returns false when the caller must stop.
+ */
+const assertTeamAccess = async (req, res) => {
+  const teamId = parseInt(req.params.id, 10);
+  if (!Number.isInteger(teamId) || teamId < 1) {
+    res.status(400).json({ success: false, message: 'Invalid team id.' });
+    return false;
+  }
+  const check = await query('SELECT manager_id FROM teams WHERE id = $1', [teamId]);
+  if (!check.rows.length) {
+    res.status(404).json({ success: false, message: 'Team not found.' });
+    return false;
+  }
+  if (!['Super Admin', 'QA Admin'].includes(req.user.role) && check.rows[0].manager_id !== req.user.id) {
+    res.status(403).json({ success: false, message: 'Not authorised.' });
+    return false;
+  }
+  return true;
+};
+
+/**
  * GET /api/teams/:id/members
  */
 const getTeamMembers = async (req, res, next) => {
   try {
+    if (!(await assertTeamAccess(req, res))) return;
     const result = await query(
       `SELECT u.id, u.name, u.email, u.agent_id, u.department, r.name as role, tm.added_at
        FROM team_members tm
@@ -88,6 +111,7 @@ const addTeamMember = async (req, res, next) => {
   try {
     const { user_id } = req.body;
     if (!user_id) return res.status(400).json({ success: false, message: 'user_id is required.' });
+    if (!(await assertTeamAccess(req, res))) return;
     await query(
       'INSERT INTO team_members (team_id, user_id) VALUES ($1, $2) ON CONFLICT DO NOTHING',
       [req.params.id, user_id]
@@ -101,6 +125,7 @@ const addTeamMember = async (req, res, next) => {
  */
 const removeTeamMember = async (req, res, next) => {
   try {
+    if (!(await assertTeamAccess(req, res))) return;
     await query('DELETE FROM team_members WHERE team_id = $1 AND user_id = $2', [req.params.id, req.params.userId]);
     res.json({ success: true, message: 'Member removed.' });
   } catch (err) { next(err); }
@@ -267,6 +292,11 @@ const getAssignments = async (req, res, next) => {
     if (!isLeadership) {
       statsConditions.push(`la.assigned_to = $${statsCount++}`);
       statsParams.push(req.user.id);
+      // Same campaign scope as the list, or the KPI tiles disagree with the rows.
+      const camp = agentCampaignSql(req.user, 'cl', statsCount);
+      statsConditions.push(camp.sql);
+      statsParams.push(...camp.params);
+      statsCount = camp.next;
     } else if (user_id) {
       statsConditions.push(`la.assigned_to = $${statsCount++}`);
       statsParams.push(user_id);
@@ -297,6 +327,7 @@ const getAssignments = async (req, res, next) => {
         COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) IN ('Not Billable', 'Not Bilable') THEN 1 END) as eval_not_billable,
         COUNT(CASE WHEN COALESCE(e.metadata->>'qa_status', e.status) = 'Flagged' THEN 1 END) as eval_flagged
       FROM lead_assignments la
+      JOIN call_leads cl ON la.call_lead_id = cl.id
       LEFT JOIN qa_evaluations e ON la.call_lead_id = e.call_lead_id AND e.is_deleted = FALSE
       ${statsWhere}
     `, statsParams);
@@ -447,13 +478,31 @@ const createAssignments = async (req, res, next) => {
         callLeadId = ins.rows[0].id;
       }
 
-      // Assign to user
-      const r = await query(
-        `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [callLeadId, assigned_to, req.user.id, campaign_name || '', notes || '']
+      // Assign to user. lead_assignments has no unique key on call_lead_id, so
+      // re-assigning an already-handed-out lead must update the existing row
+      // (same rule as dialerSalesController.assignSales) instead of duplicating it.
+      const existingAssign = await query(
+        'SELECT id, status FROM lead_assignments WHERE call_lead_id = $1 ORDER BY assigned_at DESC LIMIT 1',
+        [callLeadId]
       );
+      let r;
+      if (existingAssign.rows[0]) {
+        if (existingAssign.rows[0].status === 'completed') continue;
+        r = await query(
+          `UPDATE lead_assignments
+           SET assigned_to = $1, assigned_by = $2, campaign_name = $3, notes = $4, assigned_at = NOW(), status = 'pending'
+           WHERE id = $5
+           RETURNING *`,
+          [assigned_to, req.user.id, campaign_name || '', notes || '', existingAssign.rows[0].id]
+        );
+      } else {
+        r = await query(
+          `INSERT INTO lead_assignments (call_lead_id, assigned_to, assigned_by, campaign_name, notes)
+           VALUES ($1, $2, $3, $4, $5)
+           RETURNING *`,
+          [callLeadId, assigned_to, req.user.id, campaign_name || '', notes || '']
+        );
+      }
       if (r.rows[0]) results.push(r.rows[0]);
 
       // Mark assigned in dialer_sales_history if id or lead_id exists
@@ -733,6 +782,8 @@ const uploadAssignments = async (req, res, next) => {
 
     const { pool } = require('../config/database');
     let totalInserted = 0;
+    let failedRows = 0;
+    let firstError = null;
     const batchSize = 1000;
 
     const processBatch = async (chunk) => {
@@ -790,7 +841,11 @@ const uploadAssignments = async (req, res, next) => {
         await client.query('COMMIT');
         totalInserted += leadRes.rows.length;
       } catch (e) {
-        await client.query('ROLLBACK');
+        await client.query('ROLLBACK').catch(() => {});
+        // Keep going so one bad chunk doesn't discard the rest, but remember it
+        // so the caller isn't told everything went in.
+        failedRows += chunk.length;
+        if (!firstError) firstError = e;
         console.error('Batch insert error:', e.message, e.detail || '', e.stack);
       } finally {
         client.release();
@@ -805,10 +860,21 @@ const uploadAssignments = async (req, res, next) => {
     if (totalInserted === 0) {
       return res.status(500).json({
         success: false,
-        message: 'Failed to assign any leads from the file. Check the file format and try again.',
+        message: firstError
+          ? `Failed to assign leads from the file: ${firstError.detail || firstError.message}`
+          : 'Failed to assign any leads from the file. Check the file format and try again.',
       });
     }
-    res.status(201).json({ success: true, message: `${totalInserted} lead(s) assigned successfully from file.` });
+    if (failedRows > 0) {
+      return res.status(207).json({
+        success: true,
+        partial: true,
+        inserted: totalInserted,
+        failed: failedRows,
+        message: `${totalInserted} lead(s) assigned; ${failedRows} row(s) could not be saved (${firstError?.detail || firstError?.message || 'see server log'}).`,
+      });
+    }
+    res.status(201).json({ success: true, inserted: totalInserted, message: `${totalInserted} lead(s) assigned successfully from file.` });
   } catch (err) {
     if (req.file) fs.unlink(req.file.path, () => {});
     next(err);

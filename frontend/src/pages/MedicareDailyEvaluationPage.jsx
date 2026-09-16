@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   TbDownload, TbRefresh, TbChevronDown, TbInbox, TbSearch, TbX,
   TbClockHour4, TbRotate, TbClipboardText, TbChevronLeft, TbChevronRight,
@@ -201,19 +201,22 @@ export default function MedicareDailyEvaluationPage() {
     return params;
   }, [page, debouncedSearch, selectedQa, selectedCampaign, dateRange]);
 
+  const requestSeq = useRef(0);
   const fetchData = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const res = await api.get('/evaluations/reports/medicare-daily', { params: buildParams(false) });
+      if (seq !== requestSeq.current) return;
       if (res.data.success) {
         setRows(res.data.data ?? []);
         setSummary(res.data.summary ?? null);
         setPagination(res.data.pagination ?? null);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to load evaluations.');
+      if (seq === requestSeq.current) toast.error(err.response?.data?.message || 'Failed to load evaluations.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [buildParams]);
 
@@ -247,8 +250,15 @@ export default function MedicareDailyEvaluationPage() {
   const exportExcel = async () => {
     setExporting(true);
     try {
-      const res = await api.get('/evaluations/reports/medicare-daily', { params: buildParams(true) });
-      const exportRows = res.data?.data ?? [];
+      // The endpoint caps a page at 1000 rows; walk every page so a busy
+      // range doesn't export a silently truncated sheet.
+      const exportRows = [];
+      const base = buildParams(true);
+      for (let p = 1, pages = 1; p <= pages && exportRows.length < 20000; p++) {
+        const res = await api.get('/evaluations/reports/medicare-daily', { params: { ...base, page: p } });
+        exportRows.push(...(res.data?.data ?? []));
+        pages = res.data?.pagination?.pages ?? 1;
+      }
       if (exportRows.length === 0) {
         toast.error('Nothing to export for these filters.');
         return;

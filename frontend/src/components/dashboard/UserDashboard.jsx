@@ -52,13 +52,19 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
   const activeChartData = useMemo(() => {
     if (chartTimeframe === 'daily') {
       if (charts?.dailyPerformance?.length) {
-        return charts.dailyPerformance.map(d => ({
-          period: d.short_date || d.day_label,
-          full_label: d.day_label,
-          volume: parseInt(d.total_volume || 0),
-          passed: parseInt(d.passed || 0),
-          avg_score: 94,
-        }));
+        return charts.dailyPerformance.map(d => {
+          const passed = parseInt(d.passed || 0);
+          const failed = parseInt(d.failed || 0);
+          const judged = passed + failed;
+          return {
+            period: d.short_date || d.day_label,
+            full_label: d.day_label,
+            volume: parseInt(d.total_volume || 0),
+            passed,
+            // Daily rows carry no score column; the pass rate is the honest stand-in.
+            avg_score: judged ? Math.round((passed / judged) * 100) : 0,
+          };
+        });
       }
     }
 
@@ -69,7 +75,7 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
         full_label: `${m.month} Performance`,
         volume: parseInt(m.total_volume || m.total || 0),
         passed: parseInt(m.passed || 0),
-        avg_score: Math.round(Number(m.avg_score) || 90),
+        avg_score: Math.round(Number(m.avg_score) || 0),
       }));
     }
 
@@ -78,7 +84,7 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
 
   const { avgScore, peakScore, totalVolume, trendPercent, isTrendUp } = useMemo(() => {
     if (!activeChartData.length) {
-      return { avgScore: 90, peakScore: 96, totalVolume: 0, trendPercent: '+6.8%', isTrendUp: true };
+      return { avgScore: 0, peakScore: 0, totalVolume: 0, trendPercent: '0%', isTrendUp: true };
     }
     const scores = activeChartData.map(d => d.avg_score);
     const volumes = activeChartData.map(d => d.volume);
@@ -86,15 +92,17 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
     const peak = chartMetric === 'volume' ? Math.max(...volumes) : Math.max(...scores);
     const totalVol = volumes.reduce((a, b) => a + b, 0);
 
-    const lastVal = activeChartData[activeChartData.length - 1]?.[chartMetric === 'volume' ? 'volume' : 'avg_score'] || 0;
-    const prevVal = activeChartData[activeChartData.length - 2]?.[chartMetric === 'volume' ? 'volume' : 'avg_score'] || lastVal;
+    const metricKey = chartMetric === 'volume' ? 'volume' : 'avg_score';
+    const lastVal = activeChartData[activeChartData.length - 1]?.[metricKey] || 0;
+    const prevVal = activeChartData[activeChartData.length - 2]?.[metricKey] ?? lastVal;
     const isUp = lastVal >= prevVal;
+    const delta = prevVal ? ((lastVal - prevVal) / prevVal) * 100 : 0;
 
     return {
-      avgScore: avg || 90,
-      peakScore: peak || 96,
+      avgScore: avg,
+      peakScore: peak,
       totalVolume: totalVol,
-      trendPercent: '+12.5%',
+      trendPercent: `${delta >= 0 ? '+' : ''}${delta.toFixed(1)}%`,
       isTrendUp: isUp,
     };
   }, [activeChartData, chartMetric]);

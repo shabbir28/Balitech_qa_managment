@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Users, AlertCircle, Search, RefreshCw, ShieldAlert,
   ChevronDown, ChevronRight, Phone, CheckCircle2, XCircle, Flag,
@@ -34,31 +34,36 @@ export default function AgentErrorReportPage() {
       .catch(() => {});
   }, []);
 
-  // Fetch report data
+  // Search is applied client-side below (the report is small), so it must not
+  // refire the request per keystroke. The sequence guard drops a slow older
+  // response that would otherwise overwrite fresher data.
+  const requestSeq = useRef(0);
   const fetchData = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = { group_by: groupBy };
       if (selectedCampaign) params.campaign_name = selectedCampaign;
-      if (search) params.search = search;
       if (dateRange.start) params.from_date = dateRange.start;
       if (dateRange.end) params.to_date = dateRange.end;
 
       const res = await api.get('/evaluations/reports/agent-errors', { params });
+      if (seq !== requestSeq.current) return;
       if (res.data.success) {
-        setReportData(res.data.data || []);
+        const data = Array.isArray(res.data.data) ? res.data.data : [];
+        setReportData(data);
 
         // Auto-expand if only 1 evaluator or if specific evaluator filtered
-        if (res.data.data && res.data.data.length === 1) {
-          setExpandedName(res.data.data[0].name);
+        if (data.length === 1) {
+          setExpandedName(data[0].name);
         }
       }
     } catch {
-      toast.error('Failed to load QA Agent Error Report.');
+      if (seq === requestSeq.current) toast.error('Failed to load QA Agent Error Report.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
-  }, [groupBy, selectedCampaign, search, dateRange]);
+  }, [groupBy, selectedCampaign, dateRange]);
 
   useEffect(() => {
     fetchData();
@@ -135,9 +140,13 @@ export default function AgentErrorReportPage() {
       'Not Billable',
       ...catKeys
     ];
+    const csvCell = (v) => {
+      const s = String(v ?? '');
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
     const rows = filteredData.map(item => [
-      `"${item.name || ''}"`,
-      `"${item.campaign_name || ''}"`,
+      csvCell(item.name),
+      csvCell(item.campaign_name),
       item.total_assigned,
       item.total_evaluated,
       item.statuses?.Pending || 0,
@@ -148,15 +157,17 @@ export default function AgentErrorReportPage() {
       item.statuses?.['Not Billable'] || 0,
       ...catKeys.map(k => item.la_categories?.[k] || 0)
     ]);
-    const csvContent = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
+    const csvContent = [headers.map(csvCell).join(','), ...rows.map(r => r.join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.href = url;
-    link.setAttribute('download', `qa_agent_report_${selectedEvaluator !== 'all' ? selectedEvaluator : 'all'}_${new Date().toISOString().slice(0,10)}.csv`);
+    const who = selectedEvaluator !== 'all' ? selectedEvaluator.replace(/[^\w-]+/g, '_') : 'all';
+    link.setAttribute('download', `qa_agent_report_${who}_${getEstDateString(new Date())}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
     toast.success('Report exported to CSV');
   };
 
@@ -441,7 +452,7 @@ export default function AgentErrorReportPage() {
                   const catEntries = Object.entries(item.la_categories || {});
 
                   return (
-                    <React.Fragment key={item.name}>
+                    <React.Fragment key={`${item.name}|${item.campaign_name || ''}|${item.qa_id ?? ''}`}>
                       <tr
                         onClick={() => setExpandedName(isExpanded ? null : item.name)}
                         className={`transition-colors cursor-pointer ${

@@ -119,10 +119,23 @@ const register = async (req, res, next) => {
       return res.status(400).json({ success: false, message: passwordError });
     }
 
-    // role_id must be a positive integer
+    // role_id must be a positive integer that exists
     const parsedRoleId = parseInt(role_id, 10);
     if (isNaN(parsedRoleId) || parsedRoleId < 1) {
       return res.status(400).json({ success: false, message: 'Invalid role_id.' });
+    }
+    const roleRow = await query('SELECT name FROM roles WHERE id = $1', [parsedRoleId]);
+    if (!roleRow.rows.length) {
+      return res.status(400).json({ success: false, message: 'Role does not exist.' });
+    }
+    const roleName = roleRow.rows[0].name;
+
+    let parsedCampaignId = null;
+    if (campaign_id !== undefined && campaign_id !== null && campaign_id !== '') {
+      parsedCampaignId = parseInt(campaign_id, 10);
+      if (!Number.isFinite(parsedCampaignId) || parsedCampaignId < 1) {
+        return res.status(400).json({ success: false, message: 'Invalid campaign_id.' });
+      }
     }
 
     // Check if email exists
@@ -145,12 +158,13 @@ const register = async (req, res, next) => {
         agent_id ? String(agent_id).trim().substring(0, 50) : null,
         department ? String(department).trim().substring(0, 100) : null,
         phone ? String(phone).trim().substring(0, 20) : null,
-        campaign_id || null,
+        parsedCampaignId,
       ]
     );
 
-    // If agent role, create agent record
-    if (parsedRoleId === 4 && agent_id) {
+    // Only QA Agents get an agents row; role ids differ between environments,
+    // so match on the role name rather than a hardcoded id.
+    if (roleName === 'QA Agent' && agent_id) {
       await query(
         'INSERT INTO agents (name, agent_id, user_id, email, department) VALUES ($1, $2, $3, $4, $5) ON CONFLICT (agent_id) DO NOTHING',
         [name.trim(), agent_id, result.rows[0].id, email.toLowerCase().trim(), department || null]

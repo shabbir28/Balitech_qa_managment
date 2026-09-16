@@ -1,8 +1,11 @@
 const cron = require('node-cron');
 const { backfillSales } = require('../controllers/dialerSalesController');
 
-// Helper to mock Express req, res
-const runSync = async (dialer, dateStr) => {
+// Helper to mock Express req, res. The controller reports failures through
+// res.status(4xx/5xx) rather than throwing, so the mock turns those into a
+// rejected promise — otherwise the cron would log "completed successfully"
+// after a failed pull.
+const runSync = (dialer, dateStr) => new Promise((resolve, reject) => {
   const req = {
     body: {
       dialer: dialer,
@@ -10,18 +13,26 @@ const runSync = async (dialer, dateStr) => {
       endDate: dateStr
     }
   };
-  
+
+  let statusCode = 200;
   const res = {
-    status: (code) => {
-      return {
-        json: (data) => console.log(`[Cron Sync ${dialer}] Status ${code}:`, data)
-      };
+    status(code) {
+      statusCode = code;
+      return this;
     },
-    json: (data) => console.log(`[Cron Sync ${dialer}] Success:`, data)
+    json(data) {
+      if (statusCode >= 400) {
+        console.error(`[Cron Sync ${dialer}] Status ${statusCode}:`, data);
+        reject(new Error(`${dialer} sync failed with status ${statusCode}: ${data?.message || 'unknown error'}`));
+      } else {
+        console.log(`[Cron Sync ${dialer}] Success:`, data);
+        resolve(data);
+      }
+    },
   };
 
-  await backfillSales(req, res);
-};
+  Promise.resolve(backfillSales(req, res)).catch(reject);
+});
 
 const initSalesSyncCron = () => {
   // Run at 11:55 PM every day
@@ -39,12 +50,20 @@ const initSalesSyncCron = () => {
 
     console.log(`Starting sync for date: ${todayStr}`);
     
-    try {
-      await runSync('medicare', todayStr);
-      await runSync('pharmacy', todayStr);
+    // Sequential to keep dialer load flat, but one dialer failing must not skip the other.
+    const failures = [];
+    for (const dialer of ['medicare', 'pharmacy']) {
+      try {
+        await runSync(dialer, todayStr);
+      } catch (err) {
+        failures.push(dialer);
+        console.error('❌ Daily sales sync error:', err?.message || err);
+      }
+    }
+    if (failures.length) {
+      console.error(`❌ Daily sales sync finished with failures: ${failures.join(', ')}\n`);
+    } else {
       console.log('✅ Daily sales sync completed successfully.\n');
-    } catch (err) {
-      console.error('❌ Error during daily sales sync:', err);
     }
   }, {
     timezone: "America/New_York"

@@ -16,7 +16,7 @@ const CriticalErrorsPage = () => {
   const fetchErrors = useCallback(async () => {
     try {
       const res = await api.get('/critical-errors');
-      setErrors(res.data.data);
+      setErrors(res.data.data || []);
     } catch {
       toast.error('Failed to load critical errors.');
     } finally {

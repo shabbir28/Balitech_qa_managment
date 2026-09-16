@@ -467,15 +467,17 @@ export default function AgentSalesPage() {
             </div>
           </div>
           
-          <button
-            onClick={() => setShowAssign(true)}
-            disabled={loading || filteredSales.length === 0}
-            className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all disabled:opacity-50 text-sm font-semibold shadow-lg hover:shadow-emerald-500/20 active:scale-95"
-            title="Assign these leads to QA"
-          >
-            <UserCheck className="w-4 h-4" />
-            Assign Leads to QA
-          </button>
+          {user?.role !== 'QA Agent' && (
+            <button
+              onClick={() => setShowAssign(true)}
+              disabled={loading || filteredSales.length === 0}
+              className="flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-all disabled:opacity-50 text-sm font-semibold shadow-lg hover:shadow-emerald-500/20 active:scale-95"
+              title="Assign these leads to QA"
+            >
+              <UserCheck className="w-4 h-4" />
+              Assign Leads to QA
+            </button>
+          )}
         </div>
 
         {/* Bottom Row: Search Bar */}

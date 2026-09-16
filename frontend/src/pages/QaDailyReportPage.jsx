@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   TbDownload, TbRefresh, TbChevronDown, TbInbox,
   TbDeviceFloppy, TbClockHour4, TbArrowLeft, TbArrowsMaximize,
@@ -385,7 +385,11 @@ export default function QaDailyReportPage() {
     }
   }, [isAgent]);
 
+  // Summaries are editable, so a slow superseded response must never land on
+  // top of the current filter's data.
+  const requestSeq = useRef(0);
   const fetchData = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = {};
@@ -394,6 +398,7 @@ export default function QaDailyReportPage() {
       if (dateRange.start) params.from_date = dateRange.start;
       if (dateRange.end) params.to_date = dateRange.end;
       const res = await api.get('/evaluations/reports/daily', { params });
+      if (seq !== requestSeq.current) return;
       if (res.data.success) {
         setAgents(res.data.agents || []);
         setTotals(res.data.totals || null);
@@ -402,9 +407,9 @@ export default function QaDailyReportPage() {
         setSavedSummaries(loaded);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to load QA daily report.');
+      if (seq === requestSeq.current) toast.error(err.response?.data?.message || 'Failed to load QA daily report.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [selectedCampaign, selectedQa, dateRange]);
 

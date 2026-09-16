@@ -1,3 +1,5 @@
+import { format } from 'date-fns';
+
 export const getEstDateString = (dateObj) => {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/New_York',
@@ -67,6 +69,20 @@ export const getEstDateTimeParts = (dateInput) => {
       timeZone: 'America/New_York', hour: '2-digit', minute: '2-digit', hour12: true,
     }).format(d),
   };
+};
+
+/**
+ * Formats a DATE column value (e.g. "2026-09-10" or "2026-09-10T00:00:00.000Z")
+ * as a calendar day. `new Date('YYYY-MM-DD')` is parsed as UTC midnight, which
+ * `format()` then renders in local time — a day early west of Greenwich — so
+ * the Y/M/D digits are read directly instead.
+ */
+export const formatDateOnly = (value, fmt) => {
+  if (!value) return '—';
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value));
+  const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(value);
+  if (isNaN(d.getTime())) return '—';
+  return format(d, fmt);
 };
 
 export const getPresets = () => {

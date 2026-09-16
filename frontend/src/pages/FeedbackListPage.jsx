@@ -22,7 +22,7 @@ const FeedbackListPage = () => {
   const fetchFeedback = useCallback(async () => {
     try {
       const res = await api.get('/feedback', { params: { page, limit: 20, search, ...filters } });
-      setFeedback(res.data.data);
+      setFeedback(res.data.data || []);
       setPagination(res.data.pagination);
     } catch {
       toast.error('Failed to load feedback.');

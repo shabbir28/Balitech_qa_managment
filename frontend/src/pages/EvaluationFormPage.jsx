@@ -3,9 +3,8 @@ import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Save, Play, Pause, Volume2, Download, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
-import { getEstDateString } from '../utils/dateUtils';
+import { getEstDateString, formatDateOnly } from '../utils/dateUtils';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
 import EditableOptionsInput from '../components/common/EditableOptionsInput';
 import { downloadRecording } from '../utils/recordingDownload';
@@ -534,7 +533,7 @@ const EvaluationFormPage = () => {
                     <tr className="hover:bg-slate-800/30 transition-colors group">
                       <td className="p-3 border-r border-slate-800/50 align-top">
                         <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-300 text-sm font-medium w-full">
-                          {call.call_date ? format(new Date(call.call_date), 'dd MMM yyyy') : '—'}
+                          {formatDateOnly(call.call_date, 'dd MMM yyyy')}
                         </div>
                       </td>
                       

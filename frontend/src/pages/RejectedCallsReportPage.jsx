@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   XCircle, Search, RefreshCw, Download, Clock, Copy, Check,
@@ -139,21 +139,24 @@ export default function RejectedCallsReportPage() {
     return params;
   }, [debouncedSearch, selectedCampaign, selectedQa, dateRange]);
 
+  const requestSeq = useRef(0);
   const fetchData = useCallback(async () => {
+    const seq = ++requestSeq.current;
     setLoading(true);
     try {
       const params = { ...filterParams(), page, limit: PAGE_SIZE };
 
       const res = await api.get('/evaluations/reports/rejected', { params });
+      if (seq !== requestSeq.current) return;
       if (res.data.success) {
         setRows(res.data.data || []);
         setSummary(res.data.summary || null);
         setPagination(res.data.pagination || null);
       }
     } catch (err) {
-      toast.error(err.response?.data?.message || 'Failed to load rejected calls.');
+      if (seq === requestSeq.current) toast.error(err.response?.data?.message || 'Failed to load rejected calls.');
     } finally {
-      setLoading(false);
+      if (seq === requestSeq.current) setLoading(false);
     }
   }, [page, filterParams]);
 

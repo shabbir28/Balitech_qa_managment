@@ -3,8 +3,8 @@ import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { ArrowLeft, Play, Pause, Volume2, Save, Lock, RefreshCw, Download, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
 import { useAuth } from '../context/AuthContext';
+import { formatDateOnly } from '../utils/dateUtils';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
 import EditableOptionsInput from '../components/common/EditableOptionsInput';
 import { downloadRecording } from '../utils/recordingDownload';
@@ -451,13 +451,13 @@ const ManagerEvaluationViewPage = () => {
                 <tr className="hover:bg-slate-800/30 transition-colors group">
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <div className="px-3 py-2 bg-slate-950/50 border border-slate-800/50 rounded-lg text-slate-300 text-sm font-medium w-full">
-                      {evaluation.call_date ? format(new Date(evaluation.call_date), 'dd MMM yyyy') : '—'}
+                      {formatDateOnly(evaluation.call_date, 'dd MMM yyyy')}
                     </div>
                   </td>
                   
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <div className="px-3 py-2 bg-slate-950 border border-slate-800 rounded-lg text-slate-200 text-sm opacity-80">
-                      {evaluation.evaluation_date ? format(new Date(evaluation.evaluation_date), 'yyyy-MM-dd') : '—'}
+                      {formatDateOnly(evaluation.evaluation_date, 'yyyy-MM-dd')}
                     </div>
                   </td>
 

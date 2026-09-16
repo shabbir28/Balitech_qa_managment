@@ -151,7 +151,10 @@ export default function MyAssignmentsPage() {
     try {
       const res = await api.patch('/assignments/accept-all', { date: startDate });
       toast.success(res.data.message || 'Pending leads accepted.');
+      // Changing filter/page only refetches when they actually change, so
+      // refresh explicitly in case we're already on accepted / page 1.
       setFilter('accepted'); setPage(1);
+      await fetchAssignments();
     } catch (e) { toast.error(e.response?.data?.message || 'Failed.'); }
   };
 

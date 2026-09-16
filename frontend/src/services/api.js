@@ -36,9 +36,12 @@ const attachToken = (config) => {
 api.interceptors.request.use(attachToken, (error) => Promise.reject(error));
 uploadApi.interceptors.request.use(attachToken, (error) => Promise.reject(error));
 
-// Handle auth errors (redirect to login on 401)
+// Handle auth errors (redirect to login on 401). A failed login attempt is
+// also a 401 but is not an expired session, so it must not wipe storage.
+const isLoginRequest = (config) => /\/auth\/login\/?$/.test(config?.url || '');
+
 const handleAuthError = (error) => {
-  if (error.response?.status === 401) {
+  if (error.response?.status === 401 && !isLoginRequest(error.config)) {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     if (window.location.pathname !== '/login') {
