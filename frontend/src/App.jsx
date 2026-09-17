@@ -31,6 +31,11 @@ import TeamsPage from './pages/TeamsPage';
 import DialerSearchPage from './pages/DialerSearchPage';
 import DialerLeadDetailsPage from './pages/DialerLeadDetailsPage';
 
+import FeedbackListPage from './pages/FeedbackListPage';
+import MyFeedbackPage from './pages/MyFeedbackPage';
+import CallListPage from './pages/CallListPage';
+import CallUploadPage from './pages/CallUploadPage';
+import CriticalErrorsPage from './pages/CriticalErrorsPage';
 
 function App() {
   return (
@@ -175,9 +180,37 @@ function App() {
             </ProtectedRoute>
           } />
 
+          {/* Calls */}
+          <Route path="/calls" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+              <SidebarLayout><CallListPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/calls/upload" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+              <SidebarLayout><CallUploadPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
 
+          {/* Critical Errors */}
+          <Route path="/critical-errors" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+              <SidebarLayout><CriticalErrorsPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
 
-          {/* Profile */}
+          {/* Feedback */}
+          <Route path="/feedback" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+              <SidebarLayout><FeedbackListPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/my-feedback" element={
+            <ProtectedRoute roles={['QA Agent']}>
+              <SidebarLayout><MyFeedbackPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+
           <Route path="/profile" element={
             <ProtectedRoute>
               <SidebarLayout><ProfilePage /></SidebarLayout>

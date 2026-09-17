@@ -93,10 +93,11 @@ const getMyFeedback = async (req, res, next) => {
       queryParams
     );
 
-    // Mark as viewed if Pending
+    // Mark as viewed if Pending (only for feedback linked to non-deleted evaluations)
     await query(
       `UPDATE feedback SET feedback_status = 'Viewed by Agent', updated_at = NOW()
-       WHERE ${whereClause} AND feedback_status = 'Pending'`,
+       WHERE ${whereClause} AND feedback_status = 'Pending'
+         AND EXISTS (SELECT 1 FROM qa_evaluations qe WHERE qe.id = feedback.evaluation_id AND qe.is_deleted = FALSE)`,
       countParams
     );
 

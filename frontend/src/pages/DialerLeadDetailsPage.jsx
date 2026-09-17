@@ -178,7 +178,7 @@ export default function DialerLeadDetailsPage() {
               <div>
                 <label className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Disposition</label>
                 <div className="inline-flex mt-1 px-3 py-1 bg-slate-800 border border-slate-700 rounded-lg text-sm font-medium text-slate-200">
-                  {lead.disposition || 'N/A'}
+                  {lead.disposition || lead.status || 'N/A'}
                 </div>
               </div>
 

@@ -26,8 +26,6 @@ function getDialerConfig(type) {
   return { baseUrl: stripFile(rawUrl), user, pass, name: 'Pharmacy Dialer' };
 }
 
-const RECORDINGS_BASE = process.env.DIALER_RECORDINGS_URL || 'http://167.235.117.217/RECORDINGS/MP3';
-
 // Helper to fetch HTML
 exports.fetchAdminPage = async function fetchAdminPage(path, dialerType = 'pharmacy', method = 'GET', body = null) {
   const config = getDialerConfig(dialerType);

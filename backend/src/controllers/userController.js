@@ -274,10 +274,7 @@ const getManagedUsersStats = async (req, res, next) => {
       FROM users u
       JOIN roles r ON u.role_id = r.id
       LEFT JOIN campaigns c ON u.campaign_id = c.id
-      LEFT JOIN (
-          lead_assignments la 
-          JOIN call_leads cl ON la.call_lead_id = cl.id
-      ) ON ${laConditions}
+      LEFT JOIN lead_assignments la ON ${laConditions}
       LEFT JOIN qa_evaluations e ON e.call_lead_id = la.call_lead_id AND e.is_deleted = FALSE
       WHERE ${whereClause}
       GROUP BY u.id, r.name, c.name

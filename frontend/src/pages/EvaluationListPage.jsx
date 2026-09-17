@@ -363,7 +363,7 @@ const EvaluationListPage = () => {
                     }`}
                   >
                     <span>{tab.label}</span>
-                    <span className={`px-1.5 py-0.2 rounded text-[10px] font-mono ${
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono ${
                       assignmentFilter === tab.id ? 'bg-indigo-700/80 text-white' : 'bg-slate-800 text-slate-400'
                     }`}>
                       {count}
@@ -414,7 +414,7 @@ const EvaluationListPage = () => {
                                 a.displayStatus === 'expired' ? 'bg-slate-800 text-slate-400 border border-slate-700' :
                                 'bg-indigo-500/10 text-indigo-400 border border-indigo-500/30'
                               }`}>
-                                {a.displayStatus === 'accepted' ? 'Accepted' : a.displayStatus === 'rejected' ? 'Rejected' : a.displayStatus === 'flagged' ? 'Flagged' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : a.displayStatus === 'expired' ? 'Expired' : 'Completed'}
+                                {a.displayStatus === 'accepted' ? 'Accepted' : (a.displayStatus === 'rejected' || a.displayStatus === 'rejected (declined task)') ? 'Rejected' : a.displayStatus === 'flagged' ? 'Flagged' : a.displayStatus === 'decline' ? 'Decline' : a.displayStatus === 'not_billable' ? 'Not Billable' : a.displayStatus === 'pending' ? 'Pending' : a.displayStatus === 'expired' ? 'Expired' : 'Completed'}
                               </span>
                             </td>
                             <td className="td">
