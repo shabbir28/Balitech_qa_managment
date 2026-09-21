@@ -9,6 +9,7 @@ DROP TABLE IF EXISTS evaluation_critical_errors CASCADE;
 DROP TABLE IF EXISTS critical_errors CASCADE;
 DROP TABLE IF EXISTS qa_evaluation_scores CASCADE;
 DROP TABLE IF EXISTS qa_evaluations CASCADE;
+DROP TABLE IF EXISTS pending_calls CASCADE;
 DROP TABLE IF EXISTS lead_assignments CASCADE;
 DROP TABLE IF EXISTS team_members CASCADE;
 DROP TABLE IF EXISTS teams CASCADE;
@@ -420,6 +421,27 @@ CREATE TABLE IF NOT EXISTS qa_daily_report_summaries (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE (qa_user_id, from_date, to_date, campaign_key)
 );
+
+-- =============================================
+-- PENDING CALLS TABLE
+-- Partial evaluations saved before submission.
+-- =============================================
+CREATE TABLE IF NOT EXISTS pending_calls (
+  id              SERIAL PRIMARY KEY,
+  call_lead_id    INTEGER NOT NULL REFERENCES call_leads(id) ON DELETE CASCADE,
+  saved_by        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  metadata        JSONB    NOT NULL DEFAULT '{}'::jsonb,
+  recordings      JSONB    NOT NULL DEFAULT '[]'::jsonb,
+  qa_status       VARCHAR(50)       DEFAULT 'Pending',
+  evaluation_date DATE,
+  notes           TEXT,
+  created_at      TIMESTAMP         DEFAULT NOW(),
+  updated_at      TIMESTAMP         DEFAULT NOW(),
+  UNIQUE (call_lead_id, saved_by)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_calls_call_lead_id ON pending_calls(call_lead_id);
+CREATE INDEX IF NOT EXISTS idx_pending_calls_saved_by     ON pending_calls(saved_by);
 
 -- =============================================
 -- SEED DATA
