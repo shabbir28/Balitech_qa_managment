@@ -6,6 +6,7 @@ const {
   getEvaluationById,
   updateEvaluation,
   deleteEvaluation,
+  patchEvaluationStatus,
   getAgentErrorReport,
   getRejectedCallsReport,
   getDailyQaReport,
@@ -13,7 +14,10 @@ const {
   saveDailyQaSummary,
   getEvaluationDropdownOptions,
   addEvaluationDropdownOption,
-  removeEvaluationDropdownOption
+  removeEvaluationDropdownOption,
+  savePendingCall,
+  getPendingCall,
+  getMyPendingCalls,
 } = require('../controllers/evaluationController');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -27,8 +31,15 @@ router.put('/reports/daily/summary', authenticate, authorize('Super Admin', 'QA 
 router.get('/options/dropdowns', authenticate, getEvaluationDropdownOptions);
 router.post('/options/dropdowns', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), addEvaluationDropdownOption);
 router.delete('/options/dropdowns', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), removeEvaluationDropdownOption);
+
+// Pending call drafts — must be registered BEFORE /:id to avoid conflicts
+router.get('/pending', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getMyPendingCalls);
+router.post('/pending', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), savePendingCall);
+router.get('/pending/:callId', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getPendingCall);
+
 router.get('/:id', authenticate, getEvaluationById);
 router.put('/:id', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), updateEvaluation);
+router.patch('/:id/status', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), patchEvaluationStatus);
 router.delete('/:id', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), deleteEvaluation);
 
 module.exports = router;

@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
 import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
-import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock } from 'lucide-react';
+import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock, ChevronDown, ChevronRight, RotateCcw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { getEstDateString, getEstDateTimeParts } from '../utils/dateUtils';
@@ -123,6 +123,25 @@ const EvaluationListPage = () => {
   const { user, hasRole } = useAuth();
   const isAgent = user?.role === 'QA Agent';
   const navigate = useNavigate();
+
+  // ── Pending calls (draft evaluations) ─────────────────────────────
+  const [pendingCalls, setPendingCalls] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [pendingOpen, setPendingOpen] = useState(true);
+
+  const fetchPendingCalls = useCallback(async () => {
+    setPendingLoading(true);
+    try {
+      const res = await api.get('/evaluations/pending');
+      setPendingCalls(res.data.data || []);
+    } catch {
+      // Silently ignore — not critical if this fails
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { fetchPendingCalls(); }, [fetchPendingCalls]);
 
   useEffect(() => {
     if (isAgent) return; // agents cannot list campaigns
@@ -243,6 +262,93 @@ const EvaluationListPage = () => {
       </div>
 
       <div className="space-y-6">
+
+        {/* ── Pending Reviews Section ────────────────────────────────── */}
+        {pendingCalls.length > 0 && (
+          <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl overflow-hidden">
+            {/* Header */}
+            <button
+              onClick={() => setPendingOpen(o => !o)}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                  <Clock className="w-4 h-4 text-amber-400" />
+                </div>
+                <div className="text-left">
+                  <p className="text-sm font-semibold text-amber-200">Pending Reviews</p>
+                  <p className="text-[11px] text-amber-400/70">{pendingCalls.length} call{pendingCalls.length !== 1 ? 's' : ''} saved as pending — click Resume to continue evaluation</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={e => { e.stopPropagation(); fetchPendingCalls(); }}
+                  className="w-7 h-7 rounded-lg border border-amber-500/20 text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/10 flex items-center justify-center transition-colors"
+                  title="Refresh pending list"
+                >
+                  <RotateCcw className="w-3.5 h-3.5" />
+                </button>
+                {pendingOpen
+                  ? <ChevronDown className="w-4 h-4 text-amber-400/60" />
+                  : <ChevronRight className="w-4 h-4 text-amber-400/60" />}
+              </div>
+            </button>
+
+            {pendingOpen && (
+              <div className="border-t border-amber-500/15">
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left border-collapse min-w-[700px]">
+                    <thead>
+                      <tr className="bg-amber-500/5">
+                        {['Phone', 'Agent', 'Campaign', 'Call Date', 'QA Status', 'Saved', ''].map((h, i) => (
+                          <th key={h || i} className="py-2.5 px-4 text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider border-b border-amber-500/15">{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-amber-500/10">
+                      {pendingLoading ? (
+                        <tr><td colSpan={7} className="py-6 text-center text-sm text-amber-400/50">Loading...</td></tr>
+                      ) : (
+                        pendingCalls.map(pc => (
+                          <tr key={pc.id} className="hover:bg-amber-500/5 transition-colors">
+                            <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">{pc.customer_phone}</td>
+                            <td className="py-3 px-4 text-xs text-slate-300">{pc.agent_name || '—'}</td>
+                            <td className="py-3 px-4 text-xs text-indigo-300 whitespace-nowrap">{pc.campaign_name || '—'}</td>
+                            <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
+                              {pc.call_date ? new Date(pc.call_date).toLocaleDateString() : '—'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 text-[11px] font-medium">
+                                <AlertCircle className="w-3 h-3" />{pc.qa_status || 'Pending'}
+                              </span>
+                            </td>
+                            <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
+                              {pc.updated_at ? new Date(pc.updated_at).toLocaleString() : '—'}
+                            </td>
+                            <td className="py-3 px-4">
+                              <button
+                                onClick={() => {
+                                  const dialer = (pc.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy';
+                                  const leadMatch = pc.call_notes?.match(/(?:Lead ID:\s*|VICI_LEAD:)(\d+)/i);
+                                  const leadId = leadMatch ? leadMatch[1] : null;
+                                  navigate(`/evaluations/new?call_id=${pc.call_lead_id}${leadId ? `&lead_id=${leadId}` : ''}&dialer=${dialer}`);
+                                }}
+                                className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap"
+                              >
+                                <RotateCcw className="w-3 h-3" /> Resume
+                              </button>
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {loadingUsers ? (
             <div className="col-span-full h-48 flex items-center justify-center">

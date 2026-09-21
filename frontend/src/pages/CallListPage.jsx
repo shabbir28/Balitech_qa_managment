@@ -378,11 +378,11 @@ const CallListPage = () => {
                       </td>
                       <td className="td">
                         <div className="flex items-center gap-2">
-                          {!call.is_evaluated && hasRole('Super Admin', 'QA Admin') && (
+                          {hasRole('Super Admin', 'QA Admin') && (
                             <button
                               onClick={() => navigate(`/evaluations/new?call_id=${call.id}`)}
                               className="p-2 rounded-lg text-emerald-400 hover:bg-emerald-500/10 transition-all"
-                              title="Evaluate"
+                              title={call.is_evaluated ? "View / Update Status" : "Evaluate"}
                             >
                               <Eye size={16} />
                             </button>

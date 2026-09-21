@@ -1,4 +1,4 @@
-﻿import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
@@ -186,8 +186,10 @@ const ManagerEvaluationViewPage = () => {
   const backPath = location.state?.from || (user?.role === 'QA Agent' ? '/my-assignments' : '/evaluations');
   const backLabel = location.state?.fromLabel || 'Back to List';
   const canRemoveOptions = hasRole('Super Admin', 'QA Admin', 'Manager');
-  // Super Admin / QA Admin / Manager can edit and save; QA Agents get a read-only sheet.
-  const canEdit = hasRole('Super Admin', 'QA Admin', 'Manager');
+  // Super Admin / QA Admin / Manager can edit everything; QA Agents can edit only QA Status.
+  const canEditFull = hasRole('Super Admin', 'QA Admin', 'Manager');
+  const canEditStatus = canEditFull || user?.role === 'QA Agent';
+  const canEdit = canEditFull;
   const { options: dropdownOptions, addOption, removeOption } = useEvaluationOptions();
 
   const [evaluation, setEvaluation] = useState(null);
@@ -269,7 +271,7 @@ const ManagerEvaluationViewPage = () => {
   };
 
   const handleStatusChange = (value) => {
-    if (!canEdit) return;
+    if (!canEditStatus) return;
     setQaStatus(value);
     setDirty(true);
   };
@@ -288,7 +290,7 @@ const ManagerEvaluationViewPage = () => {
   }, [dirty]);
 
   const handleSave = async () => {
-    if (!evaluation || !canEdit) return;
+    if (!evaluation || !canEditFull) return;
     setSaving(true);
     try {
       const finalBackendStatus = 
@@ -330,6 +332,35 @@ const ManagerEvaluationViewPage = () => {
     }
   };
 
+  const handleUpdateStatusOnly = async () => {
+    if (!evaluation || !canEditStatus) return;
+    setSaving(true);
+    try {
+      const finalBackendStatus = 
+        qaStatus === 'Accepted' ? 'Pass' : 
+        qaStatus === 'Rejected' ? 'Fail' : 
+        qaStatus;
+
+      await api.patch(`/evaluations/${id}/status`, { status: finalBackendStatus });
+      setEvaluation(prev => ({
+        ...prev,
+        status: finalBackendStatus,
+        metadata: { ...(prev?.metadata || {}), qa_status: qaStatus }
+      }));
+      setDirty(false);
+      const cameFromRejected = location.state?.from === '/rejected-calls';
+      if (cameFromRejected && qaStatus !== 'Rejected') {
+        toast.success(`Saved. Status is now "${qaStatus}" — this call will no longer appear in Rejected Calls.`, { duration: 5000 });
+      } else {
+        toast.success('QA Status updated successfully!');
+      }
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to update QA status.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   if (loadError) {
     return (
       <div className="p-10 text-center">
@@ -346,32 +377,41 @@ const ManagerEvaluationViewPage = () => {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-3xl font-extrabold text-white tracking-tight">
-              {canEdit ? 'Manager View: Call Evaluation' : 'Call Evaluation'}
+              {canEditFull ? 'Manager View: Call Evaluation' : 'Call Evaluation'}
             </h1>
-            {!canEdit && (
+            {!canEditFull && !canEditStatus && (
               <span className="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-[10px] font-bold uppercase tracking-wider text-slate-400 inline-flex items-center gap-1.5">
                 <Lock className="w-3 h-3" /> Read only
               </span>
             )}
-            {canEdit && dirty && (
+            {!canEditFull && canEditStatus && (
+              <span className="px-2.5 py-1 rounded-lg bg-indigo-500/10 border border-indigo-500/30 text-[10px] font-bold uppercase tracking-wider text-indigo-300 inline-flex items-center gap-1.5">
+                QA Status Editable
+              </span>
+            )}
+            {dirty && (
               <span className="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-[10px] font-bold uppercase tracking-wider text-amber-300 inline-flex items-center gap-1.5">
                 <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" /> Unsaved changes
               </span>
             )}
           </div>
           <p className="text-sm text-slate-400 mt-1 font-medium">
-            {canEdit ? 'Review and edit the submitted QA sheet — changes sync to HRMS on save.' : 'Review the submitted QA sheet.'}
+            {canEditFull
+              ? 'Review and edit the submitted QA sheet — changes sync to HRMS on save.'
+              : canEditStatus
+                ? 'Review submitted QA sheet — you can update the QA Status below.'
+                : 'Review the submitted QA sheet.'}
           </p>
         </div>
         <div className="flex items-center gap-4">
           <button onClick={handleBack} className="btn-secondary px-5 py-2.5">
             <ArrowLeft size={16} className="mr-2" /> {backLabel}
           </button>
-          {canEdit && (
+          {canEditFull ? (
             <button 
               onClick={handleSave} 
               disabled={saving}
-              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold transition-all disabled:opacity-50 ${
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold transition-all disabled:opacity-50 cursor-pointer ${
                 dirty
                   ? 'bg-indigo-500 hover:bg-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.35)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)]'
                   : 'bg-indigo-600/70 hover:bg-indigo-500'
@@ -380,7 +420,20 @@ const ManagerEvaluationViewPage = () => {
               {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
-          )}
+          ) : canEditStatus ? (
+            <button 
+              onClick={handleUpdateStatusOnly} 
+              disabled={saving || !dirty}
+              className={`flex items-center gap-2 px-6 py-2.5 rounded-xl text-white font-bold transition-all disabled:opacity-50 ${
+                dirty
+                  ? 'bg-indigo-500 hover:bg-indigo-400 shadow-[0_0_15px_rgba(99,102,241,0.35)] hover:shadow-[0_0_25px_rgba(99,102,241,0.5)] cursor-pointer'
+                  : 'bg-indigo-600/40 cursor-not-allowed text-slate-300'
+              }`}
+            >
+              {saving ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {saving ? 'Updating...' : 'Update QA Status'}
+            </button>
+          ) : null}
         </div>
       </div>
 
@@ -541,6 +594,8 @@ const ManagerEvaluationViewPage = () => {
                   <td className="p-3 border-r border-slate-800/50 align-top">
                     <select
                       className={`px-3 py-2 rounded-lg border text-sm font-bold w-full outline-none focus:ring-2 cursor-pointer text-center disabled:opacity-60 disabled:cursor-not-allowed ${
+                        !canEditFull && canEditStatus ? 'ring-2 ring-indigo-500/50 shadow-indigo-500/20 shadow-md' : ''
+                      } ${
                         qaStatus === 'Accepted'
                           ? 'text-emerald-400 border-emerald-500/30 bg-emerald-500/10 focus:ring-emerald-500'
                           : qaStatus === 'Flagged'
@@ -553,7 +608,7 @@ const ManagerEvaluationViewPage = () => {
                       }`}
                       value={qaStatus}
                       onChange={e => handleStatusChange(e.target.value)}
-                      disabled={!canEdit}
+                      disabled={!canEditStatus}
                     >
                       <option className="bg-slate-900 text-emerald-400" value="Accepted">Accepted</option>
                       <option className="bg-slate-900 text-rose-400" value="Rejected">Rejected</option>

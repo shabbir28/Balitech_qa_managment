@@ -5,7 +5,8 @@ import toast from 'react-hot-toast';
 import {
   Play, Pause, SkipBack, SkipForward, Volume2,
   X, Check, Eye, Folder, CheckCircle2, Clock, XCircle, Inbox,
-  ChevronDown, ChevronRight, Search, RefreshCw, History, ShieldCheck
+  ChevronDown, ChevronRight, Search, RefreshCw, History, ShieldCheck,
+  RotateCcw
 } from 'lucide-react';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
 import { getEstDateString, getEstDateTimeString } from '../utils/dateUtils';
@@ -107,6 +108,19 @@ export default function MyAssignmentsPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [collapsed, setCollapsed] = useState({});
   const navigate = useNavigate();
+
+  // ── Pending calls (draft evaluations) ─────────────────────────────
+  const [pendingCalls, setPendingCalls] = useState([]);
+  const [pendingOpen, setPendingOpen] = useState(true);
+
+  const fetchPendingCalls = useCallback(async () => {
+    try {
+      const res = await api.get('/evaluations/pending');
+      setPendingCalls(res.data.data || []);
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => { fetchPendingCalls(); }, [fetchPendingCalls]);
 
   const isToday = startDate === today && endDate === today;
   // Bulk accept is limited to one day so a wide range can't be claimed at once.
@@ -224,6 +238,84 @@ export default function MyAssignmentsPage() {
             queue at midnight Eastern, but you can still accept and evaluate them from here — a lead
             you pick up stays in your queue for the rest of today.
           </p>
+        </div>
+      )}
+
+      {/* ── Pending Reviews Panel ──────────────────────────────── */}
+      {pendingCalls.length > 0 && (
+        <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl overflow-hidden">
+          <button
+            onClick={() => setPendingOpen(o => !o)}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
+                <Clock className="w-4 h-4 text-amber-400" />
+              </div>
+              <div className="text-left">
+                <p className="text-sm font-semibold text-amber-200">Pending Reviews</p>
+                <p className="text-[11px] text-amber-400/70">
+                  {pendingCalls.length} call{pendingCalls.length !== 1 ? 's' : ''} saved as pending — resume to complete evaluation
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={e => { e.stopPropagation(); fetchPendingCalls(); }}
+                className="w-7 h-7 rounded-lg border border-amber-500/20 text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/10 flex items-center justify-center transition-colors"
+                title="Refresh"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+              </button>
+              {pendingOpen
+                ? <ChevronDown className="w-4 h-4 text-amber-400/60" />
+                : <ChevronRight className="w-4 h-4 text-amber-400/60" />}
+            </div>
+          </button>
+
+          {pendingOpen && (
+            <div className="border-t border-amber-500/15 overflow-x-auto">
+              <table className="w-full text-left border-collapse min-w-[650px]">
+                <thead>
+                  <tr className="bg-amber-500/5">
+                    {['Phone', 'Agent', 'Campaign', 'Call Date', 'Saved', ''].map((h, i) => (
+                      <th key={h || i} className="py-2.5 px-4 text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider border-b border-amber-500/15">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-amber-500/10">
+                  {pendingCalls.map(pc => (
+                    <tr key={pc.id} className="hover:bg-amber-500/5 transition-colors">
+                      <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">{pc.customer_phone}</td>
+                      <td className="py-3 px-4 text-xs text-slate-300">{pc.agent_name || '—'}</td>
+                      <td className="py-3 px-4 text-xs text-indigo-300 whitespace-nowrap">{pc.campaign_name || '—'}</td>
+                      <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
+                        {pc.call_date ? new Date(pc.call_date).toLocaleDateString() : '—'}
+                      </td>
+                      <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
+                        {pc.updated_at ? new Date(pc.updated_at).toLocaleString() : '—'}
+                      </td>
+                      <td className="py-3 px-4">
+                        <button
+                          onClick={() => {
+                            const dialer = (pc.campaign_name || '').toLowerCase().includes('medicare') ? 'medicare' : 'pharmacy';
+                            const leadMatch = pc.call_notes?.match(/(?:Lead ID:\s*|VICI_LEAD:)(\d+)/i);
+                            const leadId = leadMatch ? leadMatch[1] : null;
+                            // Use the assignment_id if available so the form routes back correctly
+                            const assignmentParam = pc.assignment_call_lead_id ? `&assignment_id=${pc.assignment_call_lead_id}` : '';
+                            navigate(`/evaluations/new?call_id=${pc.call_lead_id}${leadId ? `&lead_id=${leadId}` : ''}${assignmentParam}&dialer=${dialer}`);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-lg text-[11px] font-semibold transition-colors whitespace-nowrap"
+                        >
+                          <RotateCcw className="w-3 h-3" /> Resume
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

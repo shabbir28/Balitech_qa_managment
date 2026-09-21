@@ -230,6 +230,9 @@ const createEvaluation = async (req, res, next) => {
 
     await client.query('COMMIT');
 
+    // Clean up any pending draft for this call (it's now fully evaluated)
+    query('DELETE FROM pending_calls WHERE call_lead_id = $1 AND saved_by = $2', [call_lead_id, req.user.id]).catch(() => {});
+
     // Only notify HRMS once the local transaction is durable
     pushQaStatusToHrms(dialerRows, 'evaluation create');
 
@@ -452,6 +455,72 @@ const updateEvaluation = async (req, res, next) => {
     next(error);
   }
 };
+
+/**
+ * PATCH /api/evaluations/:id/status
+ * Update only the QA status on an already-submitted evaluation.
+ * Allowed for the original evaluator (QA Agent) and for admin/manager roles.
+ */
+const patchEvaluationStatus = async (req, res, next) => {
+  try {
+    const { status } = req.body;
+    if (!status) {
+      return res.status(400).json({ success: false, message: 'status is required.' });
+    }
+    if (!VALID_STATUSES.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: `Invalid status. Must be one of: ${VALID_STATUSES.join(', ')}.`,
+      });
+    }
+
+    // Fetch existing row to check ownership
+    const existing = await query(
+      'SELECT id, call_lead_id, evaluated_by, metadata, status AS current_status FROM qa_evaluations WHERE id = $1 AND is_deleted = FALSE',
+      [req.params.id]
+    );
+    if (existing.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Evaluation not found.' });
+    }
+
+    const ev = existing.rows[0];
+
+    // QA Agents may only update their own evaluations
+    if (req.user.role === 'QA Agent' && String(ev.evaluated_by) !== String(req.user.id)) {
+      return res.status(403).json({ success: false, message: 'You can only update your own evaluations.' });
+    }
+
+    const updatedMeta = { ...(ev.metadata || {}), qa_status: status };
+    const result = await query(
+      `UPDATE qa_evaluations
+         SET status = $1, metadata = $2::jsonb, updated_at = NOW()
+       WHERE id = $3 AND is_deleted = FALSE
+       RETURNING *`,
+      [status, JSON.stringify(updatedMeta), req.params.id]
+    );
+
+    // Sync status in feedback table
+    await query('UPDATE feedback SET status = $1, updated_at = NOW() WHERE evaluation_id = $2', [status, req.params.id]).catch(() => {});
+
+    const updated = result.rows[0];
+
+    // Re-propagate the changed status to dialer_sales_history + HRMS
+    const callRes = await query('SELECT * FROM call_leads WHERE id = $1', [ev.call_lead_id]);
+    if (callRes.rows[0]) {
+      try {
+        const { rows: dialerRows } = await applyEvaluationQaStatus(query, callRes.rows[0], status, updatedMeta);
+        pushQaStatusToHrms(dialerRows, 'status patch');
+      } catch (syncErr) {
+        console.warn('[QA Status Sync] patch propagation failed:', syncErr.message);
+      }
+    }
+
+    res.json({ success: true, message: 'QA status updated successfully.', data: updated });
+  } catch (error) {
+    next(error);
+  }
+};
+
 
 /**
  * DELETE /api/evaluations/:id
@@ -1394,12 +1463,144 @@ const removeEvaluationDropdownOption = async (req, res, next) => {
   }
 };
 
+/**
+ * POST /api/evaluations/pending
+ * Upsert a pending (draft) evaluation for a call.
+ * Does NOT mark the call as evaluated.
+ */
+const savePendingCall = async (req, res, next) => {
+  try {
+    const { call_lead_id, metadata = {}, recordings = [], qa_status = 'Pending', evaluation_date, notes } = req.body;
+
+    if (!call_lead_id) {
+      return res.status(400).json({ success: false, message: 'call_lead_id is required.' });
+    }
+
+    // Verify the call exists and is not already evaluated
+    const callResult = await query(
+      'SELECT id, is_evaluated FROM call_leads WHERE id = $1 AND is_deleted = FALSE',
+      [call_lead_id]
+    );
+    if (callResult.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'Call/lead not found.' });
+    }
+    if (callResult.rows[0].is_evaluated) {
+      return res.status(409).json({ success: false, message: 'This call has already been evaluated.' });
+    }
+
+    const result = await query(
+      `INSERT INTO pending_calls (call_lead_id, saved_by, metadata, recordings, qa_status, evaluation_date, notes)
+       VALUES ($1, $2, $3::jsonb, $4::jsonb, $5, $6, $7)
+       ON CONFLICT (call_lead_id, saved_by)
+       DO UPDATE SET
+         metadata        = EXCLUDED.metadata,
+         recordings      = EXCLUDED.recordings,
+         qa_status       = EXCLUDED.qa_status,
+         evaluation_date = EXCLUDED.evaluation_date,
+         notes           = EXCLUDED.notes,
+         updated_at      = NOW()
+       RETURNING *`,
+      [
+        call_lead_id,
+        req.user.id,
+        JSON.stringify(metadata),
+        JSON.stringify(recordings),
+        qa_status,
+        evaluation_date || null,
+        notes || null,
+      ]
+    );
+
+    res.status(200).json({
+      success: true,
+      message: 'Call saved as pending.',
+      data: result.rows[0],
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/evaluations/pending/:callId
+ * Retrieve the pending draft saved by the current user for a specific call.
+ */
+const getPendingCall = async (req, res, next) => {
+  try {
+    const { callId } = req.params;
+
+    const result = await query(
+      `SELECT * FROM pending_calls WHERE call_lead_id = $1 AND saved_by = $2 LIMIT 1`,
+      [callId, req.user.id]
+    );
+
+    if (result.rows.length === 0) {
+      return res.status(404).json({ success: false, message: 'No pending draft found for this call.' });
+    }
+
+    res.json({ success: true, data: result.rows[0] });
+  } catch (error) {
+    next(error);
+  }
+};
+
+/**
+ * GET /api/evaluations/pending
+ * List all pending drafts for the current user, with call details.
+ * Admins/Managers can pass ?user_id=X to see a specific user's pending calls.
+ */
+const getMyPendingCalls = async (req, res, next) => {
+  try {
+    // Admins/managers can optionally filter by another user's drafts
+    const targetUserId =
+      (req.user.role !== 'QA Agent' && req.query.user_id)
+        ? parseInt(req.query.user_id)
+        : req.user.id;
+
+    const result = await query(
+      `SELECT
+         pc.id,
+         pc.call_lead_id,
+         pc.qa_status,
+         pc.evaluation_date,
+         pc.notes,
+         pc.metadata,
+         pc.recordings,
+         pc.created_at,
+         pc.updated_at,
+         cl.agent_name,
+         cl.agent_id,
+         cl.customer_phone,
+         cl.campaign_name,
+         cl.call_date,
+         cl.recording_url,
+         cl.notes  AS call_notes,
+         la.id     AS assignment_id,
+         la.call_lead_id AS assignment_call_lead_id
+       FROM pending_calls pc
+       JOIN call_leads cl ON cl.id = pc.call_lead_id AND cl.is_deleted = FALSE
+       LEFT JOIN lead_assignments la
+              ON la.call_lead_id = pc.call_lead_id
+             AND la.assigned_to  = pc.saved_by
+             AND la.status      != 'completed'
+       WHERE pc.saved_by = $1
+       ORDER BY pc.updated_at DESC`,
+      [targetUserId]
+    );
+
+    res.json({ success: true, data: result.rows });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   createEvaluation,
   getEvaluations,
   getEvaluationById,
   updateEvaluation,
   deleteEvaluation,
+  patchEvaluationStatus,
   getAgentErrorReport,
   getRejectedCallsReport,
   getDailyQaReport,
@@ -1407,5 +1608,8 @@ module.exports = {
   saveDailyQaSummary,
   getEvaluationDropdownOptions,
   addEvaluationDropdownOption,
-  removeEvaluationDropdownOption
+  removeEvaluationDropdownOption,
+  savePendingCall,
+  getPendingCall,
+  getMyPendingCalls,
 };
