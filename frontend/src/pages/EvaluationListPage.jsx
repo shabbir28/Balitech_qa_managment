@@ -7,7 +7,7 @@ import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
 import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock, ChevronDown, ChevronRight, RotateCcw, AlertCircle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
-import { getEstDateString, getEstDateTimeParts } from '../utils/dateUtils';
+import { getEstDateString, getEstDateTimeParts, formatDateOnly } from '../utils/dateUtils';
 
 const isRejectedStatus = (status) =>
   status === 'rejected' || status === 'rejected (declined task)';
@@ -132,14 +132,19 @@ const EvaluationListPage = () => {
   const fetchPendingCalls = useCallback(async () => {
     setPendingLoading(true);
     try {
-      const res = await api.get('/evaluations/pending');
+      const res = await api.get('/evaluations/pending', {
+        params: {
+          start_date: filters.from_date,
+          end_date: filters.to_date,
+        },
+      });
       setPendingCalls(res.data.data || []);
     } catch {
       // Silently ignore — not critical if this fails
     } finally {
       setPendingLoading(false);
     }
-  }, []);
+  }, [filters.from_date, filters.to_date]);
 
   useEffect(() => { fetchPendingCalls(); }, [fetchPendingCalls]);
 
@@ -267,9 +272,12 @@ const EvaluationListPage = () => {
         {pendingCalls.length > 0 && (
           <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl overflow-hidden">
             {/* Header */}
-            <button
+            <div
+              role="button"
+              tabIndex={0}
               onClick={() => setPendingOpen(o => !o)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors"
+              onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPendingOpen(o => !o); } }}
+              className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors cursor-pointer select-none"
             >
               <div className="flex items-center gap-3">
                 <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
@@ -282,6 +290,7 @@ const EvaluationListPage = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  type="button"
                   onClick={e => { e.stopPropagation(); fetchPendingCalls(); }}
                   className="w-7 h-7 rounded-lg border border-amber-500/20 text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/10 flex items-center justify-center transition-colors"
                   title="Refresh pending list"
@@ -292,7 +301,7 @@ const EvaluationListPage = () => {
                   ? <ChevronDown className="w-4 h-4 text-amber-400/60" />
                   : <ChevronRight className="w-4 h-4 text-amber-400/60" />}
               </div>
-            </button>
+            </div>
 
             {pendingOpen && (
               <div className="border-t border-amber-500/15">
@@ -300,7 +309,7 @@ const EvaluationListPage = () => {
                   <table className="w-full text-left border-collapse min-w-[700px]">
                     <thead>
                       <tr className="bg-amber-500/5">
-                        {['Phone', 'Agent', 'Campaign', 'Call Date', 'QA Status', 'Saved', ''].map((h, i) => (
+                        {['Phone', 'Agent', 'Campaign', 'Call Date', 'QA Status', 'Saved (EST)', ''].map((h, i) => (
                           <th key={h || i} className="py-2.5 px-4 text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider border-b border-amber-500/15">{h}</th>
                         ))}
                       </tr>
@@ -314,16 +323,28 @@ const EvaluationListPage = () => {
                             <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">{pc.customer_phone}</td>
                             <td className="py-3 px-4 text-xs text-slate-300">{pc.agent_name || '—'}</td>
                             <td className="py-3 px-4 text-xs text-indigo-300 whitespace-nowrap">{pc.campaign_name || '—'}</td>
-                            <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
-                              {pc.call_date ? new Date(pc.call_date).toLocaleDateString() : '—'}
+                            <td className="py-3 px-4 text-[11px] text-slate-400 whitespace-nowrap font-medium">
+                              {pc.call_date ? formatDateOnly(pc.call_date, 'MMM dd, yyyy') : '—'}
                             </td>
                             <td className="py-3 px-4">
                               <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-amber-500/15 text-amber-300 border border-amber-500/25 text-[11px] font-medium">
                                 <AlertCircle className="w-3 h-3" />{pc.qa_status || 'Pending'}
                               </span>
                             </td>
-                            <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
-                              {pc.updated_at ? new Date(pc.updated_at).toLocaleString() : '—'}
+                            <td className="py-3 px-4 whitespace-nowrap">
+                              {(() => {
+                                const parts = getEstDateTimeParts(pc.updated_at);
+                                if (!parts) return <span className="text-slate-500">—</span>;
+                                return (
+                                  <div className="leading-tight">
+                                    <p className="text-[11px] text-slate-300 font-medium">{parts.date}</p>
+                                    <p className="text-[10px] text-amber-400/80 mt-0.5 flex items-center gap-1">
+                                      <Clock className="w-2.5 h-2.5 text-amber-500/70" />
+                                      {parts.time} EST
+                                    </p>
+                                  </div>
+                                );
+                              })()}
                             </td>
                             <td className="py-3 px-4">
                               <button

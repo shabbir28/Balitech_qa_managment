@@ -514,9 +514,9 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
           </div>
 
           {/* Render High-End Chart */}
-          <div className="h-56 sm:h-60 w-full">
+          <div className="h-56 sm:h-60 w-full min-w-0">
             {activeChartData.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
+              <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
                 {chartMetric === 'score' ? (
                   /* Spline Area Chart with glowing gradient & dots */
                   <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>

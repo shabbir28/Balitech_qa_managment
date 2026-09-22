@@ -1520,7 +1520,7 @@ const savePendingCall = async (req, res, next) => {
     // accessible via the Pending Calls section on My Assignments.
     await query(
       `UPDATE lead_assignments
-       SET status = 'pending_evaluation', updated_at = NOW()
+       SET status = 'pending_evaluation'
        WHERE call_lead_id = $1
          AND assigned_to  = $2
          AND status NOT IN ('completed', 'pending_evaluation')`,
@@ -1551,7 +1551,7 @@ const getPendingCall = async (req, res, next) => {
     );
 
     if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, message: 'No pending draft found for this call.' });
+      return res.json({ success: true, data: null });
     }
 
     res.json({ success: true, data: result.rows[0] });
@@ -1564,14 +1564,36 @@ const getPendingCall = async (req, res, next) => {
  * GET /api/evaluations/pending
  * List all pending drafts for the current user, with call details.
  * Admins/Managers can pass ?user_id=X to see a specific user's pending calls.
+ * Optional date range filter: ?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD
  */
 const getMyPendingCalls = async (req, res, next) => {
   try {
+    const { start_date, end_date } = req.query;
+
     // Admins/managers can optionally filter by another user's drafts
     const targetUserId =
       (req.user.role !== 'QA Agent' && req.query.user_id)
         ? parseInt(req.query.user_id)
         : req.user.id;
+
+    const params = [targetUserId];
+    let dateCondition = '';
+
+    if (start_date && end_date) {
+      params.push(start_date, end_date);
+      dateCondition = ` AND (
+        (DATE(${nyLocal('pc.updated_at')}) BETWEEN $2 AND $3)
+        OR (pc.evaluation_date BETWEEN $2 AND $3)
+        OR (cl.call_date BETWEEN $2 AND $3)
+      )`;
+    } else if (start_date) {
+      params.push(start_date);
+      dateCondition = ` AND (
+        (DATE(${nyLocal('pc.updated_at')}) = $2)
+        OR (pc.evaluation_date = $2)
+        OR (cl.call_date = $2)
+      )`;
+    }
 
     const result = await query(
       `SELECT
@@ -1600,8 +1622,9 @@ const getMyPendingCalls = async (req, res, next) => {
              AND la.assigned_to  = pc.saved_by
              AND la.status      != 'completed'
        WHERE pc.saved_by = $1
+         ${dateCondition}
        ORDER BY pc.updated_at DESC`,
-      [targetUserId]
+      params
     );
 
     res.json({ success: true, data: result.rows });

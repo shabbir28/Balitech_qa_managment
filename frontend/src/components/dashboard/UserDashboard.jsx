@@ -407,9 +407,9 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
         </div>
 
         {/* Render Chart */}
-        <div className="h-56 sm:h-60 w-full">
+        <div className="h-56 sm:h-60 w-full min-w-0">
           {activeChartData.length > 0 ? (
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={200}>
               {chartMetric === 'score' ? (
                 <AreaChart data={activeChartData} margin={{ top: 10, right: 10, left: -25, bottom: 0 }}>
                   <defs>

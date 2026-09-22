@@ -9,7 +9,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
-import { getEstDateString, getEstDateTimeString } from '../utils/dateUtils';
+import { getEstDateString, getEstDateTimeString, getEstDateTimeParts, formatDateOnly } from '../utils/dateUtils';
 
 /* ── Audio Modal ──────────────────────────────────────────────────── */
 const AudioModal = ({ url, phone, onClose }) => {
@@ -115,10 +115,15 @@ export default function MyAssignmentsPage() {
 
   const fetchPendingCalls = useCallback(async () => {
     try {
-      const res = await api.get('/evaluations/pending');
+      const res = await api.get('/evaluations/pending', {
+        params: {
+          start_date: startDate,
+          end_date: endDate,
+        },
+      });
       setPendingCalls(res.data.data || []);
     } catch { /* silent */ }
-  }, []);
+  }, [startDate, endDate]);
 
   useEffect(() => { fetchPendingCalls(); }, [fetchPendingCalls]);
 
@@ -146,6 +151,11 @@ export default function MyAssignmentsPage() {
   }, [page, filter, startDate, endDate]);
 
   useEffect(() => { fetchAssignments(); }, [fetchAssignments]);
+
+  const handleRefresh = useCallback(() => {
+    fetchAssignments();
+    fetchPendingCalls();
+  }, [fetchAssignments, fetchPendingCalls]);
 
   const changeRange = (start, end) => {
     setStartDate(start || today);
@@ -212,7 +222,7 @@ export default function MyAssignmentsPage() {
         <div className="flex flex-wrap items-center gap-2">
           <DateRangeDropdown startDate={startDate} endDate={endDate} onChange={changeRange} />
           <button
-            onClick={fetchAssignments}
+            onClick={handleRefresh}
             disabled={loading}
             className="flex items-center gap-2 px-3 py-2.5 bg-[#0d1117] border border-white/10 text-slate-300 rounded-xl text-xs font-medium hover:bg-white/5 hover:text-white transition-colors disabled:opacity-50"
           >
@@ -244,9 +254,12 @@ export default function MyAssignmentsPage() {
       {/* ── Pending Reviews Panel ──────────────────────────────── */}
       {pendingCalls.length > 0 && (
         <div className="bg-amber-500/5 border border-amber-500/25 rounded-2xl overflow-hidden">
-          <button
+          <div
+            role="button"
+            tabIndex={0}
             onClick={() => setPendingOpen(o => !o)}
-            className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors"
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPendingOpen(o => !o); } }}
+            className="w-full flex items-center justify-between px-5 py-4 hover:bg-amber-500/5 transition-colors cursor-pointer select-none"
           >
             <div className="flex items-center gap-3">
               <div className="w-8 h-8 rounded-lg bg-amber-500/15 border border-amber-500/30 flex items-center justify-center">
@@ -261,6 +274,7 @@ export default function MyAssignmentsPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={e => { e.stopPropagation(); fetchPendingCalls(); }}
                 className="w-7 h-7 rounded-lg border border-amber-500/20 text-amber-400/60 hover:text-amber-300 hover:bg-amber-500/10 flex items-center justify-center transition-colors"
                 title="Refresh"
@@ -271,14 +285,14 @@ export default function MyAssignmentsPage() {
                 ? <ChevronDown className="w-4 h-4 text-amber-400/60" />
                 : <ChevronRight className="w-4 h-4 text-amber-400/60" />}
             </div>
-          </button>
+          </div>
 
           {pendingOpen && (
             <div className="border-t border-amber-500/15 overflow-x-auto">
               <table className="w-full text-left border-collapse min-w-[650px]">
                 <thead>
                   <tr className="bg-amber-500/5">
-                    {['Phone', 'Agent', 'Campaign', 'Call Date', 'Saved', ''].map((h, i) => (
+                    {['Phone', 'Agent', 'Campaign', 'Call Date', 'Saved (EST)', ''].map((h, i) => (
                       <th key={h || i} className="py-2.5 px-4 text-[10px] font-semibold text-amber-400/70 uppercase tracking-wider border-b border-amber-500/15">{h}</th>
                     ))}
                   </tr>
@@ -289,11 +303,23 @@ export default function MyAssignmentsPage() {
                       <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">{pc.customer_phone}</td>
                       <td className="py-3 px-4 text-xs text-slate-300">{pc.agent_name || '—'}</td>
                       <td className="py-3 px-4 text-xs text-indigo-300 whitespace-nowrap">{pc.campaign_name || '—'}</td>
-                      <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
-                        {pc.call_date ? new Date(pc.call_date).toLocaleDateString() : '—'}
+                      <td className="py-3 px-4 text-[11px] text-slate-400 whitespace-nowrap font-medium">
+                        {pc.call_date ? formatDateOnly(pc.call_date, 'MMM dd, yyyy') : '—'}
                       </td>
-                      <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
-                        {pc.updated_at ? new Date(pc.updated_at).toLocaleString() : '—'}
+                      <td className="py-3 px-4 whitespace-nowrap">
+                        {(() => {
+                          const parts = getEstDateTimeParts(pc.updated_at);
+                          if (!parts) return <span className="text-slate-500">—</span>;
+                          return (
+                            <div className="leading-tight">
+                              <p className="text-[11px] text-slate-300 font-medium">{parts.date}</p>
+                              <p className="text-[10px] text-amber-400/80 mt-0.5 flex items-center gap-1">
+                                <Clock className="w-2.5 h-2.5 text-amber-500/70" />
+                                {parts.time} EST
+                              </p>
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="py-3 px-4">
                         <button
