@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Save, Volume2, Loader2, Clock } from 'lucide-react';
+import { ArrowLeft, Save, Volume2, Loader2, Clock, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useAudioPlayer } from '../context/AudioPlayerContext';
 import { getEstDateString, formatDateOnly } from '../utils/dateUtils';

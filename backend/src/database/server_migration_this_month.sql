@@ -90,7 +90,7 @@ CREATE TABLE IF NOT EXISTS lead_assignments (
   assigned_to INTEGER NOT NULL REFERENCES users(id),
   assigned_by INTEGER NOT NULL REFERENCES users(id),
   campaign_name VARCHAR(150),
-  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected')),
+  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired', 'pending_evaluation')),
   notes TEXT,
   assigned_at TIMESTAMP DEFAULT NOW(),
   accepted_at TIMESTAMP,
@@ -128,5 +128,30 @@ CREATE TABLE IF NOT EXISTS transfer_assignments (
 );
 
 CREATE INDEX IF NOT EXISTS idx_transfer_assignments_assigned_to ON transfer_assignments(assigned_to);
+
+-- 11. Ensure pending_calls table exists
+CREATE TABLE IF NOT EXISTS pending_calls (
+  id              SERIAL PRIMARY KEY,
+  call_lead_id    INTEGER NOT NULL REFERENCES call_leads(id) ON DELETE CASCADE,
+  saved_by        INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  metadata        JSONB    NOT NULL DEFAULT '{}'::jsonb,
+  recordings      JSONB    NOT NULL DEFAULT '[]'::jsonb,
+  qa_status       VARCHAR(50)       DEFAULT 'Pending',
+  evaluation_date DATE,
+  notes           TEXT,
+  created_at      TIMESTAMP         DEFAULT NOW(),
+  updated_at      TIMESTAMP         DEFAULT NOW(),
+  UNIQUE (call_lead_id, saved_by)
+);
+
+CREATE INDEX IF NOT EXISTS idx_pending_calls_call_lead_id ON pending_calls(call_lead_id);
+CREATE INDEX IF NOT EXISTS idx_pending_calls_saved_by     ON pending_calls(saved_by);
+
+-- 12. Update lead_assignments status check constraint to include 'pending_evaluation' & 'expired'
+ALTER TABLE lead_assignments ADD COLUMN IF NOT EXISTS reopened_at TIMESTAMP;
+
+ALTER TABLE lead_assignments DROP CONSTRAINT IF EXISTS lead_assignments_status_check;
+ALTER TABLE lead_assignments ADD CONSTRAINT lead_assignments_status_check
+  CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired', 'pending_evaluation'));
 
 COMMIT;

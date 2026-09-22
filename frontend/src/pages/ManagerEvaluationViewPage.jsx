@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Volume2, Save, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Volume2, Save, RefreshCw, Lock } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatDateOnly } from '../utils/dateUtils';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';

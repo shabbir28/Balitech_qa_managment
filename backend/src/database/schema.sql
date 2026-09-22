@@ -345,7 +345,7 @@ CREATE TABLE lead_assignments (
   assigned_to INTEGER NOT NULL REFERENCES users(id),
   assigned_by INTEGER NOT NULL REFERENCES users(id),
   campaign_name VARCHAR(150),
-  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired')),
+  status VARCHAR(30) DEFAULT 'pending' CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired', 'pending_evaluation')),
   notes TEXT,
   assigned_at TIMESTAMP DEFAULT NOW(),
   accepted_at TIMESTAMP,
