@@ -1467,6 +1467,9 @@ const removeEvaluationDropdownOption = async (req, res, next) => {
  * POST /api/evaluations/pending
  * Upsert a pending (draft) evaluation for a call.
  * Does NOT mark the call as evaluated.
+ * Side-effect: marks any matching assignment as 'pending_evaluation'
+ *   so it is hidden from the regular assignments queue and only
+ *   shows inside the "Pending Calls" section.
  */
 const savePendingCall = async (req, res, next) => {
   try {
@@ -1509,6 +1512,19 @@ const savePendingCall = async (req, res, next) => {
         evaluation_date || null,
         notes || null,
       ]
+    );
+
+    // ── Hide from regular assignments queue ──────────────────────────
+    // Mark the assignment as 'pending_evaluation' so getAssignments
+    // excludes it from the normal list.  The call will still be
+    // accessible via the Pending Calls section on My Assignments.
+    await query(
+      `UPDATE lead_assignments
+       SET status = 'pending_evaluation', updated_at = NOW()
+       WHERE call_lead_id = $1
+         AND assigned_to  = $2
+         AND status NOT IN ('completed', 'pending_evaluation')`,
+      [call_lead_id, req.user.id]
     );
 
     res.status(200).json({

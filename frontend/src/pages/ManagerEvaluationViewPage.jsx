@@ -1,13 +1,13 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { ArrowLeft, Play, Pause, Volume2, Save, Lock, RefreshCw, Download, Loader2 } from 'lucide-react';
+import { ArrowLeft, Volume2, Save, RefreshCw } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatDateOnly } from '../utils/dateUtils';
 import useEvaluationOptions from '../hooks/useEvaluationOptions';
 import EditableOptionsInput from '../components/common/EditableOptionsInput';
-import { downloadRecording } from '../utils/recordingDownload';
+import RecordingPlayerCard from '../components/common/RecordingPlayerCard';
 
 const CHECKBOX_FIELDS = [
   { key: 'md', label: 'MD' },
@@ -24,158 +24,6 @@ const CHECKBOX_FIELDS = [
   { key: 'medicareCard', label: 'medicare card' },
   { key: 'dis', label: 'Dis' },
 ];
-
-function RecordingPlayerCard({ rec, index, total, isPlaying, onTogglePlay, onEnded }) {
-  const audioRef = useRef(null);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(rec.length ? parseFloat(rec.length) : 0);
-  const [playbackRate, setPlaybackRate] = useState(1);
-  const [downloading, setDownloading] = useState(false);
-
-  useEffect(() => {
-    if (!audioRef.current) return;
-    if (isPlaying) {
-      audioRef.current.play().catch(e => console.error('Audio play error:', e));
-    } else {
-      audioRef.current.pause();
-    }
-  }, [isPlaying]);
-
-  const handleDownload = async (e) => {
-    e.stopPropagation();
-    if (downloading) return;
-    setDownloading(true);
-    try {
-      await downloadRecording(rec, index);
-      toast.success('Download started');
-    } catch (err) {
-      toast.error(err.message || 'Failed to download recording.');
-    } finally {
-      setDownloading(false);
-    }
-  };
-
-  // Dialer reports call length in raw seconds; show the same unit everywhere
-  // so the player matches the "Talk Time (sec)" column and the dialer report.
-  const reportedLength =
-    rec.length !== undefined && rec.length !== null && String(rec.length).trim() !== ''
-      ? Math.round(parseFloat(rec.length))
-      : null;
-  const displayDuration =
-    reportedLength != null && !isNaN(reportedLength) ? reportedLength : Math.round(duration || 0);
-
-  const formatTime = (sec) => {
-    const n = Number(sec);
-    if (!Number.isFinite(n) || n < 0) return '0s';
-    return `${Math.round(n)}s`;
-  };
-
-  const handleRateChange = (newRate) => {
-    setPlaybackRate(newRate);
-    if (audioRef.current) audioRef.current.playbackRate = newRate;
-  };
-
-  return (
-    <div className={`bg-slate-900/90 backdrop-blur-md border rounded-2xl p-4 shadow-xl flex flex-col sm:flex-row gap-4 sm:gap-6 items-start sm:items-center relative overflow-hidden transition-all ${
-      isPlaying ? 'border-indigo-500/60 ring-1 ring-indigo-500/30 bg-slate-900' : 'border-slate-800 hover:border-slate-750'
-    }`}>
-      <div className={`absolute top-0 left-0 w-1.5 h-full ${
-        index === 0 ? 'bg-gradient-to-b from-indigo-500 to-purple-500' : 'bg-gradient-to-b from-emerald-500 to-teal-500'
-      }`} />
-      
-      <button 
-        type="button"
-        onClick={() => onTogglePlay(index)} 
-        className={`w-12 h-12 rounded-xl flex items-center justify-center text-white shrink-0 shadow-lg transition-all hover:scale-105 active:scale-95 ${
-          index === 0
-            ? 'bg-gradient-to-br from-indigo-500 to-purple-600 shadow-indigo-500/30'
-            : 'bg-gradient-to-br from-emerald-500 to-teal-600 shadow-emerald-500/30'
-        }`}
-      >
-        {isPlaying ? <Pause className="w-5 h-5" /> : <Play className="w-5 h-5 ml-0.5" />}
-      </button>
-
-      <div className="flex-1 min-w-0 w-full">
-        <audio
-          ref={audioRef}
-          src={rec.location}
-          onTimeUpdate={() => setCurrentTime(audioRef.current?.currentTime || 0)}
-          onLoadedMetadata={() => setDuration(audioRef.current?.duration || (rec.length ? parseFloat(rec.length) : 0))}
-          onEnded={() => onEnded(index)}
-          preload="metadata"
-        />
-        
-        <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className={`text-[11px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-              index === 0 ? 'bg-indigo-500/20 text-indigo-300' : 'bg-emerald-500/20 text-emerald-300'
-            }`}>
-              Recording {index + 1}{total > 1 ? ` of ${total}` : ''}
-            </span>
-            <span className="text-xs font-mono text-slate-300 truncate max-w-[280px] sm:max-w-[450px]" title={rec.filename}>
-              {rec.filename || `Recording ${index + 1}`}
-            </span>
-            {rec.date && <span className="text-[10px] text-slate-500">({rec.date})</span>}
-          </div>
-
-          <div className="flex items-center gap-3">
-            <span className="text-xs font-mono font-bold text-indigo-400">{formatTime(Math.min(currentTime, displayDuration || currentTime))}</span>
-            <span className="text-xs text-slate-500">/</span>
-            <span className="text-xs font-mono text-slate-400">{formatTime(displayDuration)}</span>
-            
-            <select
-              value={playbackRate}
-              onChange={e => handleRateChange(parseFloat(e.target.value))}
-              className="bg-slate-800 text-white text-[10px] rounded px-2 py-1 outline-none border border-slate-700 ml-1 cursor-pointer"
-            >
-              <option value={0.5}>0.5x</option>
-              <option value={1}>1x</option>
-              <option value={1.5}>1.5x</option>
-              <option value={2}>2x</option>
-            </select>
-
-            <button
-              type="button"
-              onClick={handleDownload}
-              disabled={downloading}
-              title="Download this recording"
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-emerald-500/40 text-slate-300 hover:text-white text-[11px] font-semibold transition-all disabled:opacity-50 disabled:cursor-wait"
-            >
-              {downloading ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-400" />
-              ) : (
-                <Download className="w-3.5 h-3.5 text-emerald-400" />
-              )}
-              {downloading ? 'Downloading…' : 'Download'}
-            </button>
-          </div>
-        </div>
-
-        <div className="relative w-full h-2 bg-slate-800 rounded-full overflow-hidden">
-          <div 
-            className={`absolute top-0 left-0 h-full transition-all duration-100 ease-linear ${
-              index === 0 ? 'bg-gradient-to-r from-indigo-500 to-purple-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500'
-            }`}
-            style={{ width: `${duration ? (currentTime / duration) * 100 : 0}%` }}
-          />
-          <input
-            type="range"
-            min={0}
-            max={duration || 100}
-            step="0.1"
-            value={currentTime}
-            onChange={e => {
-              const t = parseFloat(e.target.value);
-              setCurrentTime(t);
-              if (audioRef.current) audioRef.current.currentTime = t;
-            }}
-            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 const ManagerEvaluationViewPage = () => {
   const { id } = useParams();
@@ -198,7 +46,6 @@ const ManagerEvaluationViewPage = () => {
   const [saving, setSaving] = useState(false);
   const [dirty, setDirty] = useState(false);
   const [recordingsList, setRecordingsList] = useState([]);
-  const [playingIndex, setPlayingIndex] = useState(null);
   const [loadError, setLoadError] = useState(null);
 
   useEffect(() => {
@@ -249,20 +96,6 @@ const ManagerEvaluationViewPage = () => {
       });
     }
   }, [id]);
-
-  const handleTogglePlay = (idx) => {
-    if (playingIndex === idx) {
-      setPlayingIndex(null);
-    } else {
-      setPlayingIndex(idx);
-    }
-  };
-
-  const handleEnded = (idx) => {
-    if (playingIndex === idx) {
-      setPlayingIndex(null);
-    }
-  };
 
   const handleMetadataChange = (key, value) => {
     if (!canEdit) return;
@@ -463,9 +296,7 @@ const ManagerEvaluationViewPage = () => {
                 rec={rec}
                 index={idx}
                 total={recordingsList.length}
-                isPlaying={playingIndex === idx}
-                onTogglePlay={handleTogglePlay}
-                onEnded={handleEnded}
+                callPhone={evaluation?.customer_phone || metadata?.numbers}
               />
             ))}
           </div>

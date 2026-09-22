@@ -278,6 +278,11 @@ const getAssignments = async (req, res, next) => {
       params.push(status);
     }
 
+    // Always hide assignments that are in 'pending_evaluation' status —
+    // those calls have been saved as draft pending evaluations and are
+    // shown in the dedicated Pending Calls section instead.
+    conditions.push(`la.status != 'pending_evaluation'`);
+
     const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
 
     // Join call_leads in count query if filtering by campaign
@@ -311,6 +316,8 @@ const getAssignments = async (req, res, next) => {
       statsConditions.push(`la.assigned_at < ${nyDateStart(`$${statsCount++}`, 1)}`);
       statsParams.push(rangeStart, rangeEnd);
     }
+    // Mirror the main list filter: exclude 'pending_evaluation' from stats too
+    statsConditions.push(`la.status != 'pending_evaluation'`);
     const statsWhere = statsConditions.length ? 'WHERE ' + statsConditions.join(' AND ') : '';
 
     const statsResult = await query(`

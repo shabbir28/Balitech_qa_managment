@@ -9,6 +9,7 @@ const AudioPlayerContext = createContext(null);
 
 export function AudioPlayerProvider({ children }) {
   const audioRef = useRef(null);
+  const pendingSeekTimeRef = useRef(null);
 
   // Currently loaded recording object ({ location, filename, tsr, ... })
   const [currentRec, setCurrentRec] = useState(null);
@@ -19,12 +20,23 @@ export function AudioPlayerProvider({ children }) {
   const [duration, setDuration] = useState(0);
   const [playbackRate, setPlaybackRateState] = useState(1);
 
-  // ── Load a new recording and start playing immediately ────────────
-  const play = useCallback((rec, info = null) => {
+  // ── Load a recording and start playing (optionally at a specific offset) ──
+  const play = useCallback((rec, info = null, startTime = null) => {
     if (!audioRef.current) return;
 
+    const initialTime = startTime !== null && !isNaN(startTime) ? Math.max(0, parseFloat(startTime)) : null;
+
     if (currentRec?.location === rec.location) {
-      // Same track — just resume
+      // Same track — just seek if requested and resume
+      if (initialTime !== null) {
+        try {
+          audioRef.current.currentTime = initialTime;
+          setCurrentTime(initialTime);
+        } catch {
+          pendingSeekTimeRef.current = initialTime;
+        }
+      }
+      audioRef.current.playbackRate = playbackRate;
       audioRef.current.play().catch(console.error);
       setIsPlaying(true);
       return;
@@ -33,13 +45,27 @@ export function AudioPlayerProvider({ children }) {
     // New track
     setCurrentRec(rec);
     setCallInfo(info);
-    setCurrentTime(0);
+    const startOffset = initialTime !== null ? initialTime : 0;
+    setCurrentTime(startOffset);
     setDuration(rec.length ? parseFloat(rec.length) : 0);
+    
     audioRef.current.src = rec.location;
+    audioRef.current.defaultPlaybackRate = playbackRate;
     audioRef.current.load();
+    audioRef.current.playbackRate = playbackRate;
+    
+    if (startOffset > 0) {
+      pendingSeekTimeRef.current = startOffset;
+      try {
+        audioRef.current.currentTime = startOffset;
+      } catch {
+        // Handled in handleLoadedMetadata / onPlay
+      }
+    }
+
     audioRef.current.play().catch(console.error);
     setIsPlaying(true);
-  }, [currentRec]);
+  }, [currentRec, playbackRate]);
 
   // ── Pause without clearing state ──────────────────────────────────
   const pause = useCallback(() => {
@@ -50,11 +76,18 @@ export function AudioPlayerProvider({ children }) {
   // ── Toggle play/pause ─────────────────────────────────────────────
   const toggle = useCallback(() => {
     if (!audioRef.current || !currentRec) return;
-    if (isPlaying) { pause(); } else { audioRef.current.play().catch(console.error); setIsPlaying(true); }
-  }, [isPlaying, currentRec, pause]);
+    if (isPlaying) {
+      pause();
+    } else {
+      audioRef.current.playbackRate = playbackRate;
+      audioRef.current.play().catch(console.error);
+      setIsPlaying(true);
+    }
+  }, [isPlaying, currentRec, pause, playbackRate]);
 
   // ── Stop and clear everything ─────────────────────────────────────
   const stop = useCallback(() => {
+    pendingSeekTimeRef.current = null;
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.src = '';
@@ -66,30 +99,77 @@ export function AudioPlayerProvider({ children }) {
     setDuration(0);
   }, []);
 
-  // ── Seek ──────────────────────────────────────────────────────────
+  // ── Seek to absolute time (seconds) ───────────────────────────────
   const seek = useCallback((time) => {
     if (!audioRef.current) return;
-    audioRef.current.currentTime = time;
-    setCurrentTime(time);
+    const target = Math.max(0, Number(time) || 0);
+    setCurrentTime(target);
+    try {
+      if (audioRef.current.readyState >= 1) { // HAVE_METADATA or higher
+        audioRef.current.currentTime = target;
+      } else {
+        pendingSeekTimeRef.current = target;
+      }
+    } catch {
+      pendingSeekTimeRef.current = target;
+    }
   }, []);
 
   // ── Playback speed ────────────────────────────────────────────────
   const setPlaybackRate = useCallback((rate) => {
-    if (audioRef.current) audioRef.current.playbackRate = rate;
-    setPlaybackRateState(rate);
+    const r = parseFloat(rate) || 1;
+    if (audioRef.current) {
+      audioRef.current.defaultPlaybackRate = r;
+      audioRef.current.playbackRate = r;
+    }
+    setPlaybackRateState(r);
   }, []);
 
   // ── Audio element event handlers ──────────────────────────────────
-  const handleTimeUpdate = () => setCurrentTime(audioRef.current?.currentTime || 0);
+  const handleTimeUpdate = () => {
+    setCurrentTime(audioRef.current?.currentTime || 0);
+  };
+
   const handleLoadedMetadata = () => {
     const d = audioRef.current?.duration;
     if (d && isFinite(d)) setDuration(d);
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+      if (pendingSeekTimeRef.current !== null) {
+        try {
+          audioRef.current.currentTime = pendingSeekTimeRef.current;
+          setCurrentTime(pendingSeekTimeRef.current);
+          pendingSeekTimeRef.current = null;
+        } catch {
+          // ignore
+        }
+      }
+    }
   };
+
+  const handlePlay = () => {
+    if (audioRef.current) {
+      audioRef.current.playbackRate = playbackRate;
+      if (pendingSeekTimeRef.current !== null) {
+        try {
+          audioRef.current.currentTime = pendingSeekTimeRef.current;
+          pendingSeekTimeRef.current = null;
+        } catch {
+          // ignore
+        }
+      }
+    }
+    setIsPlaying(true);
+  };
+
   const handleEnded = () => setIsPlaying(false);
 
-  // Keep playbackRate in sync if the element is reused
+  // Keep playbackRate in sync if the element is reused or state updates
   useEffect(() => {
-    if (audioRef.current) audioRef.current.playbackRate = playbackRate;
+    if (audioRef.current) {
+      audioRef.current.defaultPlaybackRate = playbackRate;
+      audioRef.current.playbackRate = playbackRate;
+    }
   }, [playbackRate]);
 
   const value = {
@@ -114,6 +194,8 @@ export function AudioPlayerProvider({ children }) {
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
+        onPlay={handlePlay}
+        onPause={() => setIsPlaying(false)}
         onEnded={handleEnded}
         preload="metadata"
         style={{ display: 'none' }}
