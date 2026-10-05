@@ -5,7 +5,7 @@ import {
   TbLayoutDashboard, TbSearch, TbCurrencyDollar, TbCalendarStats, TbChartBar,
   TbArrowsExchange, TbHistory, TbClipboardList, TbChecklist, TbReportAnalytics,
   TbPhoneOff, TbFileSpreadsheet, TbClipboardText, TbUsersGroup, TbSpeakerphone, TbUserPlus,
-  TbLogout, TbChevronLeft, TbChevronRight, TbMenu2, TbX, TbShieldCheck,
+  TbLogout, TbChevronLeft, TbChevronRight, TbMenu2, TbX, TbShieldCheck, TbPhoneCheck,
 } from 'react-icons/tb';
 import toast from 'react-hot-toast';
 import logoImage from '../assets/logo.png';
@@ -34,6 +34,15 @@ const NAV_SECTIONS = [
     ],
   },
   {
+    title: 'Management',
+    items: [
+      { name: 'My Team', path: '/users', icon: TbUsersGroup, roles: LEADERSHIP },
+      { name: 'Campaigns', path: '/campaigns', icon: TbSpeakerphone, roles: LEADERSHIP },
+      { name: 'Assign Leads', path: '/assign-leads', icon: TbUserPlus, roles: LEADERSHIP },
+      { name: 'Assigned Calls', path: '/assigned-calls', icon: TbPhoneCheck, roles: LEADERSHIP },
+    ],
+  },
+  {
     title: 'Quality',
     items: [
       { name: 'My Assignments', path: '/my-assignments', icon: TbClipboardList, roles: ['QA Agent'] },
@@ -42,14 +51,6 @@ const NAV_SECTIONS = [
       { name: 'Rejected Calls', path: '/rejected-calls', icon: TbPhoneOff, roles: ALL_ROLES },
       { name: 'QA Daily Report', path: '/qa-daily-report', icon: TbFileSpreadsheet, roles: ALL_ROLES },
       { name: 'Medicare Daily Evaluation', path: '/medicare-daily-evaluation', icon: TbClipboardText, roles: ALL_ROLES },
-    ],
-  },
-  {
-    title: 'Management',
-    items: [
-      { name: 'My Team', path: '/users', icon: TbUsersGroup, roles: LEADERSHIP },
-      { name: 'Campaigns', path: '/campaigns', icon: TbSpeakerphone, roles: LEADERSHIP },
-      { name: 'Assign Leads', path: '/assign-leads', icon: TbUserPlus, roles: LEADERSHIP },
     ],
   },
 ];

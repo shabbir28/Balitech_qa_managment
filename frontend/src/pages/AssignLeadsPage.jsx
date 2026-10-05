@@ -330,10 +330,10 @@ const AssignLeadsPage = () => {
 
   /* ─── Render ────────────────────────────────────────────────────── */
   return (
-    <div className="font-sans pb-8">
+    <div className="font-sans flex flex-col min-h-0 lg:h-[calc(100dvh-3.25rem)] lg:overflow-hidden">
 
       {/* ── Page Header ───────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-3 shrink-0">
         <div>
           <div className="flex items-center gap-2 mb-1.5">
             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
@@ -345,23 +345,28 @@ const AssignLeadsPage = () => {
       </div>
 
       {/* ── Main Content: Left (Assignment Panel) & Right (Lead Selection Area) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-5 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] gap-4 items-stretch flex-1 min-h-0">
 
         {/* ── LEFT: Campaign, Evaluator & Assignment Panel ─────────── */}
-        <div className="space-y-4">
+        <div className="min-h-0 h-full flex flex-col bg-[#111827] border border-slate-700/40 rounded-2xl overflow-visible">
 
-          {/* Configuration & Selection Card */}
-          <div className="bg-[#111827] border border-slate-700/40 rounded-2xl p-5 space-y-4">
-            <h3 className="text-xs font-semibold text-slate-300 uppercase tracking-wider flex items-center gap-2">
+          <div className="px-4 py-3 border-b border-slate-800/70 flex items-center justify-between shrink-0">
+            <h3 className="text-xs font-semibold text-slate-200 uppercase tracking-wider flex items-center gap-2">
               <Send className="w-3.5 h-3.5 text-emerald-400" /> Assignment Controls
             </h3>
+            <span className="text-[10px] font-mono text-slate-400 bg-[#0B1120] px-2 py-0.5 rounded-md border border-slate-800">
+              Pool <strong className="text-emerald-400">{displayedLeads.length}</strong>
+            </span>
+          </div>
+
+          <div className="flex-1 min-h-0 flex flex-col gap-2.5 p-3.5">
 
             {/* Campaign Dropdown */}
             <div className="space-y-1.5">
               <label className="text-[11px] font-medium text-slate-400">Target Campaign</label>
               <div className="relative" ref={campRef}>
                 <button type="button" onClick={() => { setCampDropdownOpen(!campDropdownOpen); setEvalDropdownOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3.5 py-2.5 bg-[#0B1120] border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:border-slate-600 transition-colors">
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-[#0B1120] border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:border-slate-600 transition-colors">
                   <Target className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   <span className="flex-1 text-left truncate">{selectedCampaign || 'Select Campaign'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${campDropdownOpen ? 'rotate-180' : ''}`} />
@@ -386,7 +391,7 @@ const AssignLeadsPage = () => {
               <label className="text-[11px] font-medium text-slate-400">Assign Evaluator</label>
               <div className="relative" ref={evalRef}>
                 <button type="button" onClick={() => { setEvalDropdownOpen(!evalDropdownOpen); setCampDropdownOpen(false); }}
-                  className="w-full flex items-center gap-2 px-3.5 py-2.5 bg-[#0B1120] border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:border-slate-600 transition-colors">
+                  className="w-full flex items-center gap-2 px-3 py-2 bg-[#0B1120] border border-slate-700/60 rounded-xl text-xs font-medium text-slate-200 hover:border-slate-600 transition-colors">
                   <UserCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   <span className="flex-1 text-left truncate">{selectedEvaluator ? selectedEvaluator.name : 'Select QA Evaluator'}</span>
                   <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${evalDropdownOpen ? 'rotate-180' : ''}`} />
@@ -423,16 +428,11 @@ const AssignLeadsPage = () => {
               </div>
             </div>
 
-            {/* Smart Quantity Selector Card on Left Panel */}
-            <div className="bg-[#0B1120] border border-slate-700/50 rounded-xl p-3 space-y-2.5 shadow-inner">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <Sliders className="w-3.5 h-3.5 text-emerald-400" />
-                  <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Select Quantity</span>
-                </div>
-                <span className="text-[10px] font-mono text-slate-400 bg-slate-800/80 px-2 py-0.5 rounded-md border border-slate-700/60">
-                  Pool: <strong className="text-emerald-400">{displayedLeads.length}</strong>
-                </span>
+            {/* Quantity */}
+            <div className="space-y-1.5">
+              <div className="flex items-center gap-1.5">
+                <Sliders className="w-3.5 h-3.5 text-emerald-400" />
+                <span className="text-[11px] font-medium text-slate-400">Select quantity</span>
               </div>
 
               {/* Input + Action button */}
@@ -531,72 +531,40 @@ const AssignLeadsPage = () => {
               </div>
             </div>
 
-            {/* Counts Grid */}
-            <div className="grid grid-cols-3 gap-2 pt-1">
-              <div className="bg-[#0B1120] rounded-lg p-2 text-center border border-slate-800/60">
-                <p className="text-base font-bold text-white">{selectedLeadIds.length}</p>
-                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Records</p>
-              </div>
-              <div className="bg-[#0B1120] rounded-lg p-2 text-center border border-slate-800/60">
-                <p className="text-base font-bold text-white">{manualPhones.length}</p>
-                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Manual</p>
-              </div>
-              <div className="bg-[#0B1120] rounded-lg p-2 text-center border border-slate-800/60">
-                <p className="text-base font-bold text-white">{uploadFile ? 1 : 0}</p>
-                <p className="text-[9px] text-slate-400 font-medium uppercase tracking-wider">Files</p>
-              </div>
+            <div className="grid grid-cols-4 gap-1.5">
+              {[
+                { label: 'Records', value: selectedLeadIds.length },
+                { label: 'Manual', value: manualPhones.length },
+                { label: 'Files', value: uploadFile ? 1 : 0 },
+                { label: 'Total', value: totalSelected, accent: true },
+              ].map((item) => (
+                <div key={item.label} className={`rounded-lg px-1 py-1.5 text-center border ${item.accent ? 'bg-emerald-500/10 border-emerald-500/25' : 'bg-[#0B1120] border-slate-800/70'}`}>
+                  <p className={`text-sm font-bold leading-none ${item.accent ? 'text-emerald-300' : 'text-white'}`}>{item.value}</p>
+                  <p className="text-[8px] text-slate-500 font-medium uppercase tracking-wider mt-1 whitespace-nowrap">{item.label}</p>
+                </div>
+              ))}
             </div>
 
-            {/* Total Badge */}
-            <div className="flex items-center justify-between bg-emerald-500/[0.08] border border-emerald-500/25 rounded-xl px-3.5 py-2.5">
-              <span className="text-xs font-semibold text-emerald-400">Total Leads to Assign</span>
-              <span className="text-lg font-black text-white">{totalSelected}</span>
+            <div className="flex-1 min-h-0 flex flex-col gap-1.5 overflow-hidden">
+              <label className="text-[11px] font-medium text-slate-400 shrink-0">Notes (optional)</label>
+              <textarea value={assignmentNotes} onChange={(e) => setAssignmentNotes(e.target.value)}
+                placeholder="Audit instructions..."
+                className="flex-1 min-h-[44px] w-full bg-[#0B1120] border border-slate-800/70 text-slate-200 text-xs rounded-xl p-2.5 outline-none focus:border-emerald-500/40 placeholder:text-slate-600 resize-none" />
             </div>
+
+            <button onClick={handleSubmit} disabled={loading || !assignTo || (totalSelected === 0 && !uploadFile)}
+              className="shrink-0 w-full py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2">
+              {loading ? (
+                <><RefreshCw className="w-4 h-4 animate-spin" /><span>Dispatching...</span></>
+              ) : (
+                <><Send className="w-4 h-4" /><span>Assign {totalSelected > 0 ? `${totalSelected} ` : ''}Leads</span></>
+              )}
+            </button>
           </div>
-
-          {/* Selected Numbers Preview */}
-          {selectedLeadIds.length > 0 && (
-            <div className="bg-[#111827] border border-slate-700/40 rounded-2xl p-4 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider">Selected Numbers</span>
-                <span className="text-[10px] text-slate-500">{selectedLeadIds.length} items</span>
-              </div>
-              <div className="max-h-32 overflow-y-auto flex flex-wrap gap-1.5 pr-1">
-                {leads.filter((l) => selectedLeadIds.includes(l.id)).slice(0, 40).map((l) => (
-                  <span key={l.id} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#0B1120] border border-slate-800/60 text-[10px] font-mono text-slate-300">
-                    {l.customer_phone || l.id}
-                    <button type="button" onClick={() => setSelectedLeadIds((p) => p.filter((x) => x !== l.id))} className="text-slate-500 hover:text-rose-400 transition-colors">
-                      <X className="w-2.5 h-2.5" />
-                    </button>
-                  </span>
-                ))}
-                {selectedLeadIds.length > 40 && <span className="text-[10px] text-slate-500 py-0.5">+{selectedLeadIds.length - 40} more</span>}
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div className="bg-[#111827] border border-slate-700/40 rounded-2xl p-4 space-y-2">
-            <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wider block">Notes (Optional)</label>
-            <textarea value={assignmentNotes} onChange={(e) => setAssignmentNotes(e.target.value)}
-              placeholder="Add audit instructions or notes..."
-              rows={2}
-              className="w-full bg-[#0B1120] border border-slate-800/60 text-slate-200 text-xs rounded-lg p-2.5 outline-none focus:border-emerald-500/40 placeholder:text-slate-600 resize-none" />
-          </div>
-
-          {/* Dispatch Button */}
-          <button onClick={handleSubmit} disabled={loading || !assignTo || (totalSelected === 0 && !uploadFile)}
-            className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs uppercase tracking-wider transition-all shadow-lg shadow-emerald-500/20 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2 hover:shadow-emerald-500/30 active:scale-[0.98]">
-            {loading ? (
-              <><RefreshCw className="w-4 h-4 animate-spin" /><span>Dispatching...</span></>
-            ) : (
-              <><Send className="w-4 h-4" /><span>Assign {totalSelected > 0 ? `${totalSelected} ` : ''}Leads</span></>
-            )}
-          </button>
         </div>
 
         {/* ── RIGHT: Lead Sourcing Workspace (Table / Manual / File) ── */}
-        <div className="bg-[#111827] border border-slate-700/40 rounded-2xl overflow-hidden flex flex-col min-w-0">
+        <div className="bg-[#111827] border border-slate-700/40 rounded-2xl overflow-hidden flex flex-col min-w-0 min-h-0 lg:h-full">
 
           {/* Source Tabs + Filters */}
           <div className="px-4 py-3 border-b border-slate-800/60 flex flex-wrap items-center justify-between gap-3">
@@ -637,7 +605,7 @@ const AssignLeadsPage = () => {
 
           {/* ── Tab: Dialer Records ──────────────────────────────── */}
           {sourceTab === 'pool' && (
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               {/* Quick select bar */}
               <div className="px-4 py-2 bg-[#0D1424] border-b border-slate-800/40 flex items-center justify-between">
                 <div className="flex items-center gap-1.5">
@@ -670,7 +638,7 @@ const AssignLeadsPage = () => {
               </div>
 
               {/* Table */}
-              <div className="flex-1 overflow-auto" style={{ maxHeight: '520px' }}>
+              <div className="flex-1 min-h-0 overflow-auto">
                 {leadsLoading ? (
                   <div className="flex flex-col items-center justify-center py-20 gap-2">
                     <RefreshCw className="w-5 h-5 animate-spin text-emerald-400" />

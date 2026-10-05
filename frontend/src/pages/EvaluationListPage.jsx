@@ -3,8 +3,8 @@ import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 import toast from 'react-hot-toast';
-import { LoadingPage, EmptyState, DateRangeDropdown } from '../components/ui';
-import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock, ChevronDown, ChevronRight, RotateCcw, AlertCircle } from 'lucide-react';
+import { LoadingPage, EmptyState, DateRangeDropdown, ConfirmModal } from '../components/ui';
+import { ClipboardCheck, Users, X, Play, Pause, Volume2, SkipBack, SkipForward, Search, Eye, Clock, ChevronDown, ChevronRight, RotateCcw, AlertCircle, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { formatDistanceToNow } from 'date-fns';
 import { getEstDateString, getEstDateTimeParts, formatDateOnly } from '../utils/dateUtils';
@@ -119,6 +119,8 @@ const EvaluationListPage = () => {
   
   // Sub-modals
   const [audioAssignment, setAudioAssignment] = useState(null);
+  const [removeTarget, setRemoveTarget] = useState(null);
+  const [removing, setRemoving] = useState(false);
 
   const { user, hasRole } = useAuth();
   const isAgent = user?.role === 'QA Agent';
@@ -177,34 +179,57 @@ const EvaluationListPage = () => {
     fetchManagedUsers();
   }, [fetchManagedUsers]);
 
+  const loadAssignments = async (userId) => {
+    const res = await api.get('/assignments', { params: { user_id: userId, limit: 1000 } });
+    return (res.data.data || []).map(a => {
+      let displayStatus = 'pending';
+      if (a.status === 'completed' || a.evaluation_status) {
+          const evalStatus = (a.evaluation_status || '').toLowerCase();
+          if (evalStatus === 'pass' || evalStatus === 'accepted') displayStatus = 'accepted';
+          else if (evalStatus === 'fail' || evalStatus === 'rejected') displayStatus = 'rejected';
+          else if (evalStatus === 'flagged') displayStatus = 'flagged';
+          else if (evalStatus === 'decline') displayStatus = 'decline';
+          else if (evalStatus.includes('not billable') || evalStatus.includes('not bilable')) displayStatus = 'not_billable';
+          else displayStatus = 'completed';
+      } else if (a.status === 'rejected') {
+          displayStatus = 'rejected (declined task)';
+      } else if (a.status === 'expired') {
+          displayStatus = 'expired';
+      }
+      return { ...a, displayStatus };
+    });
+  };
+
   const openUserActivity = async (u, defaultFilter = 'all') => {
     setSelectedUser(u);
     setAssignmentFilter(defaultFilter);
     setLoadingAssignments(true);
     try {
-      const res = await api.get('/assignments', { params: { user_id: u.id, limit: 1000 } });
-      const enriched = (res.data.data || []).map(a => {
-        let displayStatus = 'pending';
-        if (a.status === 'completed' || a.evaluation_status) {
-            const evalStatus = (a.evaluation_status || '').toLowerCase();
-            if (evalStatus === 'pass' || evalStatus === 'accepted') displayStatus = 'accepted';
-            else if (evalStatus === 'fail' || evalStatus === 'rejected') displayStatus = 'rejected';
-            else if (evalStatus === 'flagged') displayStatus = 'flagged';
-            else if (evalStatus === 'decline') displayStatus = 'decline';
-            else if (evalStatus.includes('not billable') || evalStatus.includes('not bilable')) displayStatus = 'not_billable';
-            else displayStatus = 'completed';
-        } else if (a.status === 'rejected') {
-            displayStatus = 'rejected (declined task)'; 
-        } else if (a.status === 'expired') {
-            displayStatus = 'expired';
-        }
-        return { ...a, displayStatus };
-      });
-      setUserAssignments(enriched);
+      setUserAssignments(await loadAssignments(u.id));
     } catch {
       toast.error('Failed to load user assignments.');
     } finally {
       setLoadingAssignments(false);
+    }
+  };
+
+  // Un-assign a lead that was handed to the wrong QA. The evaluation (if any)
+  // is keyed on the call, not the assignment, so it is left untouched.
+  const confirmRemoveAssignment = async () => {
+    if (!removeTarget) return;
+    setRemoving(true);
+    try {
+      await api.delete(`/assignments/${removeTarget.id}`);
+      toast.success('Assignment removed.');
+      setRemoveTarget(null);
+      if (selectedUser) {
+        try { setUserAssignments(await loadAssignments(selectedUser.id)); } catch { /* keep modal open */ }
+      }
+      fetchManagedUsers();
+    } catch (e) {
+      toast.error(e.response?.data?.message || 'Failed to remove assignment.');
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -562,6 +587,15 @@ const EvaluationListPage = () => {
                                     <Play className="w-3 h-3 group-hover:scale-110 transition-transform" /> Listen
                                   </button>
                                 )}
+                                {!isAgent && (
+                                  <button
+                                    onClick={() => setRemoveTarget(a)}
+                                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/30 text-rose-400 rounded-lg text-xs font-semibold transition-all group"
+                                    title="Remove this assignment (un-assign the call)"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5 group-hover:scale-110 transition-transform" /> Remove
+                                  </button>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -587,6 +621,18 @@ const EvaluationListPage = () => {
           onClose={() => setAudioAssignment(null)}
         />
       )}
+
+      {/* Remove assignment confirmation */}
+      <ConfirmModal
+        open={Boolean(removeTarget)}
+        danger
+        title="Remove this assignment?"
+        message={removeTarget
+          ? `This un-assigns ${removeTarget.customer_phone || 'this call'} from ${selectedUser?.name || 'the QA'}. Any evaluation already submitted is kept. This cannot be undone.`
+          : ''}
+        onCancel={() => { if (!removing) setRemoveTarget(null); }}
+        onConfirm={confirmRemoveAssignment}
+      />
     </div>
   );
 };

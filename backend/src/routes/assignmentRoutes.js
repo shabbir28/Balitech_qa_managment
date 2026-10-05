@@ -3,13 +3,14 @@ const router = express.Router();
 const upload = require('../middleware/upload');
 
 const {
-  getAssignments, createAssignments, acceptAssignment, rejectAssignment, acceptAllAssignments, completeAssignment, deleteAssignment, uploadAssignments
+  getAssignments, createAssignments, acceptAssignment, rejectAssignment, acceptAllAssignments, completeAssignment, deleteAssignment, unassignAssignments, uploadAssignments
 } = require('../controllers/teamController');
 const { authenticate, authorize } = require('../middleware/auth');
 
 router.get('/', authenticate, getAssignments);
 router.post('/', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), createAssignments);
 router.post('/upload', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), upload.single('file'), uploadAssignments);
+router.post('/unassign', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), unassignAssignments);
 router.patch('/accept-all', authenticate, acceptAllAssignments);
 router.patch('/:id/accept', authenticate, acceptAssignment);
 router.patch('/:id/reject', authenticate, rejectAssignment);

@@ -27,6 +27,7 @@ import QaDailyReportPage from './pages/QaDailyReportPage';
 import MedicareDailyEvaluationPage from './pages/MedicareDailyEvaluationPage';
 
 import AssignLeadsPage from './pages/AssignLeadsPage';
+import AssignedCallsPage from './pages/AssignedCallsPage';
 import MyAssignmentsPage from './pages/MyAssignmentsPage';
 import TeamsPage from './pages/TeamsPage';
 
@@ -159,6 +160,11 @@ function App() {
           <Route path="/assign-leads" element={
             <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
               <SidebarLayout><AssignLeadsPage /></SidebarLayout>
+            </ProtectedRoute>
+          } />
+          <Route path="/assigned-calls" element={
+            <ProtectedRoute roles={['Super Admin', 'QA Admin', 'Manager']}>
+              <SidebarLayout><AssignedCallsPage /></SidebarLayout>
             </ProtectedRoute>
           } />
 

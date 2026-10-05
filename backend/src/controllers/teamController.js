@@ -153,6 +153,40 @@ const getAvailableUsers = async (req, res, next) => {
 /* ─── LEAD ASSIGNMENTS ──────────────────────────────────────────────── */
 
 /**
+ * Puts dialer sales rows back in the unassigned pool for the given call leads.
+ * Evaluated calls are left marked assigned so a finished audit is not reopened.
+ */
+const releaseDialerAssignments = async (callLeadIds) => {
+  const ids = [...new Set(callLeadIds.filter((id) => Number.isInteger(Number(id))))].map(Number);
+  if (!ids.length) return;
+  await query(`
+    UPDATE dialer_sales_history dsh
+    SET is_assigned = FALSE, assigned_qa_name = NULL
+    WHERE dsh.is_assigned IS TRUE
+      AND (
+        dsh.lead_id IN (
+          SELECT m[1]
+          FROM call_leads cl
+          CROSS JOIN LATERAL regexp_match(
+            COALESCE(cl.notes, ''),
+            '(?:Lead ID:|VICI_LEAD:)\\s*(\\S+)'
+          ) AS m
+          WHERE cl.id = ANY($1::int[])
+            AND cl.is_evaluated IS NOT TRUE
+            AND m IS NOT NULL
+        )
+        OR dsh.phone IN (
+          SELECT cl.customer_phone
+          FROM call_leads cl
+          WHERE cl.id = ANY($1::int[])
+            AND cl.is_evaluated IS NOT TRUE
+            AND COALESCE(cl.notes, '') !~ '(Lead ID:|VICI_LEAD:)'
+        )
+      )
+  `, [ids]);
+};
+
+/**
  * Automatically expires uncompleted assignments (pending, accepted) that were
  * handed out before the current America/New_York day, so a QA Agent's queue
  * only ever holds leads assigned today.
@@ -171,32 +205,7 @@ const expireStaleAssignments = async () => {
     `);
 
     if (staleResult.rows.length > 0) {
-      const callLeadIds = staleResult.rows.map(r => r.call_lead_id);
-      await query(`
-        UPDATE dialer_sales_history dsh
-        SET is_assigned = FALSE, assigned_qa_name = NULL
-        WHERE dsh.is_assigned IS TRUE
-          AND (
-            dsh.lead_id IN (
-              SELECT m[1]
-              FROM call_leads cl
-              CROSS JOIN LATERAL regexp_match(
-                COALESCE(cl.notes, ''),
-                '(?:Lead ID:|VICI_LEAD:)\\s*(\\S+)'
-              ) AS m
-              WHERE cl.id = ANY($1::int[])
-                AND cl.is_evaluated IS NOT TRUE
-                AND m IS NOT NULL
-            )
-            OR dsh.phone IN (
-              SELECT cl.customer_phone
-              FROM call_leads cl
-              WHERE cl.id = ANY($1::int[])
-                AND cl.is_evaluated IS NOT TRUE
-                AND COALESCE(cl.notes, '') !~ '(Lead ID:|VICI_LEAD:)'
-            )
-          )
-      `, [callLeadIds]).catch(err => {
+      await releaseDialerAssignments(staleResult.rows.map(r => r.call_lead_id)).catch(err => {
         console.warn('Notice when releasing dialer sales leads for expired assignments:', err.message);
       });
     }
@@ -659,27 +668,101 @@ const completeAssignment = async (req, res, next) => {
   } catch (err) { next(err); }
 };
 
+const LEADERSHIP_ROLES = ['Super Admin', 'QA Admin'];
+
+/**
+ * Rows a leader is allowed to take back. Evaluated work stays assigned.
+ * Managers may only release leads they handed out themselves.
+ */
+const loadRemovableAssignments = async (ids, user) => {
+  const clean = [...new Set(ids.map(Number))].filter((id) => Number.isInteger(id) && id > 0);
+  if (!clean.length) return { removable: [], locked: 0, missing: 0 };
+
+  const found = await query(
+    `SELECT la.id, la.call_lead_id, la.assigned_by, la.status,
+            EXISTS (
+              SELECT 1 FROM qa_evaluations e
+              WHERE e.call_lead_id = la.call_lead_id AND e.is_deleted = FALSE
+            ) AS has_evaluation
+     FROM lead_assignments la
+     WHERE la.id = ANY($1::int[])`,
+    [clean]
+  );
+
+  const isAdmin = LEADERSHIP_ROLES.includes(user.role);
+  const owned = found.rows.filter((row) => isAdmin || Number(row.assigned_by) === Number(user.id));
+  const removable = owned.filter((row) => !row.has_evaluation && row.status !== 'completed');
+  return {
+    removable,
+    locked: owned.length - removable.length,
+    missing: clean.length - owned.length,
+  };
+};
+
+const removeAssignmentRows = async (rows) => {
+  if (!rows.length) return;
+  const ids = rows.map((row) => row.id);
+  await query('DELETE FROM lead_assignments WHERE id = ANY($1::int[])', [ids]);
+  await releaseDialerAssignments(rows.map((row) => row.call_lead_id)).catch((err) => {
+    console.warn('Notice when releasing dialer sales leads after unassign:', err.message);
+  });
+};
+
 /**
  * DELETE /api/assignments/:id
+ * Takes one lead off an agent and returns it to the unassigned pool.
  */
 const deleteAssignment = async (req, res, next) => {
   try {
-    let result;
-    if (['Super Admin', 'QA Admin'].includes(req.user.role)) {
-      result = await query(
-        'DELETE FROM lead_assignments WHERE id = $1 RETURNING id',
-        [req.params.id]
-      );
-    } else {
-      result = await query(
-        'DELETE FROM lead_assignments WHERE id = $1 AND assigned_by = $2 RETURNING id',
-        [req.params.id, req.user.id]
-      );
+    const { removable, locked } = await loadRemovableAssignments([req.params.id], req.user);
+    if (!removable.length) {
+      return res.status(locked ? 409 : 404).json({
+        success: false,
+        message: locked
+          ? 'This lead has already been evaluated and cannot be unassigned.'
+          : 'Assignment not found or you do not have permission to remove it.',
+      });
     }
-    if (!result.rows.length) {
-      return res.status(404).json({ success: false, message: 'Assignment not found or you do not have permission to delete it.' });
+    await removeAssignmentRows(removable);
+    res.json({ success: true, message: 'Assignment removed. The lead is back in the unassigned pool.' });
+  } catch (err) { next(err); }
+};
+
+/**
+ * POST /api/assignments/unassign
+ * Body: { ids: number[] }
+ * Removes several assignments at once. Evaluated leads in the list are skipped.
+ */
+const unassignAssignments = async (req, res, next) => {
+  try {
+    const ids = Array.isArray(req.body?.ids) ? req.body.ids : [];
+    if (!ids.length) {
+      return res.status(400).json({ success: false, message: 'Select at least one assignment to remove.' });
     }
-    res.json({ success: true, message: 'Assignment deleted.' });
+    if (ids.length > 500) {
+      return res.status(400).json({ success: false, message: 'You can remove at most 500 assignments at once.' });
+    }
+
+    const { removable, locked, missing } = await loadRemovableAssignments(ids, req.user);
+    if (!removable.length) {
+      return res.status(locked ? 409 : 404).json({
+        success: false,
+        message: locked
+          ? 'Those leads have already been evaluated and cannot be unassigned.'
+          : 'No assignments found that you can remove.',
+      });
+    }
+
+    await removeAssignmentRows(removable);
+    const skipped = locked + missing;
+    res.json({
+      success: true,
+      removed: removable.length,
+      skipped,
+      message: skipped
+        ? `${removable.length} assignment(s) removed. ${skipped} evaluated or unavailable lead(s) were left in place.`
+        : `${removable.length} assignment(s) removed. Those leads are back in the unassigned pool.`,
+    });
   } catch (err) { next(err); }
 };
 
@@ -891,7 +974,7 @@ const uploadAssignments = async (req, res, next) => {
 module.exports = {
   getTeams, createTeam, deleteTeam,
   getTeamMembers, addTeamMember, removeTeamMember, getAvailableUsers,
-  getAssignments, createAssignments, acceptAssignment, rejectAssignment, acceptAllAssignments, completeAssignment, deleteAssignment, uploadAssignments,
+  getAssignments, createAssignments, acceptAssignment, rejectAssignment, acceptAllAssignments, completeAssignment, deleteAssignment, unassignAssignments, uploadAssignments,
   createManagedUser,
   expireStaleAssignments,
 };
