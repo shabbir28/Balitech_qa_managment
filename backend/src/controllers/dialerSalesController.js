@@ -161,7 +161,7 @@ exports.getSales = async (req, res) => {
 
     // Force include specific statuses for Medicare even if not marked as Sale=Y in Vicidial
     if (dialerType === 'medicare') {
-      const forceStatuses = ['D2', 'D3'];
+      const forceStatuses = ['D2', 'D3', 'D9BT'];
       forceStatuses.forEach(s => {
         if (!statuses.includes(s)) statuses.push(s);
       });
@@ -460,14 +460,14 @@ exports.backfillSales = async (req, res) => {
     // 1. Get sale statuses
     let statuses = await getSaleStatuses(dialer);
     if (dialer === 'medicare') {
-      ['D2', 'D3', 'HIMAIN'].forEach(s => { if (!statuses.includes(s)) statuses.push(s); });
+      ['D2', 'D3', 'D9BT', 'HIMAIN'].forEach(s => { if (!statuses.includes(s)) statuses.push(s); });
     }
     statuses = [...new Set(statuses)];
     console.log(`[Backfill] Statuses (${statuses.length}):`, statuses);
 
     // If still empty, use hardcoded fallback for medicare
     if (statuses.length === 0 && dialer === 'medicare') {
-      statuses = ['D2', 'D3', 'D4', 'D5', 'DSB', 'D1', 'HIB', 'HIMAIN'];
+      statuses = ['D2', 'D3', 'D4', 'D5', 'DSB', 'D1', 'D9BT', 'HIB', 'HIMAIN'];
       console.log('[Backfill] Using hardcoded fallback statuses for medicare');
     }
 
