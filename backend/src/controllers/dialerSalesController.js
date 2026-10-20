@@ -1,3 +1,4 @@
+const { exportDuration } = require('../utils/saleDuration');
 const { fetchAdminPage, extractLeadsFromHtml } = require('./dialerController');
 const { query } = require('../config/database');
 const { syncDialerTransfersToHRMS, mapRowToHrms, normalizeQaStatus } = require('../services/hrmsSyncService');
@@ -9,6 +10,40 @@ const saleStatusesCache = {
 };
 
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
+
+// Pharmacy search results omit duration. Enrich from the report by exact call
+// identity, never by phone alone (a customer can have several calls).
+async function enrichPharmacyDurations(leads, startDate, endDate) {
+  if (!leads.length) return;
+  try {
+    const params = new URLSearchParams({
+      run_export: '1', query_date: startDate, end_date: endDate,
+      'campaign[]': '--ALL--', 'group[]': '--ALL--', header_row: 'YES',
+      rec_fields: 'NONE', export_fields: 'STANDARD', SUBMIT: 'SUBMIT',
+    });
+    const today = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+    if (startDate !== today) params.append('search_archived_data', 'checked');
+    const report = await fetchAdminPage('call_report_export.php', 'pharmacy', 'POST', params.toString());
+    let headers = [];
+    const durations = new Map();
+    for (const line of report.split('\n')) {
+      const cols = line.split('\t').map(c => c.trim());
+      if (!headers.length && cols.some(c => c.toLowerCase() === 'lead_id')) {
+        headers = cols.map(c => c.toLowerCase());
+        continue;
+      }
+      const seconds = exportDuration(headers, cols);
+      const leadId = cols[headers.indexOf('lead_id')];
+      const callDate = cols[headers.indexOf('call_date')];
+      if (leadId && callDate && seconds !== null) durations.set(`${leadId}|${callDate}`, seconds);
+    }
+    for (const lead of leads) {
+      lead.call_duration_seconds = durations.get(`${lead.lead_id}|${lead.last_call}`) ?? null;
+    }
+  } catch (error) {
+    console.warn('Pharmacy duration report unavailable:', error.message);
+  }
+}
 
 // Helpers
 async function getSaleStatuses(dialerType) {
@@ -204,8 +239,8 @@ exports.getSales = async (req, res) => {
       params.append('end_date', endDateStr);
       params.append('campaign[]', '--ALL--');
       params.append('group[]', '--ALL--');
-      params.append('header_row', 'Y');
-      params.append('rec_fields', 'N');
+      params.append('header_row', 'YES');
+      params.append('rec_fields', 'NONE');
       params.append('export_fields', 'STANDARD');
       if (queryDateStr !== todayStr) {
         params.append('search_archived_data', 'checked');
@@ -250,6 +285,7 @@ exports.getSales = async (req, res) => {
               const parsedLeadId = cols[leadIdIdx] ? cols[leadIdIdx].trim() : '';
               
               allLeads.push({
+                call_duration_seconds: exportDuration(headers, cols),
                 last_call: cols[0].trim(),
                 phone: cols[1] ? cols[1].trim() : '',
                 status: cols[2] ? cols[2].trim() : '',
@@ -265,6 +301,8 @@ exports.getSales = async (req, res) => {
         console.error(`Error exporting data for ${dialerType}:`, err.message);
       }
     }
+
+    if (dialerType === 'pharmacy') await enrichPharmacyDurations(allLeads, queryDateStr, endDateStr);
 
     // Deduplicate leads just in case
     const uniqueMap = new Map();
@@ -308,8 +346,8 @@ exports.getSales = async (req, res) => {
           const placeholders = [];
           
           chunk.forEach((l, index) => {
-            const p = index * 7;
-            placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7})`);
+            const p = index * 8;
+            placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7}, $${p+8})`);
             
             let saleDate = queryDateStr;
             if (l.last_call && l.last_call.length >= 10) {
@@ -323,18 +361,20 @@ exports.getSales = async (req, res) => {
               l.last_agent || null,
               saleDate,
               dialerType,
-              l.team || null
+              l.team || null,
+              l.call_duration_seconds ?? null
             );
           });
 
           // qa_status is intentionally not touched on conflict so QA decisions survive refreshes.
           const sql = `
-            INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team)
+            INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team, call_duration_seconds)
             VALUES ${placeholders.join(', ')}
             ON CONFLICT (lead_id, dialer) DO UPDATE SET 
               status = EXCLUDED.status,
               agent = EXCLUDED.agent,
               sale_date = EXCLUDED.sale_date,
+              call_duration_seconds = COALESCE(EXCLUDED.call_duration_seconds, dialer_sales_history.call_duration_seconds),
               team = EXCLUDED.team
             RETURNING lead_id, qa_status
           `;
@@ -507,10 +547,10 @@ exports.backfillSales = async (req, res) => {
       params.append('end_date',   todayStr);    // MUST be today — Vicidial limitation
       params.append('campaign[]', '--ALL--');
       params.append('group[]', '--ALL--');
-      params.append('header_row', 'Y');
-      params.append('rec_fields', 'N');
+      params.append('header_row', 'YES');
+      params.append('rec_fields', 'NONE');
       params.append('export_fields', 'STANDARD');
-      params.append('search_archived_data', 'checked');
+      if (startDate !== todayStr) params.append('search_archived_data', 'checked');
       params.append('SUBMIT', 'SUBMIT');
       statuses.forEach(s => params.append('status[]', s));
       console.log(`[Backfill] Fetching Medicare: query_date=${startDate} end_date=${todayStr} (today, required by Vicidial)`);
@@ -518,7 +558,6 @@ exports.backfillSales = async (req, res) => {
       try {
         const tsvData = await fetchAdminPage('call_report_export.php', dialer, 'POST', params.toString());
         console.log(`[Backfill] TSV response length: ${tsvData.length} chars`);
-        console.log(`[Backfill] TSV first 300 chars: ${tsvData.substring(0, 300)}`);
         
         if (tsvData.includes('You do not have permissions for export reports')) {
           return res.status(403).json({ success: false, message: 'Dialer: insufficient export permissions' });
@@ -556,6 +595,7 @@ exports.backfillSales = async (req, res) => {
             if (fullNameIdx === -1) fullNameIdx = 4;
 
             const lead = {
+              call_duration_seconds: exportDuration(headers, cols),
               last_call:  cols[0].trim(),
               phone:      cols[1] ? cols[1].trim() : '',
               status:     cols[2] ? cols[2].trim() : '',
@@ -575,6 +615,8 @@ exports.backfillSales = async (req, res) => {
         return res.status(500).json({ success: false, message: 'Failed to fetch data from dialer' });
       }
     }
+
+    if (dialer === 'pharmacy') await enrichPharmacyDurations(allLeads, startDate, endDate);
 
     // 3. Deduplicate
     const uniqueMap = new Map();
@@ -608,22 +650,23 @@ exports.backfillSales = async (req, res) => {
       const placeholders = [];
 
       chunk.forEach((l, index) => {
-        const p = index * 7;
-        placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7})`);
+        const p = index * 8;
+        placeholders.push(`($${p+1}, $${p+2}, $${p+3}, $${p+4}, $${p+5}, $${p+6}, $${p+7}, $${p+8})`);
         let saleDate = startDate;
         if (l.last_call && l.last_call.length >= 10) {
           saleDate = l.last_call.substring(0, 10);
         }
-        values.push(l.lead_id, l.phone || null, l.status || null, l.last_agent || null, saleDate, dialer, l.team || null);
+        values.push(l.lead_id, l.phone || null, l.status || null, l.last_agent || null, saleDate, dialer, l.team || null, l.call_duration_seconds ?? null);
       });
 
       const sql = `
-        INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team)
+        INSERT INTO dialer_sales_history (lead_id, phone, status, agent, sale_date, dialer, team, call_duration_seconds)
         VALUES ${placeholders.join(', ')}
         ON CONFLICT (lead_id, dialer) DO UPDATE SET
           status    = EXCLUDED.status,
           agent     = EXCLUDED.agent,
           sale_date = EXCLUDED.sale_date,
+          call_duration_seconds = COALESCE(EXCLUDED.call_duration_seconds, dialer_sales_history.call_duration_seconds),
           team      = EXCLUDED.team
       `;
 

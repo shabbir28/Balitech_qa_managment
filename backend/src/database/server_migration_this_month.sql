@@ -155,3 +155,23 @@ ALTER TABLE lead_assignments ADD CONSTRAINT lead_assignments_status_check
   CHECK (status IN ('pending', 'accepted', 'completed', 'rejected', 'expired', 'pending_evaluation'));
 
 COMMIT;
+
+-- Persist dialer call durations for dashboard thresholds.
+ALTER TABLE dialer_sales_history ADD COLUMN IF NOT EXISTS call_duration_seconds INTEGER CHECK (call_duration_seconds >= 0);
+
+-- Separate dashboard cache: existing sales and recording modules are unchanged.
+CREATE TABLE IF NOT EXISTS dashboard_la_recordings (
+  dialer VARCHAR(20) NOT NULL,
+  lead_id VARCHAR(50) NOT NULL,
+  recordings JSONB NOT NULL DEFAULT '[]',
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  PRIMARY KEY (dialer, lead_id)
+);
+
+CREATE TABLE IF NOT EXISTS dashboard_dialer_presets (
+  dialer VARCHAR(20) PRIMARY KEY,
+  presets JSONB NOT NULL DEFAULT '{}',
+  checked_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+-- Version 2 retains all recordings, so changed DIDs can be matched immediately.
+ALTER TABLE dashboard_la_recordings ADD COLUMN IF NOT EXISTS cache_version INTEGER NOT NULL DEFAULT 1;

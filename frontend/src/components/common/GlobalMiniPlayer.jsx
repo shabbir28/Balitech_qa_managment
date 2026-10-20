@@ -1,5 +1,6 @@
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
 import { Play, Pause, Square, Music } from 'lucide-react';
+import LAPlaybackPanel from '../dashboard/LAPlaybackPanel';
 
 /**
  * Floating mini-player bar that appears at the bottom of the screen whenever
@@ -22,6 +23,11 @@ export default function GlobalMiniPlayer() {
   } = useAudioPlayer();
 
   if (!currentRec) return null;
+  if (currentRec.did) return (
+    <div className="fixed bottom-3 inset-x-3 sm:left-auto sm:w-[640px] max-w-[calc(100%-24px)]" style={{ zIndex: 9999 }}>
+      <LAPlaybackPanel />
+    </div>
+  );
 
   const pct = duration > 0 ? Math.min((currentTime / duration) * 100, 100) : 0;
   const fmt = (s) =>

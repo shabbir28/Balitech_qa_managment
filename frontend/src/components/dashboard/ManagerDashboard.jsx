@@ -1,3 +1,4 @@
+import DurationCards from './DurationCards';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -267,6 +268,8 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
           </div>
         </div>
       </div>
+
+      <DurationCards startDate={startDate} endDate={endDate} dialer={dialer} />
 
       {/* ── TOP QA EVALUATION KPI CARDS (ALL STATUSES IN COMPACT ROW) ── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
