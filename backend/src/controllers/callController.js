@@ -473,10 +473,8 @@ const getUploadBatches = async (req, res, next) => {
 
 const updateCallRecording = async (req, res, next) => {
   try {
-    const { recording_url, recordings = [] } = req.body;
-    if (!recording_url) {
-      return res.status(400).json({ success: false, message: 'recording_url is required' });
-    }
+    const { recording_url, recordings = [], lead_id } = req.body;
+    const safeRecUrl = recording_url || (Array.isArray(recordings) && recordings[0]?.location) || null;
 
     const recsJson = JSON.stringify(Array.isArray(recordings) ? recordings : []);
 
@@ -499,12 +497,17 @@ const updateCallRecording = async (req, res, next) => {
 
     const result = await query(
       `UPDATE call_leads 
-       SET recording_url = $1, 
+       SET recording_url = COALESCE($1, recording_url), 
            recordings = CASE WHEN $2::jsonb != '[]'::jsonb THEN $2::jsonb ELSE recordings END,
+           notes = CASE 
+             WHEN $3::text IS NOT NULL AND (notes IS NULL OR (notes NOT LIKE '%Lead ID:%' AND notes NOT LIKE '%VICI_LEAD:%'))
+             THEN TRIM(COALESCE(notes, '') || ' VICI_LEAD:' || $3)
+             ELSE notes 
+           END,
            updated_at = NOW() 
-       WHERE id = $3 AND is_deleted = FALSE 
-       RETURNING id, recording_url, recordings`,
-      [recording_url, recsJson, req.params.id]
+       WHERE id = $4 AND is_deleted = FALSE 
+       RETURNING id, recording_url, recordings, notes`,
+      [safeRecUrl, recsJson, lead_id ? String(lead_id) : null, req.params.id]
     );
 
     if (result.rows.length === 0) {

@@ -1,4 +1,3 @@
-import DurationCards from './DurationCards';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -218,8 +217,6 @@ export default function UserDashboard({ stats, charts, startDate, endDate, onCha
           </div>
         </div>
       </div>
-
-      <DurationCards startDate={startDate} endDate={endDate} dialer={dialer} />
 
       {/* ── 4 KPI CARDS ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">

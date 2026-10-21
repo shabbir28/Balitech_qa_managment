@@ -6,10 +6,11 @@ import {
   Play, Pause, SkipBack, SkipForward, Volume2,
   X, Check, Eye, Folder, CheckCircle2, Clock, XCircle, Inbox,
   ChevronDown, ChevronRight, Search, RefreshCw, History, ShieldCheck,
-  RotateCcw
+  RotateCcw, CheckSquare, Square, Copy, Phone
 } from 'lucide-react';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
 import { getEstDateString, getEstDateTimeString, getEstDateTimeParts, formatDateOnly } from '../utils/dateUtils';
+import { copyText } from '../utils/clipboard';
 
 /* ── Audio Modal ──────────────────────────────────────────────────── */
 const AudioModal = ({ url, phone, onClose }) => {
@@ -107,6 +108,8 @@ export default function MyAssignmentsPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [collapsed, setCollapsed] = useState({});
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [copiedId, setCopiedId] = useState(null);
   const navigate = useNavigate();
 
   // ── Pending calls (draft evaluations) ─────────────────────────────
@@ -143,9 +146,15 @@ export default function MyAssignmentsPage() {
           end_date: endDate,
         },
       });
-      setAssignments(res.data.data || []);
+      const data = res.data.data || [];
+      setAssignments(data);
       setStats(res.data.stats || {});
       setTotalPages(res.data.pagination?.pages || 1);
+      setSelectedIds((prev) => {
+        const valid = new Set(data.map((row) => row.id));
+        const next = new Set([...prev].filter((id) => valid.has(id)));
+        return next.size === prev.size ? prev : next;
+      });
     } catch { toast.error('Failed to load assignments.'); }
     finally { setLoading(false); }
   }, [page, filter, startDate, endDate]);
@@ -161,6 +170,58 @@ export default function MyAssignmentsPage() {
     setStartDate(start || today);
     setEndDate(end || start || today);
     setPage(1);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelected = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleMany = (rows, on) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      rows.forEach((row) => {
+        if (on) next.add(row.id);
+        else next.delete(row.id);
+      });
+      return next;
+    });
+  };
+
+  const formatRowForCopy = (row) => {
+    const phone = (row.customer_phone || '').trim();
+    const campaign = (row.campaign_name || '').trim();
+    const agent = (row.agent_name || '').trim();
+    return `${phone}\t${campaign}\t${agent}`;
+  };
+
+  const copyRows = async (rows) => {
+    if (!rows || rows.length === 0) {
+      toast.error('No calls selected to copy.');
+      return;
+    }
+    const text = rows.map(formatRowForCopy).join('\n');
+    const ok = await copyText(text);
+    if (ok) {
+      toast.success(
+        rows.length === 1
+          ? 'Copied 1 call (Phone, Campaign, Call agent)'
+          : `Copied ${rows.length} calls (Phone, Campaign, Call agent)`
+      );
+    } else {
+      toast.error('Copy failed.');
+    }
+  };
+
+  const handleCopySingle = async (row) => {
+    await copyRows([row]);
+    setCopiedId(row.id);
+    setTimeout(() => setCopiedId((id) => (id === row.id ? null : id)), 1500);
   };
 
   const accept = async id => {
@@ -197,6 +258,11 @@ export default function MyAssignmentsPage() {
     acc[key].leads.push(a);
     return acc;
   }, {})), [visible]);
+
+  const selectedRows = useMemo(
+    () => assignments.filter((row) => selectedIds.has(row.id)),
+    [assignments, selectedIds]
+  );
 
   const tabs = [
     { key: 'all',       label: 'All',         val: stats.total },
@@ -378,6 +444,30 @@ export default function MyAssignmentsPage() {
             ))}
           </div>
 
+          {selectedRows.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium text-amber-200 whitespace-nowrap">
+                {selectedRows.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => copyRows(selectedRows)}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[11px] font-semibold hover:bg-amber-500/25 transition-colors shadow-sm"
+                title="Copy selected calls (Phone, Campaign, Call agent)"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copy selected ({selectedRows.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedIds(new Set())}
+                className="px-2.5 py-1.5 rounded-xl text-[11px] font-medium text-slate-400 hover:text-white hover:bg-white/5 transition-colors"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           <div className="relative lg:w-72">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-500" />
             <input
@@ -423,13 +513,18 @@ export default function MyAssignmentsPage() {
             <div className="space-y-2.5">
               {groups.map(group => {
                 const isOpen = collapsed[group.name] !== true;
+                const groupSelectedRows = group.leads.filter(row => selectedIds.has(row.id));
+                const groupSelected = groupSelectedRows.length;
+                const groupAllSelected = group.leads.length > 0 && groupSelected === group.leads.length;
+
                 return (
                   <div key={group.name} className="border border-white/5 rounded-xl overflow-hidden">
-                    <button
-                      onClick={() => setCollapsed(p => ({ ...p, [group.name]: p[group.name] !== true }))}
-                      className="w-full flex items-center justify-between p-3.5 hover:bg-white/[0.02] transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-between p-3.5 hover:bg-white/[0.02] transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => setCollapsed(p => ({ ...p, [group.name]: p[group.name] !== true }))}
+                        className="flex items-center gap-3 min-w-0 flex-1 text-left"
+                      >
                         <div className="w-8 h-8 rounded-lg bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center shrink-0">
                           <Folder className="w-3.5 h-3.5 text-indigo-400" />
                         </div>
@@ -437,17 +532,53 @@ export default function MyAssignmentsPage() {
                           <h3 className="text-sm font-medium text-white truncate">{group.name}</h3>
                           <p className="text-[11px] text-slate-500 mt-0.5">{group.leads.length} lead{group.leads.length === 1 ? '' : 's'}</p>
                         </div>
+                      </button>
+                      <div className="flex items-center gap-2">
+                        {groupSelected > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => copyRows(groupSelectedRows)}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-[11px] font-medium hover:bg-amber-500/20 transition-colors"
+                            title="Copy selected in this group"
+                          >
+                            <Copy className="w-3 h-3" />
+                            <span>Copy {groupSelected}</span>
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => setCollapsed(p => ({ ...p, [group.name]: p[group.name] !== true }))}
+                          className="p-1 text-slate-500 hover:text-slate-300 transition-colors"
+                          aria-label="Toggle group"
+                        >
+                          {isOpen
+                            ? <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
+                            : <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />}
+                        </button>
                       </div>
-                      {isOpen
-                        ? <ChevronDown className="w-4 h-4 text-slate-500 shrink-0" />
-                        : <ChevronRight className="w-4 h-4 text-slate-500 shrink-0" />}
-                    </button>
+                    </div>
 
                     {isOpen && (
                       <div className="border-t border-white/5 overflow-x-auto">
                         <table className="w-full text-left border-collapse min-w-[880px]">
                           <thead>
                             <tr className="bg-white/[0.02]">
+                              <th className="py-2.5 px-3 border-b border-white/5 w-9">
+                                <button
+                                  type="button"
+                                  onClick={() => toggleMany(group.leads, !groupAllSelected)}
+                                  className="text-slate-500 hover:text-amber-300 transition-colors"
+                                  title={groupAllSelected ? 'Deselect all in group' : 'Select all in group'}
+                                >
+                                  {groupAllSelected ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
+                                  ) : groupSelected > 0 ? (
+                                    <CheckSquare className="w-3.5 h-3.5 text-amber-300/60" />
+                                  ) : (
+                                    <Square className="w-3.5 h-3.5" />
+                                  )}
+                                </button>
+                              </th>
                               {['Phone', 'Campaign', 'Call agent', 'Assigned', 'Audio', 'Status', 'Evaluation', ''].map((h, i) => (
                                 <th key={h || i} className={`py-2.5 px-4 text-[10px] font-semibold text-slate-500 uppercase tracking-wider border-b border-white/5 ${i === 7 ? 'text-right' : ''}`}>{h}</th>
                               ))}
@@ -455,13 +586,39 @@ export default function MyAssignmentsPage() {
                           </thead>
                           <tbody className="divide-y divide-white/[0.04]">
                             {group.leads.map(a => {
+                              const checked = selectedIds.has(a.id);
                               const status = a.effective_status || a.status;
                               // Left the daily queue at midnight, but still workable.
                               const carriedOver = a.is_expired;
                               const dialer = (a.dialer_campaign || a.campaign_name || '').toLowerCase().includes('pharmacy') ? 'pharmacy' : 'medicare';
                               return (
                                 <tr key={a.id} className="hover:bg-white/[0.02] transition-colors">
-                                  <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">{a.customer_phone}</td>
+                                  <td className="py-3 px-3">
+                                    <button
+                                      type="button"
+                                      onClick={() => toggleSelected(a.id)}
+                                      title={checked ? 'Deselect call' : 'Select call to copy'}
+                                      className="text-slate-500 hover:text-amber-300 transition-colors"
+                                    >
+                                      {checked
+                                        ? <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
+                                        : <Square className="w-3.5 h-3.5" />}
+                                    </button>
+                                  </td>
+                                  <td className="py-3 px-4 font-mono text-xs text-slate-100 whitespace-nowrap">
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        const ok = await copyText(a.customer_phone);
+                                        ok ? toast.success(`Copied ${a.customer_phone}`) : toast.error('Copy failed.');
+                                      }}
+                                      className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-100 hover:text-amber-300 transition-colors"
+                                      title="Copy phone number only"
+                                    >
+                                      <Phone className="w-3 h-3 text-slate-500" />
+                                      {a.customer_phone || '—'}
+                                    </button>
+                                  </td>
                                   <td className="py-3 px-4 text-xs text-indigo-300 whitespace-nowrap">{a.campaign_name || '—'}</td>
                                   <td className="py-3 px-4 text-xs text-slate-300">{a.agent_name || '—'}</td>
                                   <td className="py-3 px-4 text-[11px] text-slate-500 whitespace-nowrap">
@@ -496,6 +653,28 @@ export default function MyAssignmentsPage() {
                                   </td>
                                   <td className="py-3 px-4">
                                     <div className="flex items-center justify-end gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCopySingle(a)}
+                                        title="Copy (Phone, Campaign, Call agent)"
+                                        className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
+                                          copiedId === a.id
+                                            ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                            : 'border-white/10 bg-white/5 text-slate-300 hover:text-amber-300 hover:border-amber-500/30'
+                                        }`}
+                                      >
+                                        {copiedId === a.id ? (
+                                          <>
+                                            <Check className="w-3 h-3 text-emerald-400" />
+                                            <span className="text-[10px]">Copied</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Copy className="w-3 h-3 text-slate-400" />
+                                            <span className="text-[10px]">Copy</span>
+                                          </>
+                                        )}
+                                      </button>
                                       {status === 'pending' && (
                                         <>
                                           <button onClick={() => accept(a.id)} className="flex items-center gap-1 px-2.5 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-300 rounded-lg text-[11px] font-medium transition-colors">
@@ -519,7 +698,7 @@ export default function MyAssignmentsPage() {
                                           onClick={() => navigate(`/evaluations/view/${a.evaluation_id}`)}
                                           className="flex items-center gap-1.5 px-3 py-1.5 bg-white/[0.04] hover:bg-white/[0.08] text-slate-300 rounded-lg border border-white/10 text-[11px] font-medium transition-colors"
                                         >
-                                          <Eye className="w-3 h-3" /> View form
+                                          <Eye className="w-3.5 h-3.5" /> View form
                                         </button>
                                       )}
                                     </div>

@@ -195,9 +195,11 @@ exports.getLeadInfo = async (req, res, next) => {
 exports.importLeadForEval = async (req, res, next) => {
   try {
     const { lead_id, recording_url, agent_name, dialer = 'pharmacy', recordings = [] } = req.body;
-    if (!lead_id || !recording_url) {
-      return res.status(400).json({ success: false, message: 'lead_id and recording_url are required' });
+    if (!lead_id) {
+      return res.status(400).json({ success: false, message: 'lead_id is required' });
     }
+
+    const safeRecUrl = recording_url || (Array.isArray(recordings) && recordings[0]?.location) || null;
 
     // Format recordings JSON
     let recsJson = JSON.stringify(Array.isArray(recordings) ? recordings : []);
@@ -206,12 +208,12 @@ exports.importLeadForEval = async (req, res, next) => {
     const existing = await query(
       `SELECT id, campaign_name, recordings FROM call_leads 
        WHERE (
-         recording_url = $1 
+         ($1::text IS NOT NULL AND $1::text != '' AND recording_url = $1) 
          OR (notes LIKE $2 AND is_evaluated = FALSE)
          OR (notes LIKE $3 AND is_evaluated = FALSE)
          OR (notes LIKE $4 AND is_evaluated = FALSE)
        ) AND is_deleted = FALSE LIMIT 1`,
-      [recording_url, `%VICI_LEAD:${lead_id}%`, `%Lead ID: ${lead_id}%`, `%Lead ID:${lead_id}%`]
+      [safeRecUrl, `%VICI_LEAD:${lead_id}%`, `%Lead ID: ${lead_id}%`, `%Lead ID:${lead_id}%`]
     );
     if (existing.rows.length > 0) {
       const existingId = existing.rows[0].id;
@@ -220,11 +222,11 @@ exports.importLeadForEval = async (req, res, next) => {
       await query(
         `UPDATE call_leads 
          SET agent_name = COALESCE($1, agent_name),
-             recording_url = $2,
+             recording_url = COALESCE($2, recording_url),
              recordings = CASE WHEN $3::jsonb != '[]'::jsonb THEN $3::jsonb ELSE recordings END,
              updated_at = NOW()
          WHERE id = $4`,
-        [agent_name || null, recording_url, recsJson, existingId]
+        [agent_name || null, safeRecUrl, recsJson, existingId]
       );
       
       // Auto-assign to self so it appears in the evaluations list
@@ -259,7 +261,7 @@ exports.importLeadForEval = async (req, res, next) => {
         lead.name || 'Unknown', 
         lead.phone || 'Unknown', 
         callDate.toISOString(), 
-        recording_url, 
+        safeRecUrl, 
         lead.status || 'NEW',
         recsJson,
         `VICI_LEAD:${lead_id}`

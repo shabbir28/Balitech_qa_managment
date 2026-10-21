@@ -121,6 +121,11 @@ const EvaluationFormPage = () => {
   const exitPath = (user?.role === 'QA Agent' || assignmentIdParam) ? '/my-assignments' : '/evaluations';
 
   const handleBack = () => {
+    // If user came from dialer search, return to search page so search results are preserved
+    if (searchParams.get('from') === 'search' || location.state?.fromSearch) {
+      navigate(-1);
+      return;
+    }
     // If user came from My Assignments flow (has assignment_id) or is QA Agent, go directly back there
     if (assignmentIdParam || user?.role === 'QA Agent') {
       navigate('/my-assignments');

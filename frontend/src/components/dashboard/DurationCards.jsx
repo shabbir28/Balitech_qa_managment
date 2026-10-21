@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Headphones, ArrowUpRight, X, Loader2, Play, Pause } from 'lucide-react';
 import { useAudioPlayer } from '../../context/AudioPlayerContext';
+import { useAuth } from '../../context/AuthContext';
 import api from '../../services/api';
 import LAPlaybackPanel from './LAPlaybackPanel';
 
@@ -9,6 +10,11 @@ const BANDS = { 800: '800–999', 1000: '1000–1499', 1500: '1500+' };
 const ACCENTS = { 800: 'text-sky-400 border-sky-400/30 bg-sky-400/10', 1000: 'text-violet-400 border-violet-400/30 bg-violet-400/10', 1500: 'text-amber-400 border-amber-400/30 bg-amber-400/10' };
 
 export default function DurationCards({ startDate, endDate, dialer }) {
+  const { user } = useAuth();
+  if (!['Super Admin', 'Manager'].includes(user?.role)) {
+    return null;
+  }
+
   const { play, pause, currentRec, isPlaying } = useAudioPlayer();
   const [counts, setCounts] = useState(null);
   const [threshold, setThreshold] = useState(null);

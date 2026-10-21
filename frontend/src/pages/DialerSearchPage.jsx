@@ -23,9 +23,83 @@ export default function DialerSearchPage() {
   }, [lockedDialer]);
   const [leads, setLeads]       = useState([]);
   const [loading, setLoading]   = useState(false);
+  const [openingLeadId, setOpeningLeadId] = useState(null);
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState(null);
   const navigate = useNavigate();
+
+  const handleOpenEvaluation = async (lead) => {
+    if (openingLeadId) return;
+    setOpeningLeadId(lead.lead_id);
+    const toastId = toast.loading(`Loading recordings for lead #${lead.lead_id}…`);
+    try {
+      // 1. Fetch recordings from dialer
+      let recordings = [];
+      try {
+        const recRes = await api.get(`/dialer/recordings/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}`);
+        if (recRes.data?.success && Array.isArray(recRes.data?.data)) {
+          recordings = recRes.data.data;
+        }
+      } catch (recErr) {
+        console.warn('Could not fetch dialer recordings upfront:', recErr);
+      }
+
+      const primaryRec = recordings[0]?.location || '';
+
+      if (assignmentId) {
+        // Attach recording to existing assignment call
+        await api.put(`/calls/${assignmentId}/recording`, {
+          recording_url: primaryRec,
+          recordings,
+          lead_id: lead.lead_id,
+        });
+        toast.dismiss(toastId);
+        toast.success('Ready to evaluate!');
+        navigate(
+          `/evaluations/new?call_id=${assignmentId}&lead_id=${lead.lead_id}&dialer=${encodeURIComponent(dialerType)}&assignment_id=${assignmentId}&from=search`,
+          {
+            state: {
+              recordings,
+              initialRecordingUrl: primaryRec,
+              assignmentId,
+              fromSearch: true,
+            },
+          }
+        );
+      } else {
+        // Import lead for evaluation
+        const importRes = await api.post('/dialer/import-lead', {
+          lead_id: lead.lead_id,
+          recording_url: primaryRec,
+          agent_name: lead.last_agent,
+          dialer: dialerType,
+          recordings,
+        });
+        toast.dismiss(toastId);
+        if (importRes.data?.success) {
+          toast.success('Ready to evaluate!');
+          navigate(
+            `/evaluations/new?call_id=${importRes.data.call_id}&lead_id=${lead.lead_id}&dialer=${encodeURIComponent(dialerType)}&from=search`,
+            {
+              state: {
+                recordings,
+                initialRecordingUrl: primaryRec,
+                fromSearch: true,
+              },
+            }
+          );
+        } else {
+          toast.error(importRes.data?.message || 'Failed to prepare lead for evaluation');
+        }
+      }
+    } catch (error) {
+      console.error('Error opening evaluation:', error);
+      toast.dismiss(toastId);
+      toast.error(error.response?.data?.message || 'Failed to prepare lead for evaluation');
+    } finally {
+      setOpeningLeadId(null);
+    }
+  };
 
   const performSearch = async (searchPhone) => {
     if (!searchPhone.trim()) {
@@ -223,55 +297,78 @@ export default function DialerSearchPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/50">
-                  {leads.map((lead) => (
-                    <tr
-                      key={lead.lead_id}
-                      className="hover:bg-slate-800/30 transition-colors group cursor-pointer"
-                      onClick={() => navigate(`/dialer/lead/${lead.lead_id}?dialer=${encodeURIComponent(dialerType)}${assignmentId ? `&assignment_id=${assignmentId}` : ''}&from=search`)}
-                    >
-                      <td className="py-4 px-6">
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-400 font-mono text-sm border border-indigo-500/20">
-                          {lead.lead_id}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm font-medium text-slate-200">{lead.name || '—'}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
-                          lead.status === 'CALLBK' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
-                          lead.status === 'SALE'   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
-                          lead.status === 'DNC'    ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :
-                          'text-slate-400 bg-slate-800/50 border-slate-700'
-                        }`}>
-                          <Activity className="w-3 h-3" />
-                          {lead.status || '—'}
-                        </span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm font-medium text-slate-200 font-mono">{lead.phone}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-sm text-slate-400">{lead.list_id}</span>
-                      </td>
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-2">
-                          <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center">
-                            <User className="w-3 h-3 text-slate-400" />
+                  {leads.map((lead) => {
+                    const isOpening = openingLeadId === lead.lead_id;
+                    return (
+                      <tr
+                        key={lead.lead_id}
+                        className={`hover:bg-slate-800/40 transition-colors group cursor-pointer ${
+                          isOpening ? 'bg-emerald-500/10' : ''
+                        }`}
+                        onClick={() => handleOpenEvaluation(lead)}
+                      >
+                        <td className="py-4 px-6">
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-indigo-500/10 text-indigo-400 font-mono text-sm border border-indigo-500/20 group-hover:border-emerald-500/30 group-hover:text-emerald-300 transition-colors">
+                            {lead.lead_id}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-sm font-medium text-slate-200">{lead.name || '—'}</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className={`inline-flex items-center gap-1.5 text-xs font-medium px-2 py-0.5 rounded-full border ${
+                            lead.status === 'CALLBK' ? 'text-amber-400 bg-amber-500/10 border-amber-500/20' :
+                            lead.status === 'SALE'   ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/20' :
+                            lead.status === 'DNC'    ? 'text-rose-400 bg-rose-500/10 border-rose-500/20' :
+                            'text-slate-400 bg-slate-800/50 border-slate-700'
+                          }`}>
+                            <Activity className="w-3 h-3" />
+                            {lead.status || '—'}
+                          </span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-sm font-medium text-slate-200 font-mono">{lead.phone}</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-sm text-slate-400">{lead.list_id}</span>
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-2">
+                            <div className="w-6 h-6 rounded-full bg-slate-800 flex items-center justify-center">
+                              <User className="w-3 h-3 text-slate-400" />
+                            </div>
+                            <span className="text-sm text-slate-300">{lead.last_agent || '—'}</span>
                           </div>
-                          <span className="text-sm text-slate-300">{lead.last_agent || '—'}</span>
-                        </div>
-                      </td>
-                      <td className="py-4 px-6">
-                        <span className="text-xs text-slate-500">{lead.last_call ? new Date(lead.last_call).toLocaleString() : '—'}</span>
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <button className="p-2 text-slate-500 group-hover:text-emerald-400 group-hover:bg-emerald-500/10 rounded-lg transition-all">
-                          <ChevronRight className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                        </td>
+                        <td className="py-4 px-6">
+                          <span className="text-xs text-slate-500">{lead.last_call ? new Date(lead.last_call).toLocaleString() : '—'}</span>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <button
+                            type="button"
+                            disabled={isOpening}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenEvaluation(lead);
+                            }}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/20 text-xs font-semibold transition-all group-hover:bg-emerald-500/20 disabled:opacity-50"
+                          >
+                            {isOpening ? (
+                              <>
+                                <div className="w-3.5 h-3.5 border-2 border-emerald-400/30 border-t-emerald-400 rounded-full animate-spin" />
+                                <span>Loading…</span>
+                              </>
+                            ) : (
+                              <>
+                                <span>Evaluate</span>
+                                <ChevronRight className="w-3.5 h-3.5" />
+                              </>
+                            )}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             ) : (
