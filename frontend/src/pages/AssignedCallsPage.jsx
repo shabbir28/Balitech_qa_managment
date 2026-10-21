@@ -4,7 +4,7 @@ import toast from 'react-hot-toast';
 import {
   Search, RefreshCw, Phone, UserMinus, Users, Inbox,
   ChevronDown, ChevronRight, ShieldCheck, Clock, CheckCircle2, XCircle,
-  CheckSquare, Square,
+  CheckSquare, Square, Copy, Check,
 } from 'lucide-react';
 import DateRangeDropdown from '../components/common/DateRangeDropdown';
 import { ConfirmModal } from '../components/ui';
@@ -52,6 +52,7 @@ export default function AssignedCallsPage() {
   const [collapsed, setCollapsed] = useState({});
   const [pendingRemove, setPendingRemove] = useState(null);
   const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [copiedId, setCopiedId] = useState(null);
 
   const fetchAssignments = useCallback(async () => {
     setLoading(true);
@@ -78,7 +79,7 @@ export default function AssignedCallsPage() {
       setStats(nextStats);
       setSelectedIds((prev) => {
         const valid = new Set(all.map((row) => row.id));
-        const next = new Set([...prev].filter((id) => valid.has(id) && !isLocked(all.find((row) => row.id === id) || {})));
+        const next = new Set([...prev].filter((id) => valid.has(id)));
         return next.size === prev.size ? prev : next;
       });
     } catch {
@@ -110,7 +111,6 @@ export default function AssignedCallsPage() {
     setSelectedIds((prev) => {
       const next = new Set(prev);
       rows.forEach((row) => {
-        if (isLocked(row)) return;
         if (on) next.add(row.id);
         else next.delete(row.id);
       });
@@ -159,10 +159,44 @@ export default function AssignedCallsPage() {
   const askRemove = (rows) => {
     const open = rows.filter((row) => !isLocked(row));
     if (!open.length) {
-      toast.error('Evaluated leads stay assigned.');
+      toast.error('Evaluated leads stay assigned and cannot be removed.');
       return;
     }
+    if (open.length < rows.length) {
+      toast(`${rows.length - open.length} evaluated lead(s) will stay assigned.`, { icon: 'ℹ️' });
+    }
     setPendingRemove(open);
+  };
+
+  const formatRowForCopy = (row) => {
+    const phone = (row.customer_phone || '').trim();
+    const campaign = (row.campaign_name || '').trim();
+    const agent = (row.agent_name || '').trim();
+    return `${phone}\t${campaign}\t${agent}`;
+  };
+
+  const copyRows = async (rows) => {
+    if (!rows || rows.length === 0) {
+      toast.error('No calls selected to copy.');
+      return;
+    }
+    const text = rows.map(formatRowForCopy).join('\n');
+    const ok = await copyText(text);
+    if (ok) {
+      toast.success(
+        rows.length === 1
+          ? 'Copied 1 call (Phone, Campaign, Call agent)'
+          : `Copied ${rows.length} calls (Phone, Campaign, Call agent)`
+      );
+    } else {
+      toast.error('Copy failed.');
+    }
+  };
+
+  const handleCopySingle = async (row) => {
+    await copyRows([row]);
+    setCopiedId(row.id);
+    setTimeout(() => setCopiedId((id) => (id === row.id ? null : id)), 1500);
   };
 
   const confirmRemove = async () => {
@@ -201,7 +235,7 @@ export default function AssignedCallsPage() {
   ];
 
   const selectedRows = useMemo(
-    () => assignments.filter((row) => selectedIds.has(row.id) && !isLocked(row)),
+    () => assignments.filter((row) => selectedIds.has(row.id)),
     [assignments, selectedIds]
   );
 
@@ -283,8 +317,19 @@ export default function AssignedCallsPage() {
             <ChevronDown className="w-3.5 h-3.5 text-slate-500 absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
           {selectedRows.length > 0 && (
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-medium text-amber-200 whitespace-nowrap">{selectedRows.length} selected</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[11px] font-medium text-amber-200 whitespace-nowrap">
+                {selectedRows.length} selected
+              </span>
+              <button
+                type="button"
+                onClick={() => copyRows(selectedRows)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-amber-500/40 bg-amber-500/15 text-amber-300 text-[11px] font-semibold hover:bg-amber-500/25 transition-colors shadow-sm"
+                title="Copy selected calls (Phone, Campaign, Call agent)"
+              >
+                <Copy className="w-3.5 h-3.5" />
+                Copy selected ({selectedRows.length})
+              </button>
               <button
                 type="button"
                 onClick={() => askRemove(selectedRows)}
@@ -329,15 +374,52 @@ export default function AssignedCallsPage() {
           </div>
         ) : (
           <div className="p-3 space-y-2.5">
-            <p className="px-1 text-[11px] text-slate-500">
-              {visibleCount} lead{visibleCount === 1 ? '' : 's'} across {groups.length} agent{groups.length === 1 ? '' : 's'}
-              {isToday ? ' today' : ` · ${rangeLabel}`}
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-2 px-1 pb-1">
+              <p className="text-[11px] text-slate-500">
+                {visibleCount} lead{visibleCount === 1 ? '' : 's'} across {groups.length} agent{groups.length === 1 ? '' : 's'}
+                {isToday ? ' today' : ` · ${rangeLabel}`}
+              </p>
+              {visibleCount > 0 && (
+                <div className="flex items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const allVisibleRows = groups.flatMap((g) => g.leads);
+                      const isAllSelected = allVisibleRows.length > 0 && allVisibleRows.every((r) => selectedIds.has(r.id));
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (isAllSelected) {
+                          allVisibleRows.forEach((r) => next.delete(r.id));
+                        } else {
+                          allVisibleRows.forEach((r) => next.add(r.id));
+                        }
+                        return next;
+                      });
+                    }}
+                    className="text-[11px] font-medium text-slate-400 hover:text-amber-300 transition-colors"
+                  >
+                    {groups.flatMap((g) => g.leads).every((r) => selectedIds.has(r.id))
+                      ? 'Deselect all'
+                      : `Select all (${visibleCount})`}
+                  </button>
+                  <span className="text-white/10">|</span>
+                  <button
+                    type="button"
+                    onClick={() => copyRows(groups.flatMap((g) => g.leads))}
+                    className="inline-flex items-center gap-1.5 text-[11px] font-medium text-amber-300 hover:text-amber-200 transition-colors"
+                    title="Copy all visible calls (Phone, Campaign, Call agent)"
+                  >
+                    <Copy className="w-3 h-3" />
+                    Copy all ({visibleCount})
+                  </button>
+                </div>
+              )}
+            </div>
             {groups.map((group) => {
               const open = collapsed[group.id] !== true;
-              const releasable = group.leads.filter((row) => !isLocked(row));
-              const groupSelected = releasable.filter((row) => selectedIds.has(row.id)).length;
-              const groupAllSelected = releasable.length > 0 && groupSelected === releasable.length;
+              const groupSelectedRows = group.leads.filter((row) => selectedIds.has(row.id));
+              const groupSelected = groupSelectedRows.length;
+              const groupAllSelected = group.leads.length > 0 && groupSelected === group.leads.length;
               return (
                 <div key={group.id} className="border border-white/5 rounded-xl overflow-hidden">
                   <div className="flex items-center gap-2 p-3 hover:bg-white/[0.02]">
@@ -359,7 +441,18 @@ export default function AssignedCallsPage() {
                     {groupSelected > 0 && (
                       <button
                         type="button"
-                        onClick={() => askRemove(releasable.filter((row) => selectedIds.has(row.id)))}
+                        onClick={() => copyRows(groupSelectedRows)}
+                        className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-[11px] font-medium hover:bg-amber-500/20 transition-colors shrink-0"
+                        title="Copy selected calls in this group (Phone, Campaign, Call agent)"
+                      >
+                        <Copy className="w-3.5 h-3.5" />
+                        Copy {groupSelected}
+                      </button>
+                    )}
+                    {groupSelected > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => askRemove(groupSelectedRows)}
                         className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-300 text-[11px] font-medium hover:bg-rose-500/20 transition-colors shrink-0"
                       >
                         <UserMinus className="w-3.5 h-3.5" />
@@ -384,14 +477,18 @@ export default function AssignedCallsPage() {
                             <th className="py-2.5 px-3 w-10 border-b border-white/5">
                               <button
                                 type="button"
-                                disabled={releasable.length === 0}
-                                onClick={() => toggleMany(releasable, !groupAllSelected)}
-                                className="text-slate-500 hover:text-amber-300 disabled:opacity-30 disabled:cursor-not-allowed"
-                                title={groupAllSelected ? 'Clear this agent' : 'Select open leads for this agent'}
+                                disabled={group.leads.length === 0}
+                                onClick={() => toggleMany(group.leads, !groupAllSelected)}
+                                className="text-slate-500 hover:text-amber-300 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                                title={groupAllSelected ? 'Deselect all for this agent' : 'Select all calls for this agent'}
                               >
-                                {groupAllSelected
-                                  ? <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
-                                  : <Square className="w-3.5 h-3.5" />}
+                                {groupAllSelected ? (
+                                  <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
+                                ) : groupSelected > 0 ? (
+                                  <CheckSquare className="w-3.5 h-3.5 text-amber-300/60" />
+                                ) : (
+                                  <Square className="w-3.5 h-3.5" />
+                                )}
                               </button>
                             </th>
                             {['Phone', 'Campaign', 'Call agent', 'Status', 'Assigned by', 'Assigned', ''].map((heading) => (
@@ -414,10 +511,9 @@ export default function AssignedCallsPage() {
                                 <td className="py-3 px-3">
                                   <button
                                     type="button"
-                                    disabled={locked}
                                     onClick={() => toggleSelected(row.id)}
-                                    title={locked ? 'Already evaluated' : 'Select lead'}
-                                    className="text-slate-500 hover:text-amber-300 disabled:opacity-30 disabled:cursor-not-allowed"
+                                    title={checked ? 'Deselect call' : 'Select call to copy or manage'}
+                                    className="text-slate-500 hover:text-amber-300 transition-colors"
                                   >
                                     {checked
                                       ? <CheckSquare className="w-3.5 h-3.5 text-amber-300" />
@@ -433,7 +529,7 @@ export default function AssignedCallsPage() {
                                       ok ? toast.success(`Copied ${row.customer_phone}`) : toast.error('Copy failed.');
                                     }}
                                     className="inline-flex items-center gap-1.5 font-mono text-xs text-slate-100 hover:text-amber-300"
-                                    title="Copy phone"
+                                    title="Copy phone number only"
                                   >
                                     <Phone className="w-3 h-3 text-slate-500" />
                                     {row.customer_phone || '—'}
@@ -454,16 +550,40 @@ export default function AssignedCallsPage() {
                                   {row.assigned_at ? getEstDateTimeString(row.assigned_at) : '—'}
                                 </td>
                                 <td className="py-3 px-4 text-right">
-                                  <button
-                                    type="button"
-                                    disabled={locked}
-                                    onClick={() => askRemove([row])}
-                                    title={locked ? 'Already evaluated. This assignment stays.' : 'Remove assignment'}
-                                    className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
-                                  >
-                                    <UserMinus className="w-3 h-3" />
-                                    {locked ? 'Evaluated' : 'Remove'}
-                                  </button>
+                                  <div className="flex items-center justify-end gap-1.5">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleCopySingle(row)}
+                                      title="Copy (Phone, Campaign, Call agent)"
+                                      className={`inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors ${
+                                        copiedId === row.id
+                                          ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+                                          : 'border-white/10 bg-white/5 text-slate-300 hover:text-amber-300 hover:border-amber-500/30'
+                                      }`}
+                                    >
+                                      {copiedId === row.id ? (
+                                        <>
+                                          <Check className="w-3 h-3 text-emerald-400" />
+                                          <span className="text-[10px]">Copied</span>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Copy className="w-3 h-3 text-slate-400" />
+                                          <span className="text-[10px]">Copy</span>
+                                        </>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={locked}
+                                      onClick={() => askRemove([row])}
+                                      title={locked ? 'Already evaluated. This assignment stays.' : 'Remove assignment'}
+                                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-[11px] font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed border-rose-500/20 bg-rose-500/10 text-rose-300 hover:bg-rose-500/20"
+                                    >
+                                      <UserMinus className="w-3 h-3" />
+                                      {locked ? 'Evaluated' : 'Remove'}
+                                    </button>
+                                  </div>
                                 </td>
                               </tr>
                             );
@@ -471,14 +591,22 @@ export default function AssignedCallsPage() {
                         </tbody>
                       </table>
                       {groupSelected > 0 && (
-                        <div className="sm:hidden p-3 border-t border-white/5">
+                        <div className="sm:hidden p-3 border-t border-white/5 flex gap-2">
                           <button
                             type="button"
-                            onClick={() => askRemove(releasable.filter((row) => selectedIds.has(row.id)))}
-                            className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-300 text-xs font-medium"
+                            onClick={() => copyRows(groupSelectedRows)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-xs font-medium"
+                          >
+                            <Copy className="w-3.5 h-3.5" />
+                            Copy {groupSelected}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => askRemove(groupSelectedRows)}
+                            className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg border border-rose-500/25 bg-rose-500/10 text-rose-300 text-xs font-medium"
                           >
                             <UserMinus className="w-3.5 h-3.5" />
-                            Remove {groupSelected} selected
+                            Remove {groupSelected}
                           </button>
                         </div>
                       )}
