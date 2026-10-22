@@ -11,10 +11,6 @@ const ACCENTS = { 800: 'text-sky-400 border-sky-400/30 bg-sky-400/10', 1000: 'te
 
 export default function DurationCards({ startDate, endDate, dialer }) {
   const { user } = useAuth();
-  if (!['Super Admin', 'Manager'].includes(user?.role)) {
-    return null;
-  }
-
   const { play, pause, currentRec, isPlaying } = useAudioPlayer();
   const [counts, setCounts] = useState(null);
   const [threshold, setThreshold] = useState(null);
@@ -25,6 +21,7 @@ export default function DurationCards({ startDate, endDate, dialer }) {
   const triggerRef = useRef(null);
 
   useEffect(() => {
+    if (user?.role !== 'Super Admin') return;
     let cancelled = false;
     let timer;
     setCounts(null);
@@ -46,10 +43,10 @@ export default function DurationCards({ startDate, endDate, dialer }) {
     };
     load();
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [startDate, endDate, dialer]);
+  }, [startDate, endDate, dialer, user?.role]);
 
   useEffect(() => {
-    if (threshold === null) return;
+    if (threshold === null || user?.role !== 'Super Admin') return;
     let cancelled = false;
     let timer;
     setResult(null);
@@ -73,7 +70,7 @@ export default function DurationCards({ startDate, endDate, dialer }) {
     };
     load();
     return () => { cancelled = true; clearTimeout(timer); };
-  }, [threshold, page, startDate, endDate, dialer]);
+  }, [threshold, page, startDate, endDate, dialer, user?.role]);
 
   useEffect(() => {
     if (threshold === null) return;
@@ -88,6 +85,10 @@ export default function DurationCards({ startDate, endDate, dialer }) {
       previouslyFocused?.focus();
     };
   }, [threshold]);
+
+  if (user?.role !== 'Super Admin') {
+    return null;
+  }
 
   return (
     <section className="rounded-2xl border border-slate-800/80 bg-[#0D111D] p-3 sm:p-4 space-y-3">

@@ -5,8 +5,8 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 router.get('/managed-stats', authenticate, authorize('Super Admin', 'QA Admin', 'QA Agent', 'Manager'), getManagedUsersStats);
 router.get('/', authenticate, authorize('Super Admin', 'QA Admin', 'Manager'), getUsers);
-router.put('/:id', authenticate, authorize('Super Admin'), updateUser);
+router.put('/:id', authenticate, authorize('Super Admin', 'Manager'), updateUser);
 router.delete('/:id', authenticate, authorize('Super Admin'), deleteUser);
-router.put('/:id/reset-password', authenticate, authorize('Super Admin'), resetPassword);
+router.put('/:id/reset-password', authenticate, authorize('Super Admin', 'Manager'), resetPassword);
 
 module.exports = router;

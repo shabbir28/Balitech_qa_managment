@@ -25,11 +25,11 @@ const NAV_SECTIONS = [
   {
     title: 'Dialer & Sales',
     items: [
-      { name: 'Dialer Search', path: '/dialer', icon: TbSearch, roles: ALL_ROLES },
-      { name: 'Dialer Sales', path: '/dialer-sales', icon: TbCurrencyDollar, roles: ALL_ROLES },
+      { name: 'Dialer Search', path: '/dialer', icon: TbSearch, roles: ALL_ROLES, end: true },
+      { name: 'Dialer Sales', path: '/dialer-sales', icon: TbCurrencyDollar, roles: ALL_ROLES, end: true },
       { name: 'Sales History', path: '/dialer-sales/history', icon: TbCalendarStats, roles: ALL_ROLES },
       { name: 'Agent Wise Sales', path: '/dialer-sales/agent-sales', icon: TbChartBar, roles: ALL_ROLES },
-      { name: 'Compare Sales', path: '/dialer-sales/compare', icon: TbArrowsExchange, roles: LEADERSHIP },
+      { name: 'Compare Sales', path: '/dialer-sales/compare', icon: TbArrowsExchange, roles: LEADERSHIP, end: true },
       { name: 'Compare History', path: '/dialer-sales/compare-history', icon: TbHistory, roles: LEADERSHIP },
     ],
   },
@@ -46,7 +46,7 @@ const NAV_SECTIONS = [
     title: 'Quality',
     items: [
       { name: 'My Assignments', path: '/my-assignments', icon: TbClipboardList, roles: ['QA Agent'] },
-      { name: 'Evaluations', path: '/evaluations', icon: TbChecklist, roles: ALL_ROLES },
+      { name: 'Evaluations', path: '/evaluations', icon: TbChecklist, roles: ALL_ROLES, end: true },
       { name: 'Agent QA Report', path: '/agent-reports', icon: TbReportAnalytics, roles: ALL_ROLES },
       { name: 'Rejected Calls', path: '/rejected-calls', icon: TbPhoneOff, roles: ALL_ROLES },
       { name: 'QA Daily Report', path: '/qa-daily-report', icon: TbFileSpreadsheet, roles: ALL_ROLES },
@@ -93,9 +93,9 @@ const SidebarLayout = ({ children }) => {
   const railWidth = collapsed ? 'lg:w-[72px]' : 'lg:w-[236px]';
 
   return (
-    <div className="min-h-screen bg-[#080B11] flex selection:bg-amber-500/30 selection:text-amber-100 font-sans">
+    <div className="h-screen h-[100dvh] w-full overflow-hidden bg-[#080B11] flex flex-col lg:flex-row selection:bg-amber-500/30 selection:text-amber-100 font-sans">
       {/* Mobile Header */}
-      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0A0E17] border-b border-slate-800/70 z-50 flex items-center justify-between px-4">
+      <div className="lg:hidden fixed top-0 left-0 right-0 h-16 bg-[#0A0E17] border-b border-slate-800/70 z-50 flex items-center justify-between px-4 shrink-0">
         <img src={logoImage} alt="Balitech Logo" className="h-9 object-contain" />
         <button
           onClick={() => setIsOpen(!isOpen)}
@@ -112,7 +112,7 @@ const SidebarLayout = ({ children }) => {
 
       {/* Sidebar */}
       <aside
-        className={`fixed lg:static inset-y-0 left-0 z-50 w-[236px] ${railWidth} bg-[#0A0E17] border-r border-slate-800/70 transition-[transform,width] duration-300 ease-in-out lg:translate-x-0 flex flex-col ${
+        className={`fixed lg:static inset-y-0 left-0 z-50 w-[236px] ${railWidth} h-full max-h-screen bg-[#0A0E17] border-r border-slate-800/70 transition-[transform,width] duration-300 ease-in-out lg:translate-x-0 flex flex-col shrink-0 overflow-hidden ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -126,7 +126,7 @@ const SidebarLayout = ({ children }) => {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 px-2 custom-scrollbar">
+        <nav className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden py-2 px-2 custom-scrollbar">
           {sections.map((section, sIdx) => (
             <div key={section.title}>
               {collapsed ? (
@@ -141,6 +141,7 @@ const SidebarLayout = ({ children }) => {
                 <NavLink
                   key={item.path}
                   to={item.path}
+                  end={item.end}
                   onClick={() => setIsOpen(false)}
                   title={collapsed ? item.name : undefined}
                   className={({ isActive }) =>
@@ -238,10 +239,10 @@ const SidebarLayout = ({ children }) => {
       </aside>
 
       {/* Main Content */}
-      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden relative bg-[#080B11]">
+      <div className="flex-1 flex flex-col min-w-0 h-full max-h-screen overflow-hidden relative bg-[#080B11]">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-amber-500/[0.015] rounded-full blur-[120px] pointer-events-none" />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-7 pt-20 lg:pt-6 scroll-smooth relative z-10">
-          <div className="max-w-[1440px] mx-auto">
+        <main className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4 sm:p-6 lg:p-7 pt-20 lg:pt-6 scroll-smooth relative z-10 custom-scrollbar">
+          <div className="max-w-[1440px] mx-auto w-full">
             {children}
           </div>
         </main>

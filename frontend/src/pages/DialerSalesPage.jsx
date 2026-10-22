@@ -826,7 +826,7 @@ export default function DialerSalesPage() {
         CLEAN DATA TABLE 
       */}
       {user?.role !== 'QA Agent' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col relative" style={{ height: 'calc(100vh - 280px)', minHeight: '400px' }}>
+        <div className="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-sm flex flex-col relative">
         <div className="px-4 py-2.5 border-b border-slate-800 bg-slate-900 flex flex-wrap justify-between items-center gap-3 shrink-0">
           <div className="flex flex-wrap items-center gap-3">
             <h3 className="text-slate-300 text-xs font-medium flex items-center gap-2">
@@ -939,9 +939,9 @@ export default function DialerSalesPage() {
         </div>
 
 
-        <div className="overflow-auto flex-1 bg-slate-950/20">
+        <div className="overflow-x-auto bg-slate-950/20">
           {loading && !sales.length ? (
-            <div className="flex flex-col items-center justify-center h-full text-slate-400 gap-3">
+            <div className="flex flex-col items-center justify-center py-20 text-slate-400 gap-3">
               <Loader2 className="w-6 h-6 animate-spin text-emerald-500" />
               <p className="text-xs font-medium">Loading sales...</p>
             </div>
@@ -1064,7 +1064,7 @@ export default function DialerSalesPage() {
                       <td className="px-4 py-2.5 text-slate-400">
                         {lead.last_agent || '-'}
                       </td>
-                      <td className="px-4 py-2.5 text-slate-500">
+                      <td className="px-4 py-2.5 text-slate-500 whitespace-nowrap">
                         {lead.last_call || '-'}
                       </td>
                     </tr>

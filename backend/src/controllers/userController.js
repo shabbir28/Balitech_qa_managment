@@ -86,6 +86,22 @@ const updateUser = async (req, res, next) => {
       return res.status(400).json({ success: false, message: 'Invalid user id.' });
     }
 
+    if (req.user?.role === 'Manager') {
+      const targetCheck = await query(
+        'SELECT r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1',
+        [parsedUserId]
+      );
+      if (targetCheck.rows.length && targetCheck.rows[0].role === 'Super Admin') {
+        return res.status(403).json({ success: false, message: 'Managers cannot modify Super Admin accounts.' });
+      }
+      if (parsedRoleId) {
+        const roleCheck = await query('SELECT name FROM roles WHERE id = $1', [parsedRoleId]);
+        if (roleCheck.rows.length && roleCheck.rows[0].name === 'Super Admin') {
+          return res.status(403).json({ success: false, message: 'Managers cannot assign the Super Admin role.' });
+        }
+      }
+    }
+
     const result = await query(
       `UPDATE users SET
         name = COALESCE($1, name),
@@ -149,6 +165,16 @@ const resetPassword = async (req, res, next) => {
     const { new_password } = req.body;
     if (!new_password) {
       return res.status(400).json({ success: false, message: 'new_password is required.' });
+    }
+
+    if (req.user?.role === 'Manager') {
+      const targetCheck = await query(
+        'SELECT r.name as role FROM users u JOIN roles r ON u.role_id = r.id WHERE u.id = $1',
+        [req.params.id]
+      );
+      if (targetCheck.rows.length && targetCheck.rows[0].role === 'Super Admin') {
+        return res.status(403).json({ success: false, message: 'Managers cannot reset Super Admin passwords.' });
+      }
     }
 
     // Validate password strength

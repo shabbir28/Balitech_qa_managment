@@ -649,7 +649,7 @@ export default function SalesComparePage() {
           </div>
 
           {/* Results Table */}
-          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-xl overflow-hidden shadow-md flex flex-col mt-2" style={{ height: 'calc(100vh - 420px)', minHeight: '350px' }}>
+          <div className="bg-slate-900/80 backdrop-blur-sm border border-slate-800 rounded-xl overflow-hidden shadow-md flex flex-col mt-2">
             <div className="px-5 py-3 border-b border-slate-800 bg-slate-900 flex justify-between items-center shrink-0">
               <h3 className="text-slate-200 text-xs font-semibold flex items-center gap-2.5">
                 <span className="px-2 py-0.5 rounded-md bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 text-[10px] font-bold font-mono">
@@ -663,7 +663,7 @@ export default function SalesComparePage() {
               </h3>
             </div>
             
-            <div className="overflow-auto flex-1 bg-slate-950/40 custom-scrollbar">
+            <div className="overflow-auto max-h-[650px] bg-slate-950/40 custom-scrollbar">
               <table className="w-full text-left text-sm text-slate-300 border-collapse">
                 <thead className="bg-slate-900/90 backdrop-blur-md sticky top-0 z-10 shadow-sm">
                   <tr>

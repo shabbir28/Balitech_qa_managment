@@ -135,8 +135,9 @@ const EMPTY_FORM = { name: '', email: '', password: '', role_id: 2, phone: '', c
 const PAGE_SIZE = 20;
 
 const UserManagementPage = () => {
-  const { hasRole } = useAuth();
-  const canManageUsers = hasRole('Super Admin');
+  const { user: currentUser, hasRole } = useAuth();
+  const canManageUsers = hasRole('Super Admin', 'Manager');
+  const canDeleteUsers = hasRole('Super Admin');
 
   const [users, setUsers] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -530,15 +531,21 @@ const UserManagementPage = () => {
                           </button>
                           {canManageUsers && (
                             <>
-                              <button onClick={() => openEdit(user)} className="p-2 rounded-lg text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/15 transition-all" title="Edit member">
-                                <Edit2 className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => { setResetUser(user); setNewPw(''); }} className="p-2 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-amber-500/15 transition-all" title="Reset password">
-                                <Key className="w-4 h-4" />
-                              </button>
-                              <button onClick={() => setDeleteId(user.id)} className="p-2 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-rose-500/15 transition-all" title="Remove member">
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                              {(currentUser?.role === 'Super Admin' || user.role !== 'Super Admin') && (
+                                <>
+                                  <button onClick={() => openEdit(user)} className="p-2 rounded-lg text-slate-400 hover:text-emerald-300 hover:bg-emerald-500/15 transition-all" title="Edit member">
+                                    <Edit2 className="w-4 h-4" />
+                                  </button>
+                                  <button onClick={() => { setResetUser(user); setNewPw(''); }} className="p-2 rounded-lg text-slate-400 hover:text-amber-300 hover:bg-amber-500/15 transition-all" title="Reset password">
+                                    <Key className="w-4 h-4" />
+                                  </button>
+                                </>
+                              )}
+                              {canDeleteUsers && (
+                                <button onClick={() => setDeleteId(user.id)} className="p-2 rounded-lg text-slate-400 hover:text-rose-300 hover:bg-rose-500/15 transition-all" title="Remove member">
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              )}
                             </>
                           )}
                         </div>
@@ -761,7 +768,9 @@ const UserManagementPage = () => {
                     <Field label="Assigned role" required>
                       <SelectField value={form.role_id} onChange={(e) => setForm((f) => ({ ...f, role_id: parseInt(e.target.value) }))} required>
                         <option value="" disabled>Select a role...</option>
-                        {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                        {roles
+                          .filter((r) => currentUser?.role === 'Super Admin' || r.name !== 'Super Admin')
+                          .map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
                       </SelectField>
                     </Field>
                     <Field label="Campaign filter" hint="Restricts this member to a single campaign.">

@@ -269,7 +269,7 @@ export default function ManagerDashboard({ stats, charts, startDate, endDate, on
         </div>
       </div>
 
-      {['Super Admin', 'Manager'].includes(user?.role) && (
+      {user?.role === 'Super Admin' && (
         <DurationCards startDate={startDate} endDate={endDate} dialer={dialer} />
       )}
 

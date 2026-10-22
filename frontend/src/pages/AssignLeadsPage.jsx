@@ -330,7 +330,7 @@ const AssignLeadsPage = () => {
 
   /* ─── Render ────────────────────────────────────────────────────── */
   return (
-    <div className="font-sans flex flex-col min-h-0 lg:h-[calc(100dvh-3.25rem)] lg:overflow-hidden">
+    <div className="font-sans flex flex-col min-h-0 lg:h-[calc(100dvh-3.5rem)] lg:overflow-hidden">
 
       {/* ── Page Header ───────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-3 shrink-0">

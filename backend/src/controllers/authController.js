@@ -130,7 +130,9 @@ const register = async (req, res, next) => {
     }
     const roleName = roleRow.rows[0].name;
 
-    let parsedCampaignId = null;
+    if (req.user?.role === 'Manager' && roleName === 'Super Admin') {
+      return res.status(403).json({ success: false, message: 'Managers cannot create Super Admin users.' });
+    }
     if (campaign_id !== undefined && campaign_id !== null && campaign_id !== '') {
       parsedCampaignId = parseInt(campaign_id, 10);
       if (!Number.isFinite(parsedCampaignId) || parsedCampaignId < 1) {

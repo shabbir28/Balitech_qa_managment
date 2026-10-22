@@ -585,7 +585,7 @@ export default function MedicareDailyEvaluationPage() {
         </div>
       ) : (
         <div className="bg-[#111827] border border-slate-800 rounded-xl overflow-hidden shadow-lg shadow-black/20">
-          <div className="overflow-auto custom-scrollbar max-h-[calc(100vh-360px)] min-h-[280px]">
+          <div className="overflow-auto custom-scrollbar max-h-[650px]">
             <table className="w-full border-collapse">
               <thead className="sticky top-0 z-20">
                 <tr className="bg-[#0B1120]">
